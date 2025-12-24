@@ -129,7 +129,7 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
                 <Ionicons 
                     name={iconName} 
                     size={ICON_SIZE} 
-                    color={isFocused ? '#e2a9f1' : '#808080'} 
+                    color={isFocused ? '#000000' : '#808080'} 
                 />
                 {isFocused && ( 
                   // Prompt implies label is always there but maybe faded? 
@@ -138,7 +138,7 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
                   // "Wraps icon + label" for capsule implies both result in wider capsule.
                   // Prompt: "Each tab contains: Icon (primary), Label (secondary)"
                   // Let's show label always.
-                  <Text style={[styles.label, { color: '#e2a9f1' }]}>
+                  <Text style={[styles.label, { color: '#000000' }]}>
                     {label}
                   </Text>
                 )}
