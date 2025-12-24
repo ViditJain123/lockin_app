@@ -1,57 +1,42 @@
+import GlassBottomTabBar from '@/components/GlassBottomTabBar';
+import { Tabs } from 'expo-router';
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
+      tabBar={(props) => <GlassBottomTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerShown: false, // Ensure headers are hidden as per "No additional tabs, overflow menus..." implicitly suggesting full screen focus or custom headers if needed.
+        // Actually prompt says "This navigation contains ONLY THREE TABS... No additional tabs, overflow menus, or hidden actions are allowed."
+        // And "Camera is the primary experience". Usually camera apps have their own overlay headers.
+      }}
+    >
+      {/* 
+        EXACT TAB ORDER (LEFT → RIGHT)
+        1. Settings
+        2. Camera (index)
+        3. Profile
+      */}
+      
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+        }}
+      />
+      
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          title: 'Camera',
         }}
       />
+      
       <Tabs.Screen
-        name="two"
+        name="profile"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: 'Profile',
         }}
       />
     </Tabs>
