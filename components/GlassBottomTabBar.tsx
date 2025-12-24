@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
@@ -6,31 +5,46 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSpring
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useRecordingStore } from '@/store/useRecordingStore';
 
 const { width } = Dimensions.get('window');
 
 // --- Configuration ---
-const TAB_BAR_WIDTH_PERCENT = 0.75; // 3/4th of screen width using 0.75
-const TAB_BAR_HEIGHT = 60; // Reduced height for tighter 4px gap
+const TAB_BAR_WIDTH_PERCENT = 0.75;
+const TAB_BAR_HEIGHT = 60;
 const TAB_BAR_BOTTOM_MARGIN = 0;
 const CAPSULE_HEIGHT = 52;
 const ICON_SIZE = 24;
-const HORIZONTAL_PADDING = 1; // Reduced padding for tighter 4px gap (2px pad + 2px internal)
+const HORIZONTAL_PADDING = 1;
+
+// Animation timing for iOS-native feel
+const SLIDE_TIMING = {
+  duration: 280,
+  easing: Easing.bezier(0.4, 0.0, 0.2, 1), // iOS standard easing
+};
 
 export default function GlassBottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const isRecording = useRecordingStore((s) => s.isRecording);
   
   // Calculate total number of tabs used for spacing
   const totalTabs = state.routes.length;
   
   // Shared value for the active tab index animation
   const activeIndex = useSharedValue(state.index);
+  
+  // Shared value for navbar slide animation
+  const slideProgress = useSharedValue(0);
 
+  // Update active tab animation
   useEffect(() => {
     activeIndex.value = withSpring(state.index, {
       damping: 15,
@@ -39,6 +53,11 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
     });
   }, [state.index]);
 
+  // Update slide animation when recording state changes
+  useEffect(() => {
+    slideProgress.value = withTiming(isRecording ? 1 : 0, SLIDE_TIMING);
+  }, [isRecording]);
+
   // Animated style for the liquid capsule
   const animatedCapsuleStyle = useAnimatedStyle(() => {
     const containerW = width * TAB_BAR_WIDTH_PERCENT;
@@ -46,22 +65,38 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
     const usableW = containerW - (paddingH * 2);
     const oneTabW = usableW / totalTabs;
     
-    // Calculate Capsule Width
-    // We make it slightly smaller than the full slot width for a "floating" feel 
-    // and to avoid hitting the container edges.
-    const capsuleWidth = oneTabW - 4; // 2px gap on each side within the slot
+    const capsuleWidth = oneTabW - 4;
     
     const currentTabCenter = paddingH + (activeIndex.value * oneTabW) + (oneTabW / 2);
     const capsuleLeft = currentTabCenter - (capsuleWidth / 2);
     
     return {
       transform: [{ translateX: capsuleLeft }],
-      width: capsuleWidth, // Dynamic width
+      width: capsuleWidth,
+    };
+  });
+
+  // Animated style for navbar slide-down effect
+  const animatedContainerStyle = useAnimatedStyle(() => {
+    const slideDistance = TAB_BAR_HEIGHT + insets.bottom + 20;
+    
+    return {
+      transform: [
+        { translateY: slideProgress.value * slideDistance },
+      ],
+      opacity: withTiming(isRecording ? 0.8 : 1, { duration: 200 }),
     };
   });
 
   return (
-    <View style={[styles.container, { bottom: insets.bottom + TAB_BAR_BOTTOM_MARGIN }]}>
+    <Animated.View 
+      style={[
+        styles.container, 
+        { bottom: insets.bottom + TAB_BAR_BOTTOM_MARGIN },
+        animatedContainerStyle,
+      ]}
+      pointerEvents={isRecording ? 'none' : 'auto'}
+    >
       <BlurView
         intensity={75}
         tint="light"
@@ -103,7 +138,6 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
             let iconName: keyof typeof Ionicons.glyphMap = 'help-outline';
             let label = 'Tab';
 
-            // Based on route names from _layout.tsx
             if (route.name === 'index') {
                iconName = 'camera';
                label = 'Camera';
@@ -121,10 +155,9 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
                 accessibilityRole="button"
                 accessibilityState={isFocused ? { selected: true } : {}}
                 accessibilityLabel={options.tabBarAccessibilityLabel}
-                // testID={options.tabBarTestID} // removed to fix type error if not present in types
                 onPress={onPress}
                 style={styles.tabButton}
-                activeOpacity={0.7} // "Use opacity change, not scale"
+                activeOpacity={0.7}
               >
                 <Ionicons 
                     name={iconName} 
@@ -132,12 +165,6 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
                     color={isFocused ? '#000000' : '#808080'} 
                 />
                 {isFocused && ( 
-                  // Prompt implies label is always there but maybe faded? 
-                  // "Inactive color: white at 60% opacity" -> implies visible.
-                  // But often with capsule designs, label shows only when active or always?
-                  // "Wraps icon + label" for capsule implies both result in wider capsule.
-                  // Prompt: "Each tab contains: Icon (primary), Label (secondary)"
-                  // Let's show label always.
                   <Text style={[styles.label, { color: '#000000' }]}>
                     {label}
                   </Text>
@@ -152,7 +179,7 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
           })}
         </View>
       </BlurView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -162,24 +189,22 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: width * TAB_BAR_WIDTH_PERCENT,
     height: TAB_BAR_HEIGHT,
-    borderRadius: 30, // Adjusted for new height (60/2)
-    overflow: 'hidden', // Clip the BlurView radius
+    borderRadius: 30,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.1, // "No dark shadows anywhere" -> "No drop shadows" requested? 
-    // "No drop shadows" ... "No dark shadows anywhere."
-    // Okay, removing shadow. But "Glow is white"
+    shadowOpacity: 0.1,
     shadowRadius: 0,
     elevation: 0,
   },
   blurContainer: {
     flex: 1,
-    borderRadius: 30, // Adjusted for new height
-    backgroundColor: 'rgba(255, 255, 255, 0.18)', // "Background color: rgba(255, 255, 255, 0.18)"
-    borderColor: 'rgba(255, 255, 255, 0.25)', // "1px inner border"
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -195,17 +220,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
-    zIndex: 10, // Ensure taps work above capsule? 
-    // Actually capsule is in same stacking context.
+    zIndex: 10,
   },
   capsule: {
     position: 'absolute',
-    top: (TAB_BAR_HEIGHT - CAPSULE_HEIGHT) / 2, // Vertically centered
+    top: (TAB_BAR_HEIGHT - CAPSULE_HEIGHT) / 2,
     height: CAPSULE_HEIGHT,
-    // Width is now dynamic in useAnimatedStyle
-    borderRadius: 26, // Half of 52
+    borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.28)', // Active background
+    backgroundColor: 'rgba(255,255,255,0.28)',
   },
   capsuleBorder: {
     ...StyleSheet.absoluteFillObject,
