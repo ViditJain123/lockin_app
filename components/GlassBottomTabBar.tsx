@@ -18,9 +18,9 @@ import { useRecordingStore } from '@/store/useRecordingStore';
 const { width } = Dimensions.get('window');
 
 // --- Configuration ---
-const TAB_BAR_WIDTH_PERCENT = 0.75;
+const TAB_BAR_WIDTH_PERCENT = 0.60;
 const TAB_BAR_HEIGHT = 60;
-const TAB_BAR_BOTTOM_MARGIN = 0;
+const TAB_BAR_BOTTOM_MARGIN = -12;
 const CAPSULE_HEIGHT = 52;
 const ICON_SIZE = 24;
 const HORIZONTAL_PADDING = 1;
@@ -110,11 +110,13 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
           style={StyleSheet.absoluteFill}
         />
         
-        {/* Active Tab Capsule */}
-        <Animated.View style={[styles.capsule, animatedCapsuleStyle]}>
-          <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-          <View style={styles.capsuleBorder} />
-        </Animated.View>
+        {/* Active Tab Capsule Container - for vertical centering */}
+        <View style={styles.capsuleContainer}>
+          <Animated.View style={[styles.capsule, animatedCapsuleStyle]}>
+            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+            <View style={styles.capsuleBorder} />
+          </Animated.View>
+        </View>
 
         {/* Tab Buttons */}
         <View style={styles.tabsContainer}>
@@ -203,7 +205,7 @@ const styles = StyleSheet.create({
   blurContainer: {
     flex: 1,
     borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
     borderColor: 'rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
     overflow: 'hidden',
@@ -222,9 +224,12 @@ const styles = StyleSheet.create({
     height: '100%',
     zIndex: 10,
   },
+  capsuleContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
   capsule: {
-    position: 'absolute',
-    top: (TAB_BAR_HEIGHT - CAPSULE_HEIGHT) / 2,
     height: CAPSULE_HEIGHT,
     borderRadius: 26,
     overflow: 'hidden',

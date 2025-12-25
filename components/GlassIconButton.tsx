@@ -4,9 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -18,6 +18,7 @@ interface GlassIconButtonProps {
   onPress?: () => void;
   isActive?: boolean;
   activeColor?: string;
+  disabled?: boolean;
 }
 
 export default function GlassIconButton({
@@ -27,6 +28,7 @@ export default function GlassIconButton({
   onPress,
   isActive = false,
   activeColor = 'rgba(255, 220, 100, 0.95)',
+  disabled = false,
 }: GlassIconButtonProps) {
   const scale = useSharedValue(1);
 
@@ -35,10 +37,12 @@ export default function GlassIconButton({
   }));
 
   const handlePressIn = () => {
+    if (disabled) return;
     scale.value = withSpring(0.9, { damping: 15, stiffness: 300 });
   };
 
   const handlePressOut = () => {
+    if (disabled) return;
     scale.value = withSpring(1, { damping: 15, stiffness: 300 });
   };
 
@@ -48,11 +52,13 @@ export default function GlassIconButton({
         styles.container,
         { width: size, height: size, borderRadius: size / 2 },
         animatedStyle,
+        disabled && styles.disabled,
       ]}
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      activeOpacity={1}
+      activeOpacity={disabled ? 1 : 0.8}
+      disabled={disabled}
     >
       <BlurView
         intensity={65}
@@ -92,6 +98,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  disabled: {
+    opacity: 0.5,
+  },
   blur: {
     flex: 1,
     backgroundColor: 'rgba(255,255,255,0.18)',
@@ -108,3 +117,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+

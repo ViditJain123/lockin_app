@@ -30,11 +30,13 @@ const TIMING_CONFIG = {
 interface GlassRecordButtonProps {
   onPress?: () => void;
   isRecording?: boolean;
+  disabled?: boolean;
 }
 
 export default function GlassRecordButton({
   onPress,
   isRecording = false,
+  disabled = false,
 }: GlassRecordButtonProps) {
   // Animation progress (0 = idle, 1 = recording)
   const progress = useSharedValue(0);
@@ -83,9 +85,10 @@ export default function GlassRecordButton({
   return (
     <View style={styles.wrapper}>
       <TouchableOpacity
-        style={styles.touchable}
-        onPress={onPress}
-        activeOpacity={0.8}
+        style={[styles.touchable, disabled && styles.disabled]}
+        onPress={disabled ? undefined : onPress}
+        activeOpacity={disabled ? 1 : 0.8}
+        disabled={disabled}
       >
         {/* Outer ring - white stroke only */}
         <View style={styles.outerRing}>
@@ -109,6 +112,9 @@ const styles = StyleSheet.create({
     height: OUTER_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  disabled: {
+    opacity: 0.5,
   },
   outerRing: {
     width: OUTER_SIZE,
