@@ -1,5 +1,5 @@
-import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import { Ionicons } from '@expo/vector-icons';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
@@ -48,6 +48,8 @@ export default function GlassIconButton({
     scale.value = withSpring(1, { damping: 15, stiffness: 300 });
   };
 
+  const isGlassAvailable = isLiquidGlassAvailable();
+
   return (
     <AnimatedTouchable
       style={[
@@ -62,13 +64,13 @@ export default function GlassIconButton({
       activeOpacity={disabled ? 1 : 0.8}
       disabled={disabled}
     >
-      <LiquidGlassView
-        interactive
-        effect="clear"
+      <GlassView
+        isInteractive
+        glassEffectStyle="clear"
         style={[
           styles.glassView,
           { borderRadius: size / 2 },
-          !isLiquidGlassSupported && { backgroundColor: FALLBACK_BG },
+          !isGlassAvailable && { backgroundColor: FALLBACK_BG },
         ]}
       >
         {/* Icon */}
@@ -79,7 +81,7 @@ export default function GlassIconButton({
             color={isActive ? activeColor : 'rgba(255,255,255,0.88)'}
           />
         </View>
-      </LiquidGlassView>
+      </GlassView>
     </AnimatedTouchable>
   );
 }

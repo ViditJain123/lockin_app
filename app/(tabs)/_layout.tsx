@@ -1,15 +1,15 @@
-import GlassBottomTabBar from '@/components/GlassBottomTabBar';
-import { Tabs } from 'expo-router';
+import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
 
+import { useRecordingStore } from '@/store/useRecordingStore';
+
 export default function TabLayout() {
+  const isRecording = useRecordingStore((s) => s.isRecording);
+
   return (
-    <Tabs
-      tabBar={(props) => <GlassBottomTabBar {...props} />}
+    <NativeTabs
       screenOptions={{
-        headerShown: false, // Ensure headers are hidden as per "No additional tabs, overflow menus..." implicitly suggesting full screen focus or custom headers if needed.
-        // Actually prompt says "This navigation contains ONLY THREE TABS... No additional tabs, overflow menus, or hidden actions are allowed."
-        // And "Camera is the primary experience". Usually camera apps have their own overlay headers.
+        tabBarHidden: isRecording,
       }}
     >
       {/* 
@@ -19,26 +19,20 @@ export default function TabLayout() {
         3. Profile
       */}
       
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-        }}
-      />
+      <NativeTabs.Trigger name="settings">
+        <Icon sf="gear" />
+        <Label>Settings</Label>
+      </NativeTabs.Trigger>
       
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Camera',
-        }}
-      />
+      <NativeTabs.Trigger name="index">
+        <Icon sf="camera.fill" />
+        <Label>Camera</Label>
+      </NativeTabs.Trigger>
       
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-        }}
-      />
-    </Tabs>
+      <NativeTabs.Trigger name="profile">
+        <Icon sf="person.fill" />
+        <Label>Profile</Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
