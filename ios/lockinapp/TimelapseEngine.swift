@@ -55,6 +55,7 @@ class TimelapseEngine: RCTEventEmitter {
     private var outputFps: Int = 60
     private var codec: AVVideoCodecType = .h264
     private var saveToGallery: Bool = true
+    private var cameraPosition: AVCaptureDevice.Position = .back
     
     // Threading
     private let stateQueue = DispatchQueue(label: "com.lockin.timelapse.state", qos: .userInitiated)
@@ -208,6 +209,9 @@ class TimelapseEngine: RCTEventEmitter {
         if let save = options["saveToGallery"] as? Bool {
             saveToGallery = save
         }
+        if let positionStr = options["cameraPosition"] as? String {
+            cameraPosition = positionStr == "front" ? .front : .back
+        }
     }
     
     private func checkCameraPermission(completion: @escaping (Bool) -> Void) {
@@ -276,8 +280,8 @@ class TimelapseEngine: RCTEventEmitter {
         // Initialize session manager
         // IMPORTANT: We must use the convenience init that takes a position parameter
         // The default init() does NOT setup the capture session!
-        print("[TimelapseEngine] Initializing session manager with position: back...")
-        sessionManager = try TimelapseSessionManager(position: .back)
+        print("[TimelapseEngine] Initializing session manager with position: \(cameraPosition == .back ? "back" : "front")...")
+        sessionManager = try TimelapseSessionManager(position: cameraPosition)
         print("[TimelapseEngine] Session manager initialized, setting frame processor...")
         sessionManager?.frameProcessor = frameProcessor
         print("[TimelapseEngine] Frame processor assigned to session manager")

@@ -122,9 +122,10 @@ export default function CameraScreen() {
         outputFps: 60,         // 60fps output
         codec: 'h264',
         saveToGallery: true,
+        cameraPosition: facing, // Use current camera facing direction
       });
     }
-  }, [isRecording, isPreparing, isFinishing, startRecording, stopRecording]);
+  }, [isRecording, isPreparing, isFinishing, startRecording, stopRecording, facing]);
 
   // Animated style for record button position
   const animatedButtonStyle = useAnimatedStyle(() => {

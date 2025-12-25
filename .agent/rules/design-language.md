@@ -2,183 +2,107 @@
 trigger: always_on
 ---
 
-🔒 SYSTEM / DESIGN INSTRUCTION: LIQUID GLASS UI (MANDATORY)
+Features
+✨ iOS 26 liquid glass visual effect
+🎨 Customizable tint colors
+🔧 Two effect modes: clear and regular
+Documentation
+Installation
+npm install @callstack/liquid-glass
+# or
+yarn add @callstack/liquid-glass
+Warning
 
-You are generating UI code for a React Native application built with Expo and TypeScript.
+Make sure to compile your app with Xcode >= 26. React Native 0.80+ is required.
 
-GLOBAL RULE (NON-NEGOTIABLE)
+Warning
 
-All visual UI components must follow Apple-style Liquid Glass design (inspired by iOS 26).
-No opaque surfaces are allowed unless explicitly overridden.
+This library is not supported in Expo Go.
 
-⸻
+Usage
+import {
+  LiquidGlassView,
+  LiquidGlassContainerView,
+  isLiquidGlassSupported,
+} from '@callstack/liquid-glass';
 
-📦 REQUIRED BASE COMPONENT
+function MyComponent() {
+  return (
+    <LiquidGlassView
+      style={[
+        { width: 200, height: 100, borderRadius: 20 },
+        !isLiquidGlassSupported && { backgroundColor: 'rgba(255,255,255,0.5)' },
+      ]}
+      interactive
+      effect="clear"
+    >
+      <Text>Hello World</Text>
+    </LiquidGlassView>
+  );
+}
 
-You MUST wrap every visible surface with GlassView
+// For combining multiple glass elements
+function MergingGlassElements() {
+  return (
+    <LiquidGlassContainerView spacing={20}>
+      <LiquidGlassView style={{ width: 100, height: 100, borderRadius: 50 }} />
+      <LiquidGlassView style={{ width: 100, height: 100, borderRadius: 50 }} />
+    </LiquidGlassContainerView>
+  );
+}
+To achieve automatic text color adaptation based on the background behind the glass view, use PlatformColor from react-native:
 
-If a component renders:
-	•	a card
-	•	a button
-	•	a header
-	•	a modal
-	•	a list item
-	•	a tab
-	•	a floating element
+Note
 
-→ it must use GlassView as the root container.
+There appears to be a size limit for the glass to automatically adapt the text color. If the glass view height is >= 65 it won't automatically adapt to the material behind it.
 
-Never use View directly for visible surfaces.
+ auto-adapting-glass.mp4 
+import { PlatformColor } from 'react-native';
+import { LiquidGlassView } from '@callstack/liquid-glass';
 
-⸻
+function MyComponent() {
+  return (
+    <LiquidGlassView style={{ padding: 20, borderRadius: 20 }}>
+      <Text style={{ color: PlatformColor('labelColor') }}>Hello World</Text>
+    </LiquidGlassView>
+  );
+}
+Note
 
-🧊 GlassView SPECIFICATION
+On unsupported iOS version (below iOS 26), it will render a normal View without any effects.
 
-Use expo-blur as the base.
+API
+isLiquidGlassSupported
+A boolean constant that indicates whether the current device supports the liquid glass effect.
 
-import { BlurView } from "expo-blur";
+import { isLiquidGlassSupported } from '@callstack/liquid-glass';
 
-<BlurView
-  intensity={65}
-  tint="light"
-  style={{
-    backgroundColor: "rgba(255,255,255,0.14)",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    overflow: "hidden",
-  }}
->
-  {children}
-</BlurView>
+if (isLiquidGlassSupported) {
+  // Device supports liquid glass effect
+} else {
+  // Provide fallback UI
+}
+LiquidGlassView - Props
+Prop	Type	Default	Description
+interactive	boolean	false	Enables touch interaction effects when pressing the view
+effect	'clear' | 'regular' | 'none'	'regular'	Visual effect mode:
+• clear - More transparent glass effect
+• regular - Standard glass blur effect
+• none - No glass effect (transparent view)
+Note: Changing this property animates the materialization/dematerialization of the glass effect
+tintColor	ColorValue	undefined	Overlay color tint applied to the glass effect. Accepts any React Native color format (hex, rgba, named colors)
+colorScheme	'light' | 'dark' | 'system'	'system'	Color scheme adaptation:
+• light - Light appearance
+• dark - Dark appearance
+• system - Follows system appearance
+LiquidGlassContainerView - Props
+Prop	Type	Default	Description
+spacing	number	0	The distance between child elements at which they begin to merge their glass effects into a combined effect
+Known issues
+interactive prop is not changed dynamically, it is only set on mount.
+Made with ❤️ at Callstack
+liquid-glass is an open source project and will always remain free to use. If you think it's cool, please star it 🌟.
 
+Callstack is a group of React and React Native geeks, contact us at hello@callstack.com if you need any help with these or just want to say hi!
 
-⸻
-
-🌈 REQUIRED LIGHT REFRACTION LAYER
-
-Every GlassView must include a subtle gradient overlay to simulate liquid refraction.
-
-<LinearGradient
-  colors={[
-    "rgba(255,255,255,0.35)",
-    "rgba(255,255,255,0.05)",
-  ]}
-  start={{ x: 0, y: 0 }}
-  end={{ x: 1, y: 1 }}
-  style={StyleSheet.absoluteFill}
-/>
-
-This layer:
-	•	sits ABOVE the blur
-	•	sits BELOW the content
-
-⸻
-
-🧠 DEPTH & MOTION RULE
-
-Glass surfaces must feel alive.
-	•	When scroll position or gesture values exist:
-	•	apply subtle transform movement to the background layers only
-	•	never move text or icons
-
-translateY = scrollY * 0.03
-
-No aggressive animations. Motion must be:
-	•	subtle
-	•	slow
-	•	barely noticeable
-
-⸻
-
-✨ EDGE & HIGHLIGHT RULES
-
-All glass elements must include:
-	•	soft border
-	•	slight inner glow
-	•	no hard shadows
-
-❌ Do NOT use:
-	•	box shadows
-	•	solid borders
-	•	black outlines
-
-⸻
-
-🎨 COLOR & CONTRAST RULES
-	•	Text must be pure white or near-white
-	•	Secondary text must use opacity (not gray)
-	•	Icons must be white with opacity
-
-Example:
-
-color: "rgba(255,255,255,0.9)"
-
-
-⸻
-
-🚫 FORBIDDEN PATTERNS
-
-The following are NOT allowed unless explicitly requested:
-	•	View for visible surfaces
-	•	Solid background colors
-	•	Material Design styles
-	•	Flat buttons
-	•	Hard shadows
-	•	High-contrast outlines
-
-⸻
-
-📐 COMPONENT RULES
-
-Buttons
-	•	Glass surface
-	•	Rounded (≥ 14px radius)
-	•	Subtle press feedback using opacity, not scale
-
-Cards
-	•	Larger radius (18–24px)
-	•	Always elevated via blur depth, never shadow
-
-Modals
-	•	Full glass surface
-	•	Stronger blur (intensity 75)
-	•	Darkened background overlay
-
-⸻
-
-⚡ PERFORMANCE RULE
-	•	Prefer reuse of GlassView
-	•	Avoid nesting multiple blur views unnecessarily
-	•	On Android, gracefully degrade but preserve translucency
-
-⸻
-
-🧩 DESIGN SYSTEM EXPECTATION
-
-You must:
-	•	Build reusable components (GlassButton, GlassCard, GlassHeader)
-	•	Apply the same glass logic consistently
-	•	Treat Liquid Glass as the default design language
-
-⸻
-
-🎯 FINAL GOAL
-
-The UI should:
-	•	Look translucent and fluid
-	•	Feel layered and alive
-	•	Resemble modern iOS liquid glass
-	•	Never look flat or material
-
-If unsure, choose glass.
-
-⸻
-
-If you want, I can also:
-	•	Convert this into a JSON system prompt
-	•	Create a starter GlassView.tsx file
-	•	Add Android fallback rules
-	•	Add Skia-based highlights as an optional layer
-
-Just tell me which format your AI code writer expects.
+Like the project? ⚛️ Join the team who does amazing stuff for clients and drives React Native Open Source! 🔥

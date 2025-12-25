@@ -1,6 +1,5 @@
+import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
@@ -10,6 +9,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+// Fallback styles for unsupported iOS versions
+const FALLBACK_BG = 'rgba(255,255,255,0.5)';
 
 interface GlassIconButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -60,22 +62,15 @@ export default function GlassIconButton({
       activeOpacity={disabled ? 1 : 0.8}
       disabled={disabled}
     >
-      <BlurView
-        intensity={65}
-        tint="light"
-        style={[styles.blur, { borderRadius: size / 2 }]}
+      <LiquidGlassView
+        interactive
+        effect="clear"
+        style={[
+          styles.glassView,
+          { borderRadius: size / 2 },
+          !isLiquidGlassSupported && { backgroundColor: FALLBACK_BG },
+        ]}
       >
-        {/* Light refraction layer */}
-        <LinearGradient
-          colors={['rgba(255,255,255,0.35)', 'rgba(255,255,255,0.05)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        
-        {/* Border highlight */}
-        <View style={[styles.borderHighlight, { borderRadius: size / 2 }]} />
-        
         {/* Icon */}
         <View style={styles.iconContainer}>
           <Ionicons
@@ -84,7 +79,7 @@ export default function GlassIconButton({
             color={isActive ? activeColor : 'rgba(255,255,255,0.88)'}
           />
         </View>
-      </BlurView>
+      </LiquidGlassView>
     </AnimatedTouchable>
   );
 }
@@ -101,15 +96,9 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-  blur: {
+  glassView: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.18)',
     overflow: 'hidden',
-  },
-  borderHighlight: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
   },
   iconContainer: {
     flex: 1,
@@ -117,4 +106,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

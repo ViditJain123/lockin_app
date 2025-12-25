@@ -1,9 +1,8 @@
+import { LiquidGlassView, isLiquidGlassSupported } from '@callstack/liquid-glass';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Platform, PlatformColor, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -30,6 +29,10 @@ const SLIDE_TIMING = {
   duration: 280,
   easing: Easing.bezier(0.4, 0.0, 0.2, 1), // iOS standard easing
 };
+
+// Fallback styles for unsupported iOS versions
+const FALLBACK_BG = 'rgba(255,255,255,0.5)';
+const FALLBACK_CAPSULE_BG = 'rgba(255,255,255,0.35)';
 
 export default function GlassBottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -88,6 +91,14 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
     };
   });
 
+  // Text color using PlatformColor for automatic adaptation on iOS
+  const getLabelColor = (isFocused: boolean) => {
+    if (Platform.OS === 'ios' && isLiquidGlassSupported) {
+      return PlatformColor('labelColor');
+    }
+    return isFocused ? '#000000' : '#808080';
+  };
+
   return (
     <Animated.View 
       style={[
@@ -97,24 +108,23 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
       ]}
       pointerEvents={isRecording ? 'none' : 'auto'}
     >
-      <BlurView
-        intensity={75}
-        tint="light"
-        style={styles.blurContainer}
+      <LiquidGlassView
+        effect="clear"
+        style={[
+          styles.glassContainer,
+          !isLiquidGlassSupported && { backgroundColor: FALLBACK_BG },
+        ]}
       >
-        {/* Refraction Layer */}
-        <LinearGradient
-          colors={['rgba(255,255,255,0.45)', 'rgba(255,255,255,0.06)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        
         {/* Active Tab Capsule Container - for vertical centering */}
         <View style={styles.capsuleContainer}>
-          <Animated.View style={[styles.capsule, animatedCapsuleStyle]}>
-            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-            <View style={styles.capsuleBorder} />
+          <Animated.View style={[styles.capsuleWrapper, animatedCapsuleStyle]}>
+            <LiquidGlassView 
+              effect="regular"
+              style={[
+                styles.capsule,
+                !isLiquidGlassSupported && { backgroundColor: FALLBACK_CAPSULE_BG },
+              ]}
+            />
           </Animated.View>
         </View>
 
@@ -151,6 +161,8 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
                label = 'Profile';
             }
 
+            const labelColor = getLabelColor(isFocused);
+
             return (
               <TouchableOpacity
                 key={route.key}
@@ -166,21 +178,14 @@ export default function GlassBottomTabBar({ state, descriptors, navigation }: Bo
                     size={ICON_SIZE} 
                     color={isFocused ? '#000000' : '#808080'} 
                 />
-                {isFocused && ( 
-                  <Text style={[styles.label, { color: '#000000' }]}>
-                    {label}
-                  </Text>
-                )}
-                {!isFocused && (
-                     <Text style={[styles.label, { color: '#808080' }]}>
-                     {label}
-                   </Text>
-                )}
+                <Text style={[styles.label, { color: labelColor as string }]}>
+                  {label}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </View>
-      </BlurView>
+      </LiquidGlassView>
     </Animated.View>
   );
 }
@@ -202,12 +207,9 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 0,
   },
-  blurContainer: {
+  glassContainer: {
     flex: 1,
     borderRadius: 30,
-    backgroundColor: 'rgba(0, 0, 0, 0.28)',
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    borderWidth: 1,
     overflow: 'hidden',
   },
   tabsContainer: {
@@ -229,16 +231,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
-  capsule: {
+  capsuleWrapper: {
     height: CAPSULE_HEIGHT,
     borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.28)',
   },
-  capsuleBorder: {
-    ...StyleSheet.absoluteFillObject,
-    borderColor: 'rgba(255,255,255,0.35)',
-    borderWidth: 1,
+  capsule: {
+    flex: 1,
     borderRadius: 26,
   },
   label: {

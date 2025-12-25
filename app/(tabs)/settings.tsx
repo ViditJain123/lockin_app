@@ -1,15 +1,10 @@
 
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function SettingsScreen() {
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#4c669f', '#3b5998', '#192f6a']}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={[styles.container, { backgroundColor: '#000000' }]}>
       <BlurView intensity={20} style={styles.glassCard}>
         <Text style={styles.title}>Settings</Text>
       </BlurView>

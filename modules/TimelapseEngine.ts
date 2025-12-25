@@ -46,6 +46,12 @@ export interface TimelapseOptions {
    * Default: true
    */
   saveToGallery?: boolean;
+
+  /**
+   * Camera position to use for recording
+   * Default: 'back'
+   */
+  cameraPosition?: 'front' | 'back';
 }
 
 export interface TimelapseState {
@@ -149,6 +155,7 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
     outputFps: options.outputFps ?? 60,
     codec: options.codec ?? 'h264',
     saveToGallery: options.saveToGallery ?? true,
+    cameraPosition: options.cameraPosition ?? 'back',
   };
 
   await NativeTimelapseEngine.startTimelapse(fullOptions);

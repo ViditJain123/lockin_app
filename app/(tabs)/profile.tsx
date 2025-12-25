@@ -1,15 +1,10 @@
 
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function ProfileScreen() {
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={['#FF9966', '#FF5E62']}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={[styles.container, { backgroundColor: '#000000' }]}>
       <BlurView intensity={20} style={styles.glassCard}>
         <Text style={styles.title}>Profile</Text>
       </BlurView>
