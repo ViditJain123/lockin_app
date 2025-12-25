@@ -59,7 +59,7 @@ class TimelapseEncoder {
                 AVVideoExpectedSourceFrameRateKey: fps,
                 AVVideoMaxKeyFrameIntervalKey: fps * 2,  // Keyframe every 2 seconds
                 AVVideoProfileLevelKey: codec == .hevc ? 
-                    kVTProfileLevel_HEVC_Main_AutoLevel : 
+                    kVTProfileLevel_HEVC_Main_AutoLevel as String : 
                     AVVideoProfileLevelH264HighAutoLevel,
                 AVVideoAllowFrameReorderingKey: false  // Reduce latency
             ]

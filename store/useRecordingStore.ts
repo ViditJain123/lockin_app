@@ -1,14 +1,14 @@
 import {
-  isTimelapseAvailable,
-  onTimelapseComplete,
-  onTimelapseError,
-  onTimelapseProgress,
-  startTimelapse,
-  stopTimelapse,
-  TimelapseError,
-  TimelapseOptions,
-  TimelapseProgress,
-  TimelapseResult
+    isTimelapseAvailable,
+    onTimelapseComplete,
+    onTimelapseError,
+    onTimelapseProgress,
+    startTimelapse,
+    stopTimelapse,
+    TimelapseError,
+    TimelapseOptions,
+    TimelapseProgress,
+    TimelapseResult
 } from '@/modules/TimelapseEngine';
 import { create } from 'zustand';
 
@@ -48,6 +48,29 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
   let progressUnsubscribe: (() => void) | null = null;
   let errorUnsubscribe: (() => void) | null = null;
   let completeUnsubscribe: (() => void) | null = null;
+  
+  // Local timer for 1-second duration updates
+  let durationTimer: ReturnType<typeof setInterval> | null = null;
+  let recordingStartTime: number | null = null;
+
+  const startDurationTimer = () => {
+    recordingStartTime = Date.now();
+    // Update duration every second for smooth UI
+    durationTimer = setInterval(() => {
+      if (recordingStartTime) {
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        set({ durationSeconds: elapsed });
+      }
+    }, 1000);
+  };
+
+  const stopDurationTimer = () => {
+    if (durationTimer) {
+      clearInterval(durationTimer);
+      durationTimer = null;
+    }
+    recordingStartTime = null;
+  };
 
   const setupEventListeners = () => {
     if (!isTimelapseAvailable()) return;
@@ -121,12 +144,15 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
 
       try {
         await startTimelapse(options);
+        // Start local timer for 1-second updates
+        startDurationTimer();
         set({
           isRecording: true,
           isPreparing: false,
         });
       } catch (error) {
         cleanupEventListeners();
+        stopDurationTimer();
         set({
           isRecording: false,
           isPreparing: false,
@@ -147,6 +173,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
         return null;
       }
 
+      // Stop the local duration timer immediately
+      stopDurationTimer();
       set({ isFinishing: true });
 
       try {

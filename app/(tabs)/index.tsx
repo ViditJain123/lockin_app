@@ -1,5 +1,6 @@
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
+import { TimelapsePreview } from '@/components/TimelapsePreview';
 import { formatDuration, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -45,7 +46,6 @@ export default function CameraScreen() {
   const isPreparing = useRecordingStore((s) => s.isPreparing);
   const isFinishing = useRecordingStore((s) => s.isFinishing);
   const durationSeconds = useRecordingStore((s) => s.durationSeconds);
-  const frameCount = useRecordingStore((s) => s.frameCount);
   const startRecording = useRecordingStore((s) => s.startRecording);
   const stopRecording = useRecordingStore((s) => s.stopRecording);
   const recordingError = useRecordingError();
@@ -54,18 +54,34 @@ export default function CameraScreen() {
   const buttonProgress = useSharedValue(0);
 
   // Update button position when recording state changes
+  // Keep button in recording position during finishing
   useEffect(() => {
-    buttonProgress.value = withTiming(isRecording ? 1 : 0, BUTTON_TIMING);
-  }, [isRecording]);
+    buttonProgress.value = withTiming((isRecording || isFinishing) ? 1 : 0, BUTTON_TIMING);
+  }, [isRecording, isFinishing]);
 
-  // Show alert on recording error
+  // Show alert on recording error - but only for critical errors
+  // Filter out transient errors like frame encoding failures that don't stop recording
   useEffect(() => {
     if (recordingError) {
-      Alert.alert(
-        'Recording Error',
-        recordingError.message,
-        [{ text: 'OK', onPress: () => useRecordingStore.getState().resetError() }]
-      );
+      // Filter out non-critical errors that don't stop recording
+      const isCriticalError = 
+        recordingError.code === 'START_FAILED' ||
+        recordingError.code === 'STOP_FAILED' ||
+        recordingError.code === 'PLATFORM_NOT_SUPPORTED' ||
+        recordingError.message.includes('stopped') ||
+        recordingError.message.includes('denied');
+      
+      if (isCriticalError) {
+        Alert.alert(
+          'Recording Error',
+          recordingError.message,
+          [{ text: 'OK', onPress: () => useRecordingStore.getState().resetError() }]
+        );
+      } else {
+        // Just log non-critical errors and reset
+        console.log('[Timelapse] Non-critical error:', recordingError.message);
+        useRecordingStore.getState().resetError();
+      }
     }
   }, [recordingError]);
 
@@ -85,16 +101,8 @@ export default function CameraScreen() {
     if (isPreparing || isFinishing) return; // Ignore during transitions
 
     if (isRecording) {
-      // Stop recording
-      const result = await stopRecording();
-      if (result) {
-        // Show success message
-        Alert.alert(
-          'Timelapse Saved! 🎬',
-          `Captured ${result.frameCount} frames\nDuration: ${formatDuration(result.durationSeconds)}`,
-          [{ text: 'OK' }]
-        );
-      }
+      // Stop recording - no dialog shown, video is silently saved to gallery
+      await stopRecording();
     } else {
       // Start recording
       // Check if timelapse is available
@@ -168,12 +176,18 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Full-screen camera preview */}
-      <CameraView
-        style={styles.camera}
-        facing={facing}
-        enableTorch={flashEnabled}
-      />
+      {/* Camera preview - switch between expo-camera and native preview during recording */}
+      {/* When recording or finishing, use native TimelapsePreview which shares the capture session */}
+      {/* When not recording, use expo-camera for standard preview */}
+      {(isRecording || isFinishing) ? (
+        <TimelapsePreview style={styles.camera} />
+      ) : (
+        <CameraView
+          style={styles.camera}
+          facing={facing}
+          enableTorch={flashEnabled}
+        />
+      )}
 
       {/* Top controls - Flash and Flip buttons */}
       <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
@@ -193,37 +207,26 @@ export default function CameraScreen() {
         />
       </View>
 
-      {/* Recording duration display */}
-      {isRecording && (
-        <View style={[styles.durationContainer, { top: insets.top + 70 }]}>
+      {/* Recording duration display - stays visible during finishing */}
+      {(isRecording || isFinishing) && (
+        <View style={[styles.durationContainer, { top: insets.top + 12 }]}>
           <View style={styles.durationPill}>
             <View style={styles.recordingDot} />
             <Text style={styles.durationText}>
               {formatDuration(durationSeconds)}
             </Text>
           </View>
-          <Text style={styles.frameCountText}>
-            {frameCount} frames
-          </Text>
         </View>
       )}
 
-      {/* Preparing/Finishing overlay */}
-      {(isPreparing || isFinishing) && (
-        <View style={styles.preparingOverlay}>
-          <ActivityIndicator size="large" color="white" />
-          <Text style={styles.preparingText}>
-            {isPreparing ? 'Starting...' : 'Saving...'}
-          </Text>
-        </View>
-      )}
+      {/* No loader overlay - recording start/stop happens seamlessly in background */}
 
       {/* Bottom control zone - Record button */}
       {/* Animated position - drops down when recording */}
       <Animated.View style={[styles.bottomControls, animatedButtonStyle]}>
         <GlassRecordButton
           onPress={handleRecordPress}
-          isRecording={isRecording}
+          isRecording={isRecording || isFinishing}
           disabled={isPreparing || isFinishing}
         />
       </Animated.View>
@@ -314,22 +317,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
-  },
-  frameCountText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  preparingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-  },
-  preparingText: {
-    color: 'white',
-    fontSize: 16,
-    marginTop: 12,
   },
 });

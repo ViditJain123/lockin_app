@@ -6,6 +6,16 @@ import UIKit
 /// Optimized for long-duration recording with minimal resource usage
 class TimelapseSessionManager: NSObject {
     
+    // MARK: - Shared Session Access
+    
+    /// Static reference to the current active capture session
+    /// Used by TimelapsePreviewView to display the camera feed
+    static var sharedSession: AVCaptureSession? {
+        return _sharedSessionManager?.captureSession
+    }
+    
+    private static weak var _sharedSessionManager: TimelapseSessionManager?
+    
     // MARK: - Properties
     
     private var captureSession: AVCaptureSession?
@@ -30,41 +40,69 @@ class TimelapseSessionManager: NSObject {
     
     override init() {
         super.init()
+        print("[TimelapseSessionManager] Default init() called - WARNING: This does not setup capture session!")
     }
     
     convenience init(position: AVCaptureDevice.Position = .back) throws {
         self.init()
+        print("[TimelapseSessionManager] convenience init(position:) called with position: \(position == .back ? "back" : "front")")
         self.cameraPosition = position
         try setupSession()
+        
+        // Set as shared session manager for preview views
+        TimelapseSessionManager._sharedSessionManager = self
+        
+        // Notify preview views that session is available
+        NotificationCenter.default.post(name: NSNotification.Name("TimelapseSessionUpdated"), object: nil)
+        
+        print("[TimelapseSessionManager] Session setup completed successfully")
+    }
+    
+    deinit {
+        // Clear shared reference if this is the current shared manager
+        if TimelapseSessionManager._sharedSessionManager === self {
+            TimelapseSessionManager._sharedSessionManager = nil
+            // Notify preview views that session is gone
+            NotificationCenter.default.post(name: NSNotification.Name("TimelapseSessionUpdated"), object: nil)
+        }
     }
     
     // MARK: - Session Setup
     
     private func setupSession() throws {
+        print("[TimelapseSessionManager] setupSession() starting...")
         let session = AVCaptureSession()
         
         // Use photo preset for highest quality stills
         // This gives us the best quality for timelapse frames
         session.sessionPreset = .photo
+        print("[TimelapseSessionManager] AVCaptureSession created with .photo preset")
         
         // Configure for background operation
         session.automaticallyConfiguresApplicationAudioSession = false
         
         // Get camera device
+        print("[TimelapseSessionManager] Looking for camera at position: \(cameraPosition == .back ? "back" : "front")")
         guard let device = getCamera(position: cameraPosition) else {
+            print("[TimelapseSessionManager] ERROR: Camera not available at position: \(cameraPosition == .back ? "back" : "front")")
             throw TimelapseError.cameraNotAvailable
         }
         currentDevice = device
+        print("[TimelapseSessionManager] Found camera device: \(device.localizedName)")
         
         // Configure device for optimal timelapse capture
         try configureDevice(device)
+        print("[TimelapseSessionManager] Device configured successfully")
         
         // Add camera input
+        print("[TimelapseSessionManager] Creating AVCaptureDeviceInput...")
         let input = try AVCaptureDeviceInput(device: device)
         guard session.canAddInput(input) else {
+            print("[TimelapseSessionManager] ERROR: Cannot add input to session")
             throw TimelapseError.cannotAddInput
         }
         session.addInput(input)
+        print("[TimelapseSessionManager] Input added to session")
         
         // Configure video output for frame capture
         let output = AVCaptureVideoDataOutput()
@@ -81,15 +119,24 @@ class TimelapseSessionManager: NSObject {
         output.setSampleBufferDelegate(self, queue: captureQueue)
         
         guard session.canAddOutput(output) else {
+            print("[TimelapseSessionManager] ERROR: Cannot add output to session")
             throw TimelapseError.cannotAddOutput
         }
         session.addOutput(output)
+        print("[TimelapseSessionManager] Output added to session")
         
         // Configure video connection for portrait orientation
         if let connection = output.connection(with: .video) {
             // Lock to portrait orientation for consistent framing
-            if connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
+            if #available(iOS 17.0, *) {
+                if connection.isVideoRotationAngleSupported(90) {
+                    connection.videoRotationAngle = 90
+                }
+            } else {
+                // Fallback for older iOS versions
+                if connection.isVideoOrientationSupported {
+                    connection.videoOrientation = .portrait
+                }
             }
             
             // Enable video stabilization if available
@@ -100,6 +147,7 @@ class TimelapseSessionManager: NSObject {
         
         self.captureSession = session
         self.videoOutput = output
+        print("[TimelapseSessionManager] setupSession() completed - captureSession is now initialized")
     }
     
     private func getCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
@@ -176,24 +224,38 @@ class TimelapseSessionManager: NSObject {
     // MARK: - Capture Control
     
     func startCapture() throws {
+        print("[TimelapseSessionManager] startCapture() called")
+        print("[TimelapseSessionManager] captureSession is \(captureSession == nil ? "NIL" : "initialized")")
+        
         guard let session = captureSession else {
+            print("[TimelapseSessionManager] ERROR: Capture session is nil - throwing sessionNotInitialized")
             throw TimelapseError.sessionNotInitialized
         }
         
         // Configure audio session for background operation
+        print("[TimelapseSessionManager] Configuring audio session...")
         try configureAudioSession()
+        print("[TimelapseSessionManager] Audio session configured")
         
         // Start on background queue
+        print("[TimelapseSessionManager] Starting capture session on background queue...")
         captureQueue.async {
             if !session.isRunning {
+                print("[TimelapseSessionManager] Starting session.startRunning()...")
                 session.startRunning()
+                print("[TimelapseSessionManager] session.startRunning() completed")
+            } else {
+                print("[TimelapseSessionManager] Session was already running")
             }
         }
     }
     
     func stopCapture() {
+        print("[TimelapseSessionManager] stopCapture() called")
         captureQueue.async { [weak self] in
+            print("[TimelapseSessionManager] Stopping capture session...")
             self?.captureSession?.stopRunning()
+            print("[TimelapseSessionManager] Capture session stopped")
         }
     }
     

@@ -14,7 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.lockin.app",
+      "bundleIdentifier": "com.lockinwithvidit.app",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording",

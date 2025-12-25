@@ -226,26 +226,36 @@ class TimelapseEngine: RCTEventEmitter {
     }
     
     private func initializeRecording() throws {
+        print("[TimelapseEngine] initializeRecording() started")
+        
         // Reset state
         frameCount = 0
         
         // Initialize stability manager first (for monitoring)
+        print("[TimelapseEngine] Initializing stability manager...")
         stabilityManager = TimelapseStabilityManager()
         stabilityManager?.delegate = self
         stabilityManager?.startMonitoring()
+        print("[TimelapseEngine] Stability manager initialized")
         
         // Initialize background handler
+        print("[TimelapseEngine] Initializing background handler...")
         backgroundHandler = TimelapseBackgroundHandler()
         backgroundHandler?.delegate = self
         backgroundHandler?.startBackgroundTask()
+        print("[TimelapseEngine] Background handler initialized")
         
         // Initialize photo library manager
+        print("[TimelapseEngine] Initializing photo library manager...")
         photoLibraryManager = TimelapsePhotoLibraryManager()
+        print("[TimelapseEngine] Photo library manager initialized")
         
         // Create output URL
         let outputURL = generateOutputURL()
+        print("[TimelapseEngine] Output URL: \(outputURL.absoluteString)")
         
         // Initialize encoder
+        print("[TimelapseEngine] Initializing encoder...")
         encoder = try TimelapseEncoder(
             outputURL: outputURL,
             width: 1080,
@@ -253,19 +263,30 @@ class TimelapseEngine: RCTEventEmitter {
             fps: outputFps,
             codec: codec
         )
+        print("[TimelapseEngine] Encoder initialized successfully")
         
         // Initialize frame processor with encoder callback
+        print("[TimelapseEngine] Initializing frame processor...")
         frameProcessor = TimelapseFrameProcessor(captureIntervalMs: captureIntervalMs)
         frameProcessor?.onFrameReady = { [weak self] pixelBuffer, timestamp in
             self?.processFrame(pixelBuffer, timestamp: timestamp)
         }
+        print("[TimelapseEngine] Frame processor initialized")
         
         // Initialize session manager
-        sessionManager = try TimelapseSessionManager()
+        // IMPORTANT: We must use the convenience init that takes a position parameter
+        // The default init() does NOT setup the capture session!
+        print("[TimelapseEngine] Initializing session manager with position: back...")
+        sessionManager = try TimelapseSessionManager(position: .back)
+        print("[TimelapseEngine] Session manager initialized, setting frame processor...")
         sessionManager?.frameProcessor = frameProcessor
+        print("[TimelapseEngine] Frame processor assigned to session manager")
         
         // Start capture
+        print("[TimelapseEngine] Starting capture...")
         try sessionManager?.startCapture()
+        print("[TimelapseEngine] Capture started successfully")
+        print("[TimelapseEngine] initializeRecording() completed successfully")
     }
     
     private func processFrame(_ pixelBuffer: CVPixelBuffer, timestamp: CMTime) {

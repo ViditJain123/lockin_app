@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>lockinapp</string>
-          <string>com.lockin.app</string>
+          <string>com.lockinwithvidit.app</string>
         </array>
       </dict>
     </array>
