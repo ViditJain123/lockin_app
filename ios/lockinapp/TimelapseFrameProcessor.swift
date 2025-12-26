@@ -1,9 +1,10 @@
 import Foundation
 import AVFoundation
 import CoreImage
+import UIKit
 
 /// Frame processor for timelapse capture
-/// Handles frame timing (2fps sampling) and 9:16 crop
+/// Handles frame timing (2fps sampling), 9:16 crop, and branded overlay
 class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Properties
@@ -13,6 +14,12 @@ class TimelapseFrameProcessor: NSObject {
     
     // Last capture timestamp
     private var lastCaptureTime: CFAbsoluteTime = 0
+    
+    // Recording start time for timer overlay
+    var recordingStartTime: CFAbsoluteTime?
+    
+    // Frame overlay renderer
+    private let frameOverlay = TimelapseFrameOverlay()
     
     // Callback for processed frames
     var onFrameReady: ((CVPixelBuffer, CMTime) -> Void)?
@@ -139,6 +146,15 @@ class TimelapseFrameProcessor: NSObject {
             y: scaleY
         ))
         
+        // Apply branded frame overlay with timer
+        let elapsedSeconds: Int
+        if let startTime = recordingStartTime {
+            elapsedSeconds = Int(CFAbsoluteTimeGetCurrent() - startTime)
+        } else {
+            elapsedSeconds = 0
+        }
+        processedImage = frameOverlay.applyOverlay(to: processedImage, elapsedSeconds: elapsedSeconds)
+        
         // Get output buffer from pool
         guard let pool = pixelBufferPool else {
             return nil
@@ -190,5 +206,6 @@ class TimelapseFrameProcessor: NSObject {
     
     func reset() {
         lastCaptureTime = 0
+        recordingStartTime = nil
     }
 }

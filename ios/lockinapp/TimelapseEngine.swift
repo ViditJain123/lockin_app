@@ -272,6 +272,7 @@ class TimelapseEngine: RCTEventEmitter {
         // Initialize frame processor with encoder callback
         print("[TimelapseEngine] Initializing frame processor...")
         frameProcessor = TimelapseFrameProcessor(captureIntervalMs: captureIntervalMs)
+        frameProcessor?.recordingStartTime = CFAbsoluteTimeGetCurrent()
         frameProcessor?.onFrameReady = { [weak self] pixelBuffer, timestamp in
             self?.processFrame(pixelBuffer, timestamp: timestamp)
         }

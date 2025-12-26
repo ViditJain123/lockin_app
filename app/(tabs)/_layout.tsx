@@ -1,16 +1,11 @@
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
 
-import { useRecordingStore } from '@/store/useRecordingStore';
-
 export default function TabLayout() {
-  const isRecording = useRecordingStore((s) => s.isRecording);
 
   return (
     <NativeTabs
-      screenOptions={{
-        tabBarHidden: isRecording,
-      }}
+      tintColor="#fa576a"
     >
       {/* 
         EXACT TAB ORDER (LEFT → RIGHT)

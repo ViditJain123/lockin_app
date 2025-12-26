@@ -5,6 +5,7 @@ import { formatDuration, isTimelapseAvailable } from '@/modules/TimelapseEngine'
 import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -101,8 +102,17 @@ export default function CameraScreen() {
     if (isPreparing || isFinishing) return; // Ignore during transitions
 
     if (isRecording) {
-      // Stop recording - no dialog shown, video is silently saved to gallery
-      await stopRecording();
+      // Stop recording and navigate to preview
+      const result = await stopRecording();
+      if (result?.uri) {
+        router.push({
+          pathname: '/preview' as const,
+          params: {
+            videoUri: result.uri,
+            durationMs: String(result.durationSeconds * 1000),
+          },
+        } as any);
+      }
     } else {
       // Start recording
       // Check if timelapse is available
@@ -121,7 +131,7 @@ export default function CameraScreen() {
         captureIntervalMs: 500, // 2fps capture
         outputFps: 60,         // 60fps output
         codec: 'h264',
-        saveToGallery: true,
+        saveToGallery: false,  // Don't auto-save, user will save from preview
         cameraPosition: facing, // Use current camera facing direction
       });
     }

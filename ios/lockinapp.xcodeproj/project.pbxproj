@@ -24,6 +24,7 @@
 		TL0001001000000008 /* TimelapsePhotoLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */; };
 		TL0001001000000009 /* TimelapsePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000009 /* TimelapsePreviewView.swift */; };
 		TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000010 /* TimelapsePreviewViewManager.m */; };
+		TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000011 /* TimelapseFrameOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +51,7 @@
 		TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TimelapsePhotoLibraryManager.swift; path = lockinapp/TimelapsePhotoLibraryManager.swift; sourceTree = "<group>"; };
 		TL0002001000000009 /* TimelapsePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TimelapsePreviewView.swift; path = lockinapp/TimelapsePreviewView.swift; sourceTree = "<group>"; };
 		TL0002001000000010 /* TimelapsePreviewViewManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = TimelapsePreviewViewManager.m; path = lockinapp/TimelapsePreviewViewManager.m; sourceTree = "<group>"; };
+		TL0002001000000011 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = lockinapp/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -87,6 +89,7 @@
 				TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */,
 				TL0002001000000009 /* TimelapsePreviewView.swift */,
 				TL0002001000000010 /* TimelapsePreviewViewManager.m */,
+				TL0002001000000011 /* TimelapseFrameOverlay.swift */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -284,18 +287,24 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/SuperwallKit/SuperwallKit.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SuperwallKit.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -367,6 +376,7 @@
 				TL0001001000000008 /* TimelapsePhotoLibraryManager.swift in Sources */,
 				TL0001001000000009 /* TimelapsePreviewView.swift in Sources */,
 				TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */,
+				TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
