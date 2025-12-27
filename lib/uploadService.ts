@@ -1,6 +1,4 @@
-import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
 
 export interface UploadProgress {
@@ -110,14 +108,14 @@ export async function uploadTimelapse(
 
   const videoPath = `${userId}/${timestamp}_${uuid}.mp4`;
 
-  const videoFile = await readAsStringAsync(videoUri, {
-    encoding: EncodingType.Base64,
-  });
+  // Use fetch + arrayBuffer for proper binary file handling
+  // Base64 approach corrupts large binary files like videos
+  const videoArrayBuffer = await fetch(videoUri).then((res) => res.arrayBuffer());
 
   onProgress?.({ stage: 'video', progress: 30 });
 
   const { error: videoError } = await uploadWithRetry(async () => {
-    return supabase.storage.from('grinds').upload(videoPath, decode(videoFile), {
+    return supabase.storage.from('grinds').upload(videoPath, videoArrayBuffer, {
       contentType: 'video/mp4',
       upsert: false,
     });
@@ -136,14 +134,13 @@ export async function uploadTimelapse(
     thumbnailPath = `${userId}/${timestamp}_${uuid}.jpg`;
 
     try {
-      const thumbnailFile = await readAsStringAsync(thumbnailUri, {
-        encoding: EncodingType.Base64,
-      });
+      // Use fetch + arrayBuffer for proper binary file handling
+      const thumbnailArrayBuffer = await fetch(thumbnailUri).then((res) => res.arrayBuffer());
 
       const { error: thumbError } = await uploadWithRetry(async () => {
         return supabase.storage
           .from('grinds_thumbnail')
-          .upload(thumbnailPath, decode(thumbnailFile), {
+          .upload(thumbnailPath, thumbnailArrayBuffer, {
             contentType: 'image/jpeg',
             upsert: false,
           });
@@ -172,6 +169,21 @@ export async function uploadTimelapse(
       .from('grinds_thumbnail')
       .getPublicUrl(thumbnailPath);
     thumbnailUrl = thumbUrlData.publicUrl;
+  }
+
+  // 5. Insert record into grinds table to track video-thumbnail relationship
+  const { error: insertError } = await supabase.from('grinds').insert({
+    user_id: userId,
+    video_path: videoPath,
+    thumbnail_path: thumbnailPath || null,
+    video_url: videoUrlData.publicUrl,
+    thumbnail_url: thumbnailUrl || null,
+    duration_ms: durationMs,
+  });
+
+  if (insertError) {
+    console.warn('[UploadService] Failed to insert grind record:', insertError.message);
+    // Don't throw - storage upload succeeded, database insert failure is non-critical
   }
 
   onProgress?.({ stage: 'complete', progress: 100 });

@@ -412,7 +412,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.lockinwithvidit.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lockin.club;
 				PRODUCT_NAME = lockinapp;
 				SWIFT_OBJC_BRIDGING_HEADER = "lockinapp/lockinapp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -446,7 +446,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.lockinwithvidit.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lockin.club;
 				PRODUCT_NAME = lockinapp;
 				SWIFT_OBJC_BRIDGING_HEADER = "lockinapp/lockinapp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

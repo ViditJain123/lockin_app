@@ -14,13 +14,15 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.lockinwithvidit.app",
+      "bundleIdentifier": "com.lockin.club",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording",
         "NSPhotoLibraryAddUsageDescription": "Save timelapse videos to your gallery",
         "NSPhotoLibraryUsageDescription": "Access your photos to save timelapse videos",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -30,7 +32,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.lockinwithvidit.app"
+      "package": "com.lockin.club",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -48,6 +54,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6382fb0a-413b-4204-8b4d-62c83d6dd462"
+      }
     }
   }
 }
