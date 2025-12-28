@@ -20,6 +20,9 @@ RCT_EXTERN_METHOD(stopTimelapse:(RCTPromiseResolveBlock)resolver
 RCT_EXTERN_METHOD(getRecordingState:(RCTPromiseResolveBlock)resolver
                   rejecter:(RCTPromiseRejectBlock)rejecter)
 
+RCT_EXTERN_METHOD(isCallInProgress:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+
 + (BOOL)requiresMainQueueSetup
 {
   return YES;

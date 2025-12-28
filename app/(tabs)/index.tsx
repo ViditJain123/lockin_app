@@ -1,26 +1,26 @@
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
 import { TimelapsePreview } from '@/components/TimelapsePreview';
-import { formatDuration, isTimelapseAvailable } from '@/modules/TimelapseEngine';
+import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -122,6 +122,17 @@ export default function CameraScreen() {
           Platform.OS === 'ios'
             ? 'Timelapse requires a native build. Please run: npx expo run:ios'
             : 'Timelapse is currently only available on iOS.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Check if user is on a phone call
+      const callActive = await isCallInProgress();
+      if (callActive) {
+        Alert.alert(
+          'Phone Call Active',
+          'Please end your phone call before starting a timelapse recording.',
           [{ text: 'OK' }]
         );
         return;

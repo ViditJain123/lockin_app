@@ -52,6 +52,14 @@ export interface TimelapseOptions {
    * Default: 'back'
    */
   cameraPosition?: 'front' | 'back';
+
+  /**
+   * Target maximum video duration in seconds for adaptive capture.
+   * The capture interval will dynamically increase for longer recordings
+   * to keep the output video approximately this length.
+   * Default: 30
+   */
+  targetVideoSeconds?: number;
 }
 
 export interface TimelapseState {
@@ -156,6 +164,7 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
     codec: options.codec ?? 'h264',
     saveToGallery: options.saveToGallery ?? true,
     cameraPosition: options.cameraPosition ?? 'back',
+    targetVideoSeconds: options.targetVideoSeconds ?? 30,
   };
 
   await NativeTimelapseEngine.startTimelapse(fullOptions);
@@ -212,6 +221,27 @@ export async function getRecordingState(): Promise<TimelapseState> {
   }
 
   return NativeTimelapseEngine.getRecordingState();
+}
+
+/**
+ * Check if a phone call is currently in progress
+ * 
+ * @returns Promise<boolean> - true if a call is active, false otherwise
+ * 
+ * @example
+ * ```ts
+ * if (await isCallInProgress()) {
+ *   Alert.alert('End Call', 'Please end your phone call to start recording.');
+ *   return;
+ * }
+ * ```
+ */
+export async function isCallInProgress(): Promise<boolean> {
+  if (!isTimelapseAvailable()) {
+    return false; // Not on iOS, can't detect calls
+  }
+
+  return NativeTimelapseEngine.isCallInProgress();
 }
 
 // ============================================================================
@@ -350,6 +380,7 @@ export default {
   startTimelapse,
   stopTimelapse,
   getRecordingState,
+  isCallInProgress,
   onTimelapseProgress,
   onTimelapseError,
   onTimelapseComplete,

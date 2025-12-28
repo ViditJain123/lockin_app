@@ -8,9 +8,15 @@ import UIKit
 class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Properties
-    
-    // Capture interval in milliseconds (500ms = 2fps)
-    private let captureIntervalMs: Double
+
+    // Base capture interval in milliseconds (500ms = 2fps)
+    private let baseCaptureIntervalMs: Double
+
+    // Target video duration in seconds (for adaptive capture)
+    private let targetVideoSeconds: Double
+
+    // Output FPS for calculating frame targets
+    private let outputFps: Int
     
     // Last capture timestamp
     private var lastCaptureTime: CFAbsoluteTime = 0
@@ -52,9 +58,11 @@ class TimelapseFrameProcessor: NSObject {
     private var pixelBufferPool: CVPixelBufferPool?
     
     // MARK: - Initialization
-    
-    init(captureIntervalMs: Double = 500) {
-        self.captureIntervalMs = captureIntervalMs
+
+    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60) {
+        self.baseCaptureIntervalMs = captureIntervalMs
+        self.targetVideoSeconds = targetVideoSeconds
+        self.outputFps = outputFps
         super.init()
         setupPixelBufferPool()
     }
@@ -80,14 +88,39 @@ class TimelapseFrameProcessor: NSObject {
         )
     }
     
+    // MARK: - Adaptive Capture Interval
+
+    /// Calculates dynamic capture interval based on recording duration
+    /// For short recordings (< threshold), uses base interval
+    /// For longer recordings, increases interval to keep video ~30 seconds
+    private func calculateDynamicInterval() -> Double {
+        let baseCaptureIntervalSeconds = baseCaptureIntervalMs / 1000.0
+
+        guard let startTime = recordingStartTime else {
+            return baseCaptureIntervalSeconds
+        }
+
+        let recordingDuration = CFAbsoluteTimeGetCurrent() - startTime
+        let targetFrames = targetVideoSeconds * Double(outputFps)
+        let thresholdDuration = targetFrames * baseCaptureIntervalSeconds
+
+        if recordingDuration <= thresholdDuration {
+            // Still within threshold - use base interval
+            return baseCaptureIntervalSeconds
+        } else {
+            // Beyond threshold - increase interval to maintain target video duration
+            return recordingDuration / targetFrames
+        }
+    }
+
     // MARK: - Frame Processing
-    
+
     func processSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
-        // Check if enough time has passed since last capture
+        // Check if enough time has passed since last capture (using dynamic interval)
         let currentTime = CFAbsoluteTimeGetCurrent()
-        let intervalSeconds = captureIntervalMs / 1000.0
-        
-        guard currentTime - lastCaptureTime >= intervalSeconds else {
+        let dynamicIntervalSeconds = calculateDynamicInterval()
+
+        guard currentTime - lastCaptureTime >= dynamicIntervalSeconds else {
             return // Not time to capture yet
         }
         

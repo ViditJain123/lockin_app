@@ -1,11 +1,15 @@
+import { useRecordingStore } from '@/store/useRecordingStore';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
 
 export default function TabLayout() {
+  const isRecording = useRecordingStore((s) => s.isRecording);
+  const isFinishing = useRecordingStore((s) => s.isFinishing);
 
   return (
     <NativeTabs
       tintColor="#fa576a"
+      tabBarHidden={isRecording || isFinishing}
     >
       {/* 
         EXACT TAB ORDER (LEFT → RIGHT)

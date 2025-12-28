@@ -3,6 +3,7 @@ import AVFoundation
 import Photos
 import UIKit
 import React
+import CallKit
 
 /// Production-ready iOS Timelapse Engine
 /// Designed for 3-4 hours continuous recording with zero-wait export
@@ -25,6 +26,10 @@ class TimelapseEngine: RCTEventEmitter {
         }
         return instance
     }
+    
+    // MARK: - Call Detection
+    
+    private let callObserver = CXCallObserver()
     
     // MARK: - State Machine
     
@@ -49,6 +54,11 @@ class TimelapseEngine: RCTEventEmitter {
     // Recording stats
     private var frameCount: Int64 = 0
     private var recordingStartTime: Date?
+
+    // Frame buffering for first-frame removal
+    private var frameBuffer: [(CVPixelBuffer, CMTime)] = []
+    private var isBufferingPhase: Bool = true
+    private let bufferThreshold: Int = 5
     
     // Configuration
     private var captureIntervalMs: Double = 500 // 2fps default
@@ -56,6 +66,7 @@ class TimelapseEngine: RCTEventEmitter {
     private var codec: AVVideoCodecType = .h264
     private var saveToGallery: Bool = true
     private var cameraPosition: AVCaptureDevice.Position = .back
+    private var targetVideoSeconds: Double = 30 // Target video duration for adaptive capture
     
     // Threading
     private let stateQueue = DispatchQueue(label: "com.lockin.timelapse.state", qos: .userInitiated)
@@ -194,6 +205,15 @@ class TimelapseEngine: RCTEventEmitter {
         }
     }
     
+    /// Check if there's a phone call in progress
+    @objc func isCallInProgress(_ resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+        let hasActiveCall = callObserver.calls.contains { call in
+            // Check if any call is in a connected state (not ended or outgoing)
+            return !call.hasEnded && (call.hasConnected || call.isOutgoing)
+        }
+        resolver(hasActiveCall)
+    }
+    
     // MARK: - Private Methods
     
     private func parseOptions(_ options: NSDictionary) {
@@ -211,6 +231,9 @@ class TimelapseEngine: RCTEventEmitter {
         }
         if let positionStr = options["cameraPosition"] as? String {
             cameraPosition = positionStr == "front" ? .front : .back
+        }
+        if let target = options["targetVideoSeconds"] as? Double {
+            targetVideoSeconds = target
         }
     }
     
@@ -271,7 +294,11 @@ class TimelapseEngine: RCTEventEmitter {
         
         // Initialize frame processor with encoder callback
         print("[TimelapseEngine] Initializing frame processor...")
-        frameProcessor = TimelapseFrameProcessor(captureIntervalMs: captureIntervalMs)
+        frameProcessor = TimelapseFrameProcessor(
+            captureIntervalMs: captureIntervalMs,
+            targetVideoSeconds: targetVideoSeconds,
+            outputFps: outputFps
+        )
         frameProcessor?.recordingStartTime = CFAbsoluteTimeGetCurrent()
         frameProcessor?.onFrameReady = { [weak self] pixelBuffer, timestamp in
             self?.processFrame(pixelBuffer, timestamp: timestamp)
@@ -297,22 +324,71 @@ class TimelapseEngine: RCTEventEmitter {
     private func processFrame(_ pixelBuffer: CVPixelBuffer, timestamp: CMTime) {
         // CRITICAL: This runs on capture queue
         // Frame must be processed and released immediately
-        
+
         autoreleasepool {
             do {
-                // Encode frame directly
-                let presentationTime = CMTime(
-                    value: frameCount * Int64(600 / outputFps),
-                    timescale: 600
-                )
-                try encoder?.appendFrame(pixelBuffer, presentationTime: presentationTime)
-                
-                // Update stats
-                frameCount += 1
-                
-                // Emit progress event periodically (every 10 frames)
-                if frameCount % 10 == 0 {
-                    emitProgressEvent()
+                if isBufferingPhase {
+                    // Copy pixel buffer for retention in buffer
+                    var copiedBuffer: CVPixelBuffer?
+                    let status = CVPixelBufferCreate(
+                        kCFAllocatorDefault,
+                        CVPixelBufferGetWidth(pixelBuffer),
+                        CVPixelBufferGetHeight(pixelBuffer),
+                        CVPixelBufferGetPixelFormatType(pixelBuffer),
+                        nil,
+                        &copiedBuffer
+                    )
+
+                    if status == kCVReturnSuccess, let buffer = copiedBuffer {
+                        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+                        CVPixelBufferLockBaseAddress(buffer, [])
+
+                        let src = CVPixelBufferGetBaseAddress(pixelBuffer)
+                        let dst = CVPixelBufferGetBaseAddress(buffer)
+                        let size = CVPixelBufferGetDataSize(pixelBuffer)
+                        memcpy(dst, src, size)
+
+                        CVPixelBufferUnlockBaseAddress(buffer, [])
+                        CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+
+                        frameBuffer.append((buffer, timestamp))
+                    }
+
+                    // When we have 5 frames, encode frames 2-5 (skip first)
+                    if frameBuffer.count >= bufferThreshold {
+                        isBufferingPhase = false
+
+                        // Encode frames at indices 1-4 (skip index 0)
+                        for i in 1..<frameBuffer.count {
+                            let (bufferedPixelBuffer, _) = frameBuffer[i]
+                            let presentationTime = CMTime(
+                                value: frameCount * Int64(600 / outputFps),
+                                timescale: 600
+                            )
+                            try encoder?.appendFrame(bufferedPixelBuffer, presentationTime: presentationTime)
+                            frameCount += 1
+                        }
+
+                        // Clear buffer
+                        frameBuffer.removeAll()
+
+                        // Emit progress
+                        if frameCount % 10 == 0 || frameCount == bufferThreshold - 1 {
+                            emitProgressEvent()
+                        }
+                    }
+                } else {
+                    // Normal streaming mode
+                    let presentationTime = CMTime(
+                        value: frameCount * Int64(600 / outputFps),
+                        timescale: 600
+                    )
+                    try encoder?.appendFrame(pixelBuffer, presentationTime: presentationTime)
+                    frameCount += 1
+
+                    if frameCount % 10 == 0 {
+                        emitProgressEvent()
+                    }
                 }
             } catch {
                 emitError("Frame encoding failed: \(error.localizedDescription)")
@@ -359,17 +435,21 @@ class TimelapseEngine: RCTEventEmitter {
     private func cleanup() {
         stabilityManager?.stopMonitoring()
         stabilityManager = nil
-        
+
         backgroundHandler?.endBackgroundTask()
         backgroundHandler = nil
-        
+
         sessionManager = nil
         encoder = nil
         frameProcessor = nil
         photoLibraryManager = nil
-        
+
         frameCount = 0
         recordingStartTime = nil
+
+        // Reset frame buffer
+        frameBuffer.removeAll()
+        isBufferingPhase = true
     }
 }
 
