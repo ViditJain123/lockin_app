@@ -1,3 +1,4 @@
+import CountdownOverlay from '@/components/CountdownOverlay';
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
 import { TimelapsePreview } from '@/components/TimelapsePreview';
@@ -46,9 +47,11 @@ export default function CameraScreen() {
   const isRecording = useRecordingStore((s) => s.isRecording);
   const isPreparing = useRecordingStore((s) => s.isPreparing);
   const isFinishing = useRecordingStore((s) => s.isFinishing);
+  const isCountingDown = useRecordingStore((s) => s.isCountingDown);
   const durationSeconds = useRecordingStore((s) => s.durationSeconds);
   const startRecording = useRecordingStore((s) => s.startRecording);
   const stopRecording = useRecordingStore((s) => s.stopRecording);
+  const setCountingDown = useRecordingStore((s) => s.setCountingDown);
   const recordingError = useRecordingError();
 
   // Shared value for button position animation
@@ -99,9 +102,12 @@ export default function CameraScreen() {
 
   // Handle record button press
   const handleRecordPress = useCallback(async () => {
-    if (isPreparing || isFinishing) return; // Ignore during transitions
+    if (isPreparing || isFinishing || isCountingDown) return; // Ignore during transitions
 
     if (isRecording) {
+      // Capture grind duration before stopping (real-world recording time)
+      const grindDuration = durationSeconds;
+
       // Stop recording and navigate to preview
       const result = await stopRecording();
       if (result?.uri) {
@@ -109,12 +115,11 @@ export default function CameraScreen() {
           pathname: '/preview' as const,
           params: {
             videoUri: result.uri,
-            durationMs: String(result.durationSeconds * 1000),
+            grindDurationSeconds: String(grindDuration),
           },
         } as any);
       }
     } else {
-      // Start recording
       // Check if timelapse is available
       if (!isTimelapseAvailable()) {
         Alert.alert(
@@ -138,15 +143,29 @@ export default function CameraScreen() {
         return;
       }
 
-      await startRecording({
-        captureIntervalMs: 500, // 2fps capture
-        outputFps: 60,         // 60fps output
-        codec: 'h264',
-        saveToGallery: false,  // Don't auto-save, user will save from preview
-        cameraPosition: facing, // Use current camera facing direction
-      });
+      // Start countdown instead of immediate recording
+      setCountingDown(true);
     }
-  }, [isRecording, isPreparing, isFinishing, startRecording, stopRecording, facing]);
+  }, [isRecording, isPreparing, isFinishing, isCountingDown, stopRecording, setCountingDown, durationSeconds]);
+
+  // Callback when countdown completes - start the actual recording
+  // Note: Don't hide countdown here - let it stay visible until recording actually starts
+  const handleCountdownComplete = useCallback(async () => {
+    await startRecording({
+      captureIntervalMs: 500, // 2fps capture
+      outputFps: 60,         // 60fps output
+      codec: 'h264',
+      saveToGallery: false,  // Don't auto-save, user will save from preview
+      cameraPosition: facing, // Use current camera facing direction
+    });
+  }, [startRecording, facing]);
+
+  // Hide countdown only when recording has actually started (prevents black screen flash)
+  useEffect(() => {
+    if (isRecording && isCountingDown) {
+      setCountingDown(false);
+    }
+  }, [isRecording, isCountingDown, setCountingDown]);
 
   // Animated style for record button position
   const animatedButtonStyle = useAnimatedStyle(() => {
@@ -199,9 +218,9 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       {/* Camera preview - switch between expo-camera and native preview during recording */}
-      {/* When recording or finishing, use native TimelapsePreview which shares the capture session */}
+      {/* When preparing, recording, or finishing, use native TimelapsePreview which shares the capture session */}
       {/* When not recording, use expo-camera for standard preview */}
-      {(isRecording || isFinishing) ? (
+      {(isPreparing || isRecording || isFinishing) ? (
         <TimelapsePreview style={styles.camera} />
       ) : (
         <CameraView
@@ -211,8 +230,14 @@ export default function CameraScreen() {
         />
       )}
 
-      {/* Top controls - Flash and Flip buttons */}
-      <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
+      {/* Countdown Overlay */}
+      <CountdownOverlay
+        isVisible={isCountingDown}
+        onComplete={handleCountdownComplete}
+      />
+
+      {/* Top controls - Flash and Flip buttons (hidden during countdown) */}
+      {!isCountingDown && <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
         {/* Flash toggle - top left */}
         <GlassIconButton
           icon={flashEnabled ? 'flash' : 'flash-off'}
@@ -227,7 +252,7 @@ export default function CameraScreen() {
           onPress={toggleCameraFacing}
           disabled={isRecording}
         />
-      </View>
+      </View>}
 
       {/* Recording duration display - stays visible during finishing */}
       {(isRecording || isFinishing) && (
@@ -249,7 +274,7 @@ export default function CameraScreen() {
         <GlassRecordButton
           onPress={handleRecordPress}
           isRecording={isRecording || isFinishing}
-          disabled={isPreparing || isFinishing}
+          disabled={isPreparing || isFinishing || isCountingDown}
         />
       </Animated.View>
     </View>

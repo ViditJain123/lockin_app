@@ -12,15 +12,15 @@ interface UploadState {
 
   // Pending video (before upload completes)
   pendingVideoUri: string | null;
-  pendingDurationMs: number;
+  pendingGrindDurationSeconds: number;
 
   // Completed upload
   uploadResult: UploadResult | null;
 
   // Actions
-  startUpload: (videoUri: string, userId: string, durationMs: number) => Promise<UploadResult | null>;
+  startUpload: (videoUri: string, userId: string, grindDurationSeconds: number) => Promise<UploadResult | null>;
   clearUploadState: () => void;
-  setPendingVideo: (uri: string, durationMs: number) => void;
+  setPendingVideo: (uri: string, grindDurationSeconds: number) => void;
 }
 
 export const useUploadStore = create<UploadState>((set, get) => ({
@@ -30,11 +30,11 @@ export const useUploadStore = create<UploadState>((set, get) => ({
   uploadStage: 'idle',
   uploadError: null,
   pendingVideoUri: null,
-  pendingDurationMs: 0,
+  pendingGrindDurationSeconds: 0,
   uploadResult: null,
 
   // Start upload
-  startUpload: async (videoUri: string, userId: string, durationMs: number) => {
+  startUpload: async (videoUri: string, userId: string, grindDurationSeconds: number) => {
     const state = get();
 
     // Prevent duplicate uploads
@@ -49,7 +49,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       uploadStage: 'thumbnail',
       uploadError: null,
       pendingVideoUri: videoUri,
-      pendingDurationMs: durationMs,
+      pendingGrindDurationSeconds: grindDurationSeconds,
       uploadResult: null,
     });
 
@@ -62,7 +62,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
     };
 
     try {
-      const result = await uploadTimelapse(videoUri, userId, durationMs, handleProgress);
+      const result = await uploadTimelapse(videoUri, userId, grindDurationSeconds, handleProgress);
 
       set({
         isUploading: false,
@@ -91,16 +91,16 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       uploadStage: 'idle',
       uploadError: null,
       pendingVideoUri: null,
-      pendingDurationMs: 0,
+      pendingGrindDurationSeconds: 0,
       uploadResult: null,
     });
   },
 
   // Set pending video (before navigation)
-  setPendingVideo: (uri: string, durationMs: number) => {
+  setPendingVideo: (uri: string, grindDurationSeconds: number) => {
     set({
       pendingVideoUri: uri,
-      pendingDurationMs: durationMs,
+      pendingGrindDurationSeconds: grindDurationSeconds,
     });
   },
 }));

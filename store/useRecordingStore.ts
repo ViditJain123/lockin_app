@@ -17,6 +17,7 @@ interface RecordingState {
   isRecording: boolean;
   isPreparing: boolean;
   isFinishing: boolean;
+  isCountingDown: boolean;
 
   // Recording stats
   frameCount: number;
@@ -31,6 +32,7 @@ interface RecordingState {
   startRecording: (options?: TimelapseOptions) => Promise<void>;
   stopRecording: () => Promise<TimelapseResult | null>;
   resetError: () => void;
+  setCountingDown: (value: boolean) => void;
 
   // Internal actions
   _setRecordingState: (state: Partial<RecordingState>) => void;
@@ -102,6 +104,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     isRecording: false,
     isPreparing: false,
     isFinishing: false,
+    isCountingDown: false,
     frameCount: 0,
     durationSeconds: 0,
     estimatedOutputDuration: 0,
@@ -203,6 +206,11 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     // Reset error state
     resetError: () => {
       set({ lastError: null });
+    },
+
+    // Set counting down state
+    setCountingDown: (value: boolean) => {
+      set({ isCountingDown: value });
     },
 
     // Internal: Update state

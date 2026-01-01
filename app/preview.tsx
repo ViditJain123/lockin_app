@@ -20,11 +20,21 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const MIN_GRIND_SECONDS = 300; // 5 minutes minimum for a valid grind
+
 export default function PreviewScreen() {
-  const { videoUri, durationMs } = useLocalSearchParams<{
+  const { videoUri, grindDurationSeconds, isFromGallery } = useLocalSearchParams<{
     videoUri: string;
-    durationMs: string;
+    grindDurationSeconds: string;
+    isFromGallery?: string;
   }>();
+
+  // Check if opened from gallery (already uploaded video)
+  const fromGallery = isFromGallery === 'true';
+
+  // Parse grind duration and check if it's a valid grind (>= 5 minutes)
+  const grindDuration = grindDurationSeconds ? parseInt(grindDurationSeconds, 10) : 0;
+  const isValidGrind = grindDuration >= MIN_GRIND_SECONDS;
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const videoRef = useRef<Video>(null);
@@ -59,24 +69,22 @@ export default function PreviewScreen() {
     width: `${progressWidth.value}%`,
   }));
 
-  // Start upload on mount
+  // Start upload on mount (only for valid grinds >= 5 minutes, skip if from gallery)
   useEffect(() => {
-    if (videoUri && user?.id) {
-      const duration = durationMs ? parseInt(durationMs, 10) : 1000;
-      startUpload(videoUri, user.id, duration);
+    if (videoUri && user?.id && isValidGrind && !fromGallery) {
+      startUpload(videoUri, user.id, grindDuration);
     }
-  }, [videoUri, user?.id, durationMs]);
+  }, [videoUri, user?.id, isValidGrind, grindDuration, fromGallery]);
 
-  // Handle upload error
+  // Handle upload error (skip if from gallery)
   useEffect(() => {
-    if (uploadStage === 'error' && uploadError) {
+    if (uploadStage === 'error' && uploadError && !fromGallery) {
       Alert.alert('Upload Failed', uploadError, [
         {
           text: 'Retry',
           onPress: () => {
-            if (videoUri && user?.id) {
-              const duration = durationMs ? parseInt(durationMs, 10) : 1000;
-              startUpload(videoUri, user.id, duration);
+            if (videoUri && user?.id && isValidGrind) {
+              startUpload(videoUri, user.id, grindDuration);
             }
           },
         },
@@ -84,7 +92,7 @@ export default function PreviewScreen() {
         { text: 'Dismiss', style: 'cancel' },
       ]);
     }
-  }, [uploadStage, uploadError]);
+  }, [uploadStage, uploadError, isValidGrind, grindDuration, fromGallery]);
 
   const handleShare = async () => {
     if (videoUri) {
@@ -111,7 +119,8 @@ export default function PreviewScreen() {
   };
 
   const handleClose = () => {
-    if (isUploading) {
+    // Skip upload warning if viewing from gallery
+    if (isUploading && !fromGallery) {
       Alert.alert(
         'Upload in Progress',
         'Your video is still uploading to the cloud. Are you sure you want to leave?',
@@ -128,7 +137,9 @@ export default function PreviewScreen() {
         ]
       );
     } else {
-      clearUploadState();
+      if (!fromGallery) {
+        clearUploadState();
+      }
       router.back();
     }
   };
@@ -175,29 +186,45 @@ export default function PreviewScreen() {
           <Ionicons name="close" size={28} color="white" />
         </TouchableOpacity>
 
-        {/* Upload Status */}
-        <View style={styles.uploadStatusContainer}>
-          {uploadStage !== 'idle' && (
-            <>
-              <Text style={styles.uploadStatusText}>{getUploadStatusText()}</Text>
-              {(uploadStage === 'thumbnail' || uploadStage === 'video') && (
-                <View style={styles.progressBarContainer}>
-                  <Animated.View style={[styles.progressBar, progressStyle]} />
-                </View>
-              )}
-              {uploadStage === 'complete' && (
-                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-              )}
-              {uploadStage === 'error' && (
-                <Ionicons name="alert-circle" size={20} color="#FF5252" />
-              )}
-            </>
-          )}
-        </View>
+        {/* Upload Status or Short Recording Message (hidden when from gallery) */}
+        {!fromGallery && (
+          <View style={styles.uploadStatusContainer}>
+            {!isValidGrind ? (
+              <>
+                <Ionicons name="time-outline" size={18} color="#FFA726" />
+                <Text style={styles.uploadStatusText}>Under 5 min</Text>
+              </>
+            ) : uploadStage !== 'idle' ? (
+              <>
+                <Text style={styles.uploadStatusText}>{getUploadStatusText()}</Text>
+                {(uploadStage === 'thumbnail' || uploadStage === 'video') && (
+                  <View style={styles.progressBarContainer}>
+                    <Animated.View style={[styles.progressBar, progressStyle]} />
+                  </View>
+                )}
+                {uploadStage === 'complete' && (
+                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                )}
+                {uploadStage === 'error' && (
+                  <Ionicons name="alert-circle" size={20} color="#FF5252" />
+                )}
+              </>
+            ) : null}
+          </View>
+        )}
 
         {/* Spacer to balance the close button */}
         <View style={{ width: 40 }} />
       </View>
+
+      {/* Short Recording Banner (hidden when from gallery) */}
+      {!isValidGrind && !fromGallery && (
+        <View style={[styles.shortRecordingBanner, { top: insets.top + 70 }]}>
+          <Text style={styles.shortRecordingText}>
+            Recording under 5 minutes - not counted as a grind, but you can save it locally
+          </Text>
+        </View>
+      )}
 
       {/* Bottom Controls */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
@@ -299,5 +326,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '500',
+  },
+  shortRecordingBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(255, 167, 38, 0.9)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  shortRecordingText: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

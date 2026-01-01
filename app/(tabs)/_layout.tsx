@@ -5,11 +5,13 @@ import React from 'react';
 export default function TabLayout() {
   const isRecording = useRecordingStore((s) => s.isRecording);
   const isFinishing = useRecordingStore((s) => s.isFinishing);
+  const isPreparing = useRecordingStore((s) => s.isPreparing);
+  const isCountingDown = useRecordingStore((s) => s.isCountingDown);
 
   return (
     <NativeTabs
       tintColor="#fa576a"
-      tabBarHidden={isRecording || isFinishing}
+      tabBarHidden={isRecording || isFinishing || isPreparing || isCountingDown}
     >
       {/* 
         EXACT TAB ORDER (LEFT → RIGHT)

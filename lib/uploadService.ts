@@ -1,5 +1,6 @@
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { supabase } from './supabase';
+import { updateStatsAfterUpload } from './statsService';
 
 export interface UploadProgress {
   stage: 'thumbnail' | 'video' | 'complete' | 'error';
@@ -75,20 +76,19 @@ export async function generateThumbnail(
 export async function uploadTimelapse(
   videoUri: string,
   userId: string,
-  durationMs: number,
+  grindDurationSeconds: number,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> {
   const timestamp = Date.now();
   const uuid = generateUUID();
 
-  // 1. Generate thumbnail from middle of video
+  // 1. Generate thumbnail from start of video (1 second in)
   onProgress?.({ stage: 'thumbnail', progress: 0 });
 
-  const middleTimeMs = Math.floor(durationMs / 2);
   let thumbnailUri: string;
 
   try {
-    thumbnailUri = await generateThumbnail(videoUri, middleTimeMs);
+    thumbnailUri = await generateThumbnail(videoUri, 1000);
     onProgress?.({ stage: 'thumbnail', progress: 100 });
   } catch (error) {
     // Thumbnail is non-critical, try with default time
@@ -178,12 +178,18 @@ export async function uploadTimelapse(
     thumbnail_path: thumbnailPath || null,
     video_url: videoUrlData.publicUrl,
     thumbnail_url: thumbnailUrl || null,
-    duration_ms: durationMs,
+    grind_duration_seconds: grindDurationSeconds,
   });
 
   if (insertError) {
     console.warn('[UploadService] Failed to insert grind record:', insertError.message);
     // Don't throw - storage upload succeeded, database insert failure is non-critical
+  } else {
+    // Update user stats after successful grind insert
+    const statsUpdated = await updateStatsAfterUpload(userId, grindDurationSeconds);
+    if (!statsUpdated) {
+      console.warn('[UploadService] Failed to update user stats');
+    }
   }
 
   onProgress?.({ stage: 'complete', progress: 100 });
