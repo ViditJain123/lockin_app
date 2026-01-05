@@ -104,13 +104,14 @@ class TimelapseEncoder {
     /// Calculate appropriate bitrate for timelapse
     /// Lower than normal video since we have static scenes
     private func calculateBitrate() -> Int {
-        // For 1080x1920 @ 60fps timelapse, aim for ~8-10 Mbps
+        // For 1080x1920 @ 60fps timelapse, aim for ~4 Mbps
         // This is lower than normal video because timelapse has less motion
+        // and static scenes compress very efficiently
         let pixelCount = width * height
-        let baseBitrate = 8_000_000  // 8 Mbps for 1080p
+        let baseBitrate = 4_000_000  // 4 Mbps for 1080p (reduced from 8 Mbps)
         
         if pixelCount > 1920 * 1080 {
-            return baseBitrate * 2  // 16 Mbps for higher res
+            return baseBitrate * 2  // 8 Mbps for higher res
         }
         return baseBitrate
     }

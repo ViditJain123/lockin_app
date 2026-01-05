@@ -1,31 +1,71 @@
-import { useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   FlatList,
   Image,
+  RefreshControl,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
 import ActivityHeatmap from '../../components/ActivityHeatmap';
+import ThumbnailItem from '../../components/ThumbnailItem';
 import { useAuth } from '../../contexts/AuthContext';
+import { LocalVideo } from '../../lib/videoStorageService';
 import { useProfileStore } from '../../store/useProfileStore';
-import { GrindItem } from '../../lib/statsService';
+import { useVideoStore } from '../../store/useVideoStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 4;
 const NUM_COLUMNS = 3;
 const HORIZONTAL_PADDING = 20;
 const ITEM_SIZE = (SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - GRID_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const PLACEHOLDER_COUNT = 9;
+
+// Placeholder item component with shimmer effect
+function PlaceholderItem({ index, shimmerAnim }: { index: number; shimmerAnim: Animated.Value }) {
+  const isLeftColumn = index % NUM_COLUMNS === 0;
+  const isRightColumn = index % NUM_COLUMNS === NUM_COLUMNS - 1;
+
+  const shimmerOpacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.6],
+  });
+
+  return (
+    <View
+      style={[
+        styles.placeholderContainer,
+        {
+          width: ITEM_SIZE,
+          height: ITEM_SIZE * 1.3,
+          marginLeft: isLeftColumn ? 0 : GRID_GAP / 2,
+          marginRight: isRightColumn ? 0 : GRID_GAP / 2,
+        },
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.placeholderShimmer,
+          { opacity: shimmerOpacity },
+        ]}
+      />
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  // Profile stats
   const {
     totalHours,
     totalGrinds,
@@ -34,62 +74,99 @@ export default function ProfileScreen() {
     isLoading,
     fetchStats,
     fetchActivity,
-    grinds,
-    isLoadingGrinds,
-    hasMoreGrinds,
-    fetchGrinds,
+    refreshAll,
   } = useProfileStore();
 
+  // Local videos
+  const {
+    videos,
+    isLoading: isLoadingVideos,
+    isInitialized,
+    loadVideos,
+    refreshVideos,
+  } = useVideoStore();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Shimmer animation for placeholders
+  useEffect(() => {
+    const shimmerLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    shimmerLoop.start();
+    return () => shimmerLoop.stop();
+  }, [shimmerAnim]);
+
+  // Initial load
   useEffect(() => {
     if (user?.id) {
       fetchStats(user.id);
       fetchActivity(user.id);
-      fetchGrinds(user.id);
     }
+    loadVideos();
   }, [user?.id]);
 
-  const handleLoadMore = () => {
-    if (user?.id && hasMoreGrinds && !isLoadingGrinds) {
-      fetchGrinds(user.id, true);
-    }
-  };
+  // Refresh data when tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        refreshAll(user.id);
+      }
+      refreshVideos();
+    }, [user?.id, refreshAll, refreshVideos])
+  );
 
-  const handleThumbnailPress = (item: GrindItem) => {
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      user?.id ? refreshAll(user.id) : Promise.resolve(),
+      refreshVideos(),
+    ]);
+    setIsRefreshing(false);
+  }, [user?.id, refreshAll, refreshVideos]);
+
+  const handleThumbnailPress = (item: LocalVideo) => {
     router.push({
       pathname: '/preview',
       params: {
-        videoUri: item.video_url,
-        grindDurationSeconds: String(Math.floor((item.duration_ms || 0) / 1000)),
+        videoUri: item.videoPath,
+        grindDurationSeconds: String(item.durationSeconds),
         isFromGallery: 'true',
+        videoId: item.id,
       },
     });
   };
 
-  const renderThumbnail = ({ item, index }: { item: GrindItem; index: number }) => {
+  const renderThumbnail = ({ item, index }: { item: LocalVideo; index: number }) => {
     const isLeftColumn = index % NUM_COLUMNS === 0;
     const isRightColumn = index % NUM_COLUMNS === NUM_COLUMNS - 1;
 
     return (
-      <TouchableOpacity
+      <ThumbnailItem
+        thumbnailUrl={item.thumbnailPath}
+        videoUrl={item.videoPath}
+        size={ITEM_SIZE}
         onPress={() => handleThumbnailPress(item)}
-        style={[
-          styles.thumbnailContainer,
-          { marginLeft: isLeftColumn ? 0 : GRID_GAP / 2 },
-          { marginRight: isRightColumn ? 0 : GRID_GAP / 2 },
-        ]}
-        activeOpacity={0.8}
-      >
-        <Image
-          source={{ uri: item.thumbnail_url || item.video_url }}
-          style={styles.thumbnail}
-          resizeMode="cover"
-        />
-      </TouchableOpacity>
+        marginLeft={isLeftColumn ? 0 : GRID_GAP / 2}
+        marginRight={isRightColumn ? 0 : GRID_GAP / 2}
+      />
     );
   };
 
   const renderFooter = () => {
-    if (!isLoadingGrinds) return null;
+    if (!isLoadingVideos || videos.length === 0) return null;
     return (
       <View style={styles.loadingFooter}>
         <ActivityIndicator size="small" color="#fa576a" />
@@ -98,7 +175,7 @@ export default function ProfileScreen() {
   };
 
   const renderEmptyGallery = () => {
-    if (isLoadingGrinds) return null;
+    if (!isInitialized || isLoadingVideos) return null;
     return (
       <View style={styles.emptyGallery}>
         <Text style={styles.emptyGalleryText}>No grinds yet</Text>
@@ -106,6 +183,29 @@ export default function ProfileScreen() {
       </View>
     );
   };
+
+  // Render placeholder grid while initial data is loading
+  const renderPlaceholderGrid = () => {
+    const placeholders = Array.from({ length: PLACEHOLDER_COUNT }, (_, i) => i);
+    const rows: number[][] = [];
+    for (let i = 0; i < placeholders.length; i += NUM_COLUMNS) {
+      rows.push(placeholders.slice(i, i + NUM_COLUMNS));
+    }
+
+    return (
+      <View style={styles.placeholderGrid}>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.galleryRow}>
+            {row.map((index) => (
+              <PlaceholderItem key={index} index={index} shimmerAnim={shimmerAnim} />
+            ))}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const showPlaceholderGrid = !isInitialized || (isLoadingVideos && videos.length === 0);
 
   const formatHours = (hours: number): string => {
     if (hours < 1) {
@@ -182,19 +282,29 @@ export default function ProfileScreen() {
 
       {/* Gallery Grid */}
       <View style={styles.galleryContainer}>
-        <FlatList
-          data={grinds}
-          renderItem={renderThumbnail}
-          keyExtractor={(item) => item.id}
-          numColumns={NUM_COLUMNS}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={renderEmptyGallery}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.galleryContent}
-          columnWrapperStyle={styles.galleryRow}
-        />
+        {showPlaceholderGrid ? (
+          renderPlaceholderGrid()
+        ) : (
+          <FlatList
+            data={videos}
+            renderItem={renderThumbnail}
+            keyExtractor={(item) => item.id}
+            numColumns={NUM_COLUMNS}
+            ListFooterComponent={renderFooter}
+            ListEmptyComponent={renderEmptyGallery}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.galleryContent}
+            columnWrapperStyle={videos.length >= NUM_COLUMNS ? styles.galleryRow : undefined}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor="#fa576a"
+                colors={['#fa576a']}
+              />
+            }
+          />
+        )}
       </View>
     </View>
   );
@@ -271,16 +381,18 @@ const styles = StyleSheet.create({
   galleryRow: {
     marginBottom: GRID_GAP,
   },
-  thumbnailContainer: {
-    width: ITEM_SIZE,
-    height: ITEM_SIZE * 1.3,
+  placeholderContainer: {
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#1a1a1a',
   },
-  thumbnail: {
+  placeholderShimmer: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#2a2a2a',
+  },
+  placeholderGrid: {
+    paddingBottom: 20,
   },
   loadingFooter: {
     paddingVertical: 20,

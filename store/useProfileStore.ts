@@ -1,11 +1,8 @@
 import { create } from 'zustand';
 import {
-  fetchUserStats,
-  UserStats,
-  fetchDailyActivity,
   DailyActivity,
-  fetchUserGrinds,
-  GrindItem,
+  fetchDailyActivity,
+  fetchUserStats
 } from '../lib/statsService';
 
 interface ProfileState {
@@ -17,18 +14,12 @@ interface ProfileState {
   isLoadingActivity: boolean;
   error: string | null;
 
-  // Gallery state
-  grinds: GrindItem[];
-  isLoadingGrinds: boolean;
-  hasMoreGrinds: boolean;
-  grindsOffset: number;
-
   // Actions
   fetchStats: (userId: string) => Promise<void>;
   fetchActivity: (userId: string) => Promise<void>;
-  fetchGrinds: (userId: string, loadMore?: boolean) => Promise<void>;
+  refreshAll: (userId: string) => Promise<void>;
+  incrementHoursLocally: (additionalHours: number) => void;
   resetStats: () => void;
-  resetGrinds: () => void;
   updateStatsLocally: (hours: number, grinds: number, streak: number) => void;
 }
 
@@ -40,12 +31,6 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   isLoading: false,
   isLoadingActivity: false,
   error: null,
-
-  // Gallery initial state
-  grinds: [],
-  isLoadingGrinds: false,
-  hasMoreGrinds: true,
-  grindsOffset: 0,
 
   fetchStats: async (userId: string) => {
     set({ isLoading: true, error: null });
@@ -78,35 +63,13 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     });
   },
 
-  fetchGrinds: async (userId: string, loadMore: boolean = false) => {
-    const { isLoadingGrinds, hasMoreGrinds, grindsOffset, grinds } = get();
-
-    // Prevent duplicate loads
-    if (isLoadingGrinds) return;
-
-    // Don't load more if there's nothing left
-    if (loadMore && !hasMoreGrinds) return;
-
-    set({ isLoadingGrinds: true });
-
-    const offset = loadMore ? grindsOffset : 0;
-    const { grinds: newGrinds, hasMore } = await fetchUserGrinds(userId, 12, offset);
-
-    set({
-      grinds: loadMore ? [...grinds, ...newGrinds] : newGrinds,
-      hasMoreGrinds: hasMore,
-      grindsOffset: offset + newGrinds.length,
-      isLoadingGrinds: false,
-    });
-  },
-
-  resetGrinds: () => {
-    set({
-      grinds: [],
-      isLoadingGrinds: false,
-      hasMoreGrinds: true,
-      grindsOffset: 0,
-    });
+  // Refresh all profile data (stats and activity)
+  refreshAll: async (userId: string) => {
+    const { fetchStats, fetchActivity } = get();
+    await Promise.all([
+      fetchStats(userId),
+      fetchActivity(userId),
+    ]);
   },
 
   resetStats: () => {
@@ -127,5 +90,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       totalGrinds: grinds,
       currentStreak: streak,
     });
+  },
+
+  incrementHoursLocally: (additionalHours: number) => {
+    set((state) => ({
+      totalHours: state.totalHours + additionalHours,
+    }));
   },
 }));

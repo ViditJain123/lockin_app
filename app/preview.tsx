@@ -1,11 +1,12 @@
 import GlassIconButton from '@/components/GlassIconButton';
-import { useAuth } from '@/contexts/AuthContext';
 import { saveToGallery, shareVideo } from '@/lib/mediaUtils';
-import { useUploadStore } from '@/store/useUploadStore';
+import { recordWatchTime } from '@/lib/statsService';
+import { useProfileStore } from '@/store/useProfileStore';
+import { useVideoStore } from '@/store/useVideoStore';
 import { Ionicons } from '@expo/vector-icons';
-import { ResizeMode, Video } from 'expo-av';
+import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   StyleSheet,
@@ -13,31 +14,49 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useAuth } from '@/contexts/AuthContext';
 
 const MIN_GRIND_SECONDS = 300; // 5 minutes minimum for a valid grind
 
 export default function PreviewScreen() {
-  const { videoUri, grindDurationSeconds, isFromGallery } = useLocalSearchParams<{
+  const { videoUri, grindDurationSeconds, isFromGallery, videoId } = useLocalSearchParams<{
     videoUri: string;
     grindDurationSeconds: string;
     isFromGallery?: string;
+    videoId?: string;
   }>();
 
-  // Check if opened from gallery (already uploaded video)
+  // Check if opened from gallery (already saved video)
   const fromGallery = isFromGallery === 'true';
 
   // Parse grind duration and check if it's a valid grind (>= 5 minutes)
   const grindDuration = grindDurationSeconds ? parseInt(grindDurationSeconds, 10) : 0;
   const isValidGrind = grindDuration >= MIN_GRIND_SECONDS;
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const videoRef = useRef<Video>(null);
+
+  // Video store
+  const addVideo = useVideoStore((s) => s.addVideo);
+  const markSavedToGallery = useVideoStore((s) => s.markSavedToGallery);
+
+  // Profile store for optimistic updates
+  const incrementHoursLocally = useProfileStore((s) => s.incrementHoursLocally);
+  
+  // Auth context for user ID
+  const { user } = useAuth();
+
+  // Local state
+  const [isSaved, setIsSaved] = useState(fromGallery);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedToGallery, setSavedToGallery] = useState(false);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(videoId || null);
+  
+  // Watch time tracking state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playStartTimeRef = useRef<number | null>(null); // When playback started
+  const totalWatchedRef = useRef<number>(0); // Cumulative watched seconds this session
 
   // Ensure video plays on mount
   useEffect(() => {
@@ -49,50 +68,81 @@ export default function PreviewScreen() {
     playVideo();
   }, [videoUri]);
 
-  const {
-    isUploading,
-    uploadProgress,
-    uploadStage,
-    uploadError,
-    startUpload,
-    clearUploadState,
-  } = useUploadStore();
-
-  // Animated progress bar
-  const progressWidth = useSharedValue(0);
-
+  // Auto-save to private storage on mount (only for new recordings)
   useEffect(() => {
-    progressWidth.value = withTiming(uploadProgress, { duration: 300 });
-  }, [uploadProgress]);
-
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value}%`,
-  }));
-
-  // Start upload on mount (only for valid grinds >= 5 minutes, skip if from gallery)
-  useEffect(() => {
-    if (videoUri && user?.id && isValidGrind && !fromGallery) {
-      startUpload(videoUri, user.id, grindDuration);
+    if (videoUri && !fromGallery && !isSaved && !isSaving) {
+      handleAutoSaveToPrivate();
     }
-  }, [videoUri, user?.id, isValidGrind, grindDuration, fromGallery]);
+  }, [videoUri, fromGallery]);
 
-  // Handle upload error (skip if from gallery)
-  useEffect(() => {
-    if (uploadStage === 'error' && uploadError && !fromGallery) {
-      Alert.alert('Upload Failed', uploadError, [
-        {
-          text: 'Retry',
-          onPress: () => {
-            if (videoUri && user?.id && isValidGrind) {
-              startUpload(videoUri, user.id, grindDuration);
-            }
-          },
-        },
-        { text: 'Save Locally', onPress: handleSave },
-        { text: 'Dismiss', style: 'cancel' },
-      ]);
+  const handleAutoSaveToPrivate = async () => {
+    if (!videoUri) return;
+    
+    setIsSaving(true);
+    try {
+      const video = await addVideo(videoUri, grindDuration);
+      setCurrentVideoId(video.id);
+      setIsSaved(true);
+      console.log('[Preview] Saved to private storage:', video.id);
+    } catch (error) {
+      console.error('[Preview] Failed to save to private storage:', error);
+      Alert.alert('Error', 'Failed to save video. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
-  }, [uploadStage, uploadError, isValidGrind, grindDuration, fromGallery]);
+  };
+
+  // Handle watch time recording when video pauses
+  const handleRecordWatchTime = useCallback(async () => {
+    if (!user?.id || !playStartTimeRef.current) return;
+    
+    const now = Date.now();
+    const sessionWatchedMs = now - playStartTimeRef.current;
+    const sessionWatchedSeconds = Math.floor(sessionWatchedMs / 1000);
+    
+    if (sessionWatchedSeconds <= 0) return;
+    
+    totalWatchedRef.current += sessionWatchedSeconds;
+    playStartTimeRef.current = null;
+    
+    console.log(`[Preview] Recording ${sessionWatchedSeconds}s of watch time`);
+    
+    // Optimistic update
+    incrementHoursLocally(sessionWatchedSeconds / 3600);
+    
+    // API call in background
+    const result = await recordWatchTime(user.id, sessionWatchedSeconds);
+    if (!result.success) {
+      console.error('[Preview] Failed to record watch time');
+      // Rollback optimistic update
+      incrementHoursLocally(-sessionWatchedSeconds / 3600);
+    }
+  }, [user?.id, incrementHoursLocally]);
+
+  // Handle playback status updates
+  const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) return;
+    
+    const wasPlaying = isPlaying;
+    const nowPlaying = status.isPlaying;
+    
+    // Detect play -> pause transition (user paused)
+    if (wasPlaying && !nowPlaying && !status.didJustFinish) {
+      handleRecordWatchTime();
+    }
+    
+    // Detect pause -> play transition (started playing)
+    if (!wasPlaying && nowPlaying) {
+      playStartTimeRef.current = Date.now();
+    }
+    
+    setIsPlaying(nowPlaying);
+    
+    // Handle video looping
+    if (status.didJustFinish && !status.isLooping) {
+      videoRef.current?.replayAsync();
+    }
+  }, [isPlaying, handleRecordWatchTime]);
 
   const handleShare = async () => {
     if (videoUri) {
@@ -103,61 +153,54 @@ export default function PreviewScreen() {
     }
   };
 
-  const handleSave = async () => {
-    if (videoUri) {
-      try {
-        await saveToGallery(videoUri);
-        Alert.alert('Saved', 'Video saved to your photo library');
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('permission')) {
-          Alert.alert('Permission Required', 'Please allow access to your photo library in Settings');
-        } else {
-          Alert.alert('Error', 'Failed to save video');
-        }
+  const handleSaveToGallery = async () => {
+    if (!videoUri) return;
+    
+    if (savedToGallery) {
+      Alert.alert('Already Saved', 'This video is already in your photo library');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await saveToGallery(videoUri);
+      setSavedToGallery(true);
+      
+      // Update store if we have a video ID
+      if (currentVideoId) {
+        await markSavedToGallery(currentVideoId);
       }
+      
+      Alert.alert('Saved', 'Video saved to your photo library');
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('permission')) {
+        Alert.alert('Permission Required', 'Please allow access to your photo library in Settings');
+      } else {
+        Alert.alert('Error', 'Failed to save video');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleClose = () => {
-    // Skip upload warning if viewing from gallery
-    if (isUploading && !fromGallery) {
-      Alert.alert(
-        'Upload in Progress',
-        'Your video is still uploading to the cloud. Are you sure you want to leave?',
-        [
-          { text: 'Stay', style: 'cancel' },
-          {
-            text: 'Leave',
-            style: 'destructive',
-            onPress: () => {
-              clearUploadState();
-              router.back();
-            },
-          },
-        ]
-      );
-    } else {
-      if (!fromGallery) {
-        clearUploadState();
-      }
-      router.back();
-    }
+    router.back();
   };
 
-  const getUploadStatusText = () => {
-    switch (uploadStage) {
-      case 'thumbnail':
-        return 'Generating thumbnail...';
-      case 'video':
-        return `Uploading ${uploadProgress}%`;
-      case 'complete':
-        return 'Uploaded';
-      case 'error':
-        return 'Upload failed';
-      default:
-        return '';
+  const getStatusText = () => {
+    if (!isValidGrind && !fromGallery) {
+      return { icon: 'time-outline', text: 'Under 5 min', color: '#FFA726' };
     }
+    if (isSaving) {
+      return { icon: null, text: 'Saving...', color: 'white' };
+    }
+    if (isSaved) {
+      return { icon: 'checkmark-circle', text: 'Saved', color: '#4CAF50' };
+    }
+    return null;
   };
+
+  const status = getStatusText();
 
   return (
     <View style={styles.container}>
@@ -171,12 +214,7 @@ export default function PreviewScreen() {
         shouldPlay={true}
         isMuted={false}
         useNativeControls={false}
-        onPlaybackStatusUpdate={(status) => {
-          // Ensure looping continues
-          if (status.isLoaded && status.didJustFinish && !status.isLooping) {
-            videoRef.current?.replayAsync();
-          }
-        }}
+        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
       />
 
       {/* Top Bar */}
@@ -186,30 +224,13 @@ export default function PreviewScreen() {
           <Ionicons name="close" size={28} color="white" />
         </TouchableOpacity>
 
-        {/* Upload Status or Short Recording Message (hidden when from gallery) */}
-        {!fromGallery && (
-          <View style={styles.uploadStatusContainer}>
-            {!isValidGrind ? (
-              <>
-                <Ionicons name="time-outline" size={18} color="#FFA726" />
-                <Text style={styles.uploadStatusText}>Under 5 min</Text>
-              </>
-            ) : uploadStage !== 'idle' ? (
-              <>
-                <Text style={styles.uploadStatusText}>{getUploadStatusText()}</Text>
-                {(uploadStage === 'thumbnail' || uploadStage === 'video') && (
-                  <View style={styles.progressBarContainer}>
-                    <Animated.View style={[styles.progressBar, progressStyle]} />
-                  </View>
-                )}
-                {uploadStage === 'complete' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                )}
-                {uploadStage === 'error' && (
-                  <Ionicons name="alert-circle" size={20} color="#FF5252" />
-                )}
-              </>
-            ) : null}
+        {/* Status indicator */}
+        {status && (
+          <View style={styles.statusContainer}>
+            {status.icon && (
+              <Ionicons name={status.icon as any} size={18} color={status.color} />
+            )}
+            <Text style={styles.statusText}>{status.text}</Text>
           </View>
         )}
 
@@ -217,11 +238,11 @@ export default function PreviewScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Short Recording Banner (hidden when from gallery) */}
+      {/* Short Recording Banner */}
       {!isValidGrind && !fromGallery && (
         <View style={[styles.shortRecordingBanner, { top: insets.top + 70 }]}>
           <Text style={styles.shortRecordingText}>
-            Recording under 5 minutes - not counted as a grind, but you can save it locally
+            Recording under 5 minutes - not counted as a grind
           </Text>
         </View>
       )}
@@ -240,12 +261,15 @@ export default function PreviewScreen() {
 
         <View style={styles.buttonContainer}>
           <GlassIconButton
-            icon="download-outline"
+            icon={savedToGallery ? "checkmark-circle" : "download-outline"}
             size={56}
             iconSize={26}
-            onPress={handleSave}
+            onPress={handleSaveToGallery}
+            disabled={isSaving || savedToGallery}
           />
-          <Text style={styles.buttonLabel}>Save</Text>
+          <Text style={styles.buttonLabel}>
+            {savedToGallery ? 'In Gallery' : 'Save to Gallery'}
+          </Text>
         </View>
       </View>
     </View>
@@ -279,7 +303,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 20,
   },
-  uploadStatusContainer: {
+  statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -287,25 +311,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     gap: 8,
-    minWidth: 120,
+    minWidth: 100,
     justifyContent: 'center',
   },
-  uploadStatusText: {
+  statusText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '500',
-  },
-  progressBarContainer: {
-    width: 60,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-    borderRadius: 2,
   },
   bottomBar: {
     position: 'absolute',
@@ -314,8 +326,8 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 60,
-    paddingHorizontal: 40,
+    gap: 40,
+    paddingHorizontal: 20,
     zIndex: 10,
   },
   buttonContainer: {
@@ -324,8 +336,9 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
   },
   shortRecordingBanner: {
     position: 'absolute',
