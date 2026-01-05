@@ -18,8 +18,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 
-const MIN_GRIND_SECONDS = 300; // 5 minutes minimum for a valid grind
-
 export default function PreviewScreen() {
   const { videoUri, grindDurationSeconds, isFromGallery, videoId } = useLocalSearchParams<{
     videoUri: string;
@@ -31,9 +29,8 @@ export default function PreviewScreen() {
   // Check if opened from gallery (already saved video)
   const fromGallery = isFromGallery === 'true';
 
-  // Parse grind duration and check if it's a valid grind (>= 5 minutes)
+  // Parse grind duration
   const grindDuration = grindDurationSeconds ? parseInt(grindDurationSeconds, 10) : 0;
-  const isValidGrind = grindDuration >= MIN_GRIND_SECONDS;
   const insets = useSafeAreaInsets();
   const videoRef = useRef<Video>(null);
 
@@ -80,7 +77,8 @@ export default function PreviewScreen() {
     
     setIsSaving(true);
     try {
-      const video = await addVideo(videoUri, grindDuration);
+      // Pass user.id to record session in Supabase for heatmap
+      const video = await addVideo(videoUri, grindDuration, user?.id);
       setCurrentVideoId(video.id);
       setIsSaved(true);
       console.log('[Preview] Saved to private storage:', video.id);
@@ -188,9 +186,6 @@ export default function PreviewScreen() {
   };
 
   const getStatusText = () => {
-    if (!isValidGrind && !fromGallery) {
-      return { icon: 'time-outline', text: 'Under 5 min', color: '#FFA726' };
-    }
     if (isSaving) {
       return { icon: null, text: 'Saving...', color: 'white' };
     }
@@ -217,8 +212,8 @@ export default function PreviewScreen() {
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
       />
 
-      {/* Top Bar */}
-      <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
+      {/* Top Bar - below sheet grabber */}
+      <View style={[styles.topBar, { paddingTop: 20 }]}>
         {/* Close Button */}
         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
           <Ionicons name="close" size={28} color="white" />
@@ -237,15 +232,6 @@ export default function PreviewScreen() {
         {/* Spacer to balance the close button */}
         <View style={{ width: 40 }} />
       </View>
-
-      {/* Short Recording Banner */}
-      {!isValidGrind && !fromGallery && (
-        <View style={[styles.shortRecordingBanner, { top: insets.top + 70 }]}>
-          <Text style={styles.shortRecordingText}>
-            Recording under 5 minutes - not counted as a grind
-          </Text>
-        </View>
-      )}
 
       {/* Bottom Controls */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
@@ -337,22 +323,6 @@ const styles = StyleSheet.create({
   buttonLabel: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  shortRecordingBanner: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(255, 167, 38, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    zIndex: 10,
-  },
-  shortRecordingText: {
-    color: '#000',
-    fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
   },

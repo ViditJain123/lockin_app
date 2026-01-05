@@ -5,6 +5,7 @@
  * Syncs with videoStorageService for persistence.
  */
 
+import { recordSession } from '@/lib/sessionService';
 import {
     deleteVideo as deleteVideoFromStorage,
     getAllVideos,
@@ -22,7 +23,7 @@ interface VideoState {
 
   // Actions
   loadVideos: () => Promise<void>;
-  addVideo: (sourceUri: string, durationSeconds: number) => Promise<LocalVideo>;
+  addVideo: (sourceUri: string, durationSeconds: number, userId?: string) => Promise<LocalVideo>;
   markSavedToGallery: (id: string) => Promise<void>;
   deleteVideo: (id: string) => Promise<void>;
   refreshVideos: () => Promise<void>;
@@ -49,8 +50,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  // Add a new video to storage
-  addVideo: async (sourceUri: string, durationSeconds: number) => {
+  // Add a new video to storage and record session to Supabase
+  addVideo: async (sourceUri: string, durationSeconds: number, userId?: string) => {
     try {
       const video = await saveVideoToPrivateStorage(sourceUri, durationSeconds);
       
@@ -58,6 +59,13 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       set((state) => ({
         videos: [video, ...state.videos],
       }));
+
+      // Record session to Supabase for heatmap tracking (fire and forget)
+      if (userId && durationSeconds > 0) {
+        recordSession(userId, durationSeconds * 1000).catch((err) => {
+          console.error('[VideoStore] Failed to record session:', err);
+        });
+      }
 
       return video;
     } catch (error) {

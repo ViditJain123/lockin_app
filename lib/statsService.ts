@@ -160,7 +160,7 @@ export async function updateStatsAfterSave(
 /**
  * Fetch daily activity data for heatmap display
  * Returns activity grouped by date for the specified number of months
- * Note: This now only shows data for recordings that were tracked before cloud storage removal
+ * Reads session metadata from Supabase grinds table
  */
 export async function fetchDailyActivity(
   userId: string,

@@ -15,8 +15,8 @@ import AuthScreen from '../components/AuthScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
 export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+    // Catch any errors thrown by the Layout component.
+    ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -102,9 +102,19 @@ function RootLayoutNav() {
           <Stack.Screen
             name="preview"
             options={{
-              presentation: 'fullScreenModal',
+              presentation: Platform.OS === 'ios'
+                ? isLiquidGlassAvailable()
+                  ? 'formSheet'
+                  : 'modal'
+                : 'modal',
               headerShown: false,
-              gestureEnabled: false,
+              gestureEnabled: true,
+              sheetGrabberVisible: true,
+              sheetAllowedDetents: 'fitToContents',
+              sheetExpandsWhenScrolledToEdge: true,
+              contentStyle: {
+                backgroundColor: 'black',
+              },
             }}
           />
           <Stack.Screen

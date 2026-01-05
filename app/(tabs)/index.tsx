@@ -17,25 +17,12 @@ import {
     Text,
     View,
 } from 'react-native';
-import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Animation timing for iOS-native feel
-const BUTTON_TIMING = {
-  duration: 280,
-  easing: Easing.bezier(0.4, 0.0, 0.2, 1), // iOS standard easing
-};
-
 // Button position constants
 const BUTTON_DEFAULT_BOTTOM = 120; // Position above bottom navigation
-const BUTTON_RECORDING_BOTTOM = 40; // Position when recording (above safe area)
 
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -54,14 +41,7 @@ export default function CameraScreen() {
   const setCountingDown = useRecordingStore((s) => s.setCountingDown);
   const recordingError = useRecordingError();
 
-  // Shared value for button position animation
-  const buttonProgress = useSharedValue(0);
 
-  // Update button position when recording state changes
-  // Keep button in recording position during finishing
-  useEffect(() => {
-    buttonProgress.value = withTiming((isRecording || isFinishing) ? 1 : 0, BUTTON_TIMING);
-  }, [isRecording, isFinishing]);
 
   // Show alert on recording error - but only for critical errors
   // Filter out transient errors like frame encoding failures that don't stop recording
@@ -167,15 +147,7 @@ export default function CameraScreen() {
     }
   }, [isRecording, isCountingDown, setCountingDown]);
 
-  // Animated style for record button position
-  const animatedButtonStyle = useAnimatedStyle(() => {
-    // Calculate the drop distance based on navbar slide
-    const dropDistance = BUTTON_DEFAULT_BOTTOM - BUTTON_RECORDING_BOTTOM - insets.bottom;
 
-    return {
-      transform: [{ translateY: buttonProgress.value * dropDistance }],
-    };
-  });
 
   // Loading state while checking permissions
   if (!permission) {
@@ -269,14 +241,13 @@ export default function CameraScreen() {
       {/* No loader overlay - recording start/stop happens seamlessly in background */}
 
       {/* Bottom control zone - Record button */}
-      {/* Animated position - drops down when recording */}
-      <Animated.View style={[styles.bottomControls, animatedButtonStyle]}>
+      <View style={styles.bottomControls}>
         <GlassRecordButton
           onPress={handleRecordPress}
           isRecording={isRecording || isFinishing}
           disabled={isPreparing || isFinishing || isCountingDown}
         />
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -310,6 +281,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: BUTTON_DEFAULT_BOTTOM,
+    height: 80, // Fixed height to prevent button position shift
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

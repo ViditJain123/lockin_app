@@ -6,50 +6,126 @@
  * - Private (not visible in Photos/Files app)
  * - Backed up to iCloud
  * - Persists across app updates
+ * 
+ * IMPORTANT: Paths are stored as RELATIVE paths (e.g., "videos/123.mp4")
+ * to survive app updates where the documentDirectory UUID changes.
  */
 
 import {
-    copyAsync,
-    deleteAsync,
-    documentDirectory,
-    getInfoAsync,
-    makeDirectoryAsync,
-    readAsStringAsync,
-    writeAsStringAsync,
+  copyAsync,
+  deleteAsync,
+  documentDirectory,
+  getInfoAsync,
+  makeDirectoryAsync,
+  readAsStringAsync,
+  writeAsStringAsync,
 } from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 
-// Storage paths
-const VIDEOS_DIR = `${documentDirectory}videos/`;
-const THUMBNAILS_DIR = `${documentDirectory}thumbnails/`;
-const INDEX_FILE = `${documentDirectory}videos/index.json`;
+// Relative paths for storage (relative to documentDirectory)
+const VIDEOS_RELATIVE_DIR = 'videos/';
+const THUMBNAILS_RELATIVE_DIR = 'thumbnails/';
+const INDEX_RELATIVE_PATH = 'videos/index.json';
 
+// Absolute paths for file operations (computed at runtime)
+const getVideosDir = () => `${documentDirectory}${VIDEOS_RELATIVE_DIR}`;
+const getThumbnailsDir = () => `${documentDirectory}${THUMBNAILS_RELATIVE_DIR}`;
+const getIndexFile = () => `${documentDirectory}${INDEX_RELATIVE_PATH}`;
+
+/**
+ * LocalVideo interface - paths returned are ABSOLUTE for direct use
+ */
 export interface LocalVideo {
   id: string;
-  videoPath: string;
-  thumbnailPath: string;
+  videoPath: string;      // Absolute path for runtime use
+  thumbnailPath: string;  // Absolute path for runtime use
+  durationSeconds: number;
+  createdAt: string;
+  savedToGallery: boolean;
+}
+
+/**
+ * StoredVideo interface - paths stored are RELATIVE for persistence
+ */
+interface StoredVideo {
+  id: string;
+  videoPath: string;      // Relative path for storage
+  thumbnailPath: string;  // Relative path for storage
   durationSeconds: number;
   createdAt: string;
   savedToGallery: boolean;
 }
 
 interface VideoIndex {
-  videos: LocalVideo[];
+  videos: StoredVideo[];
   version: number;
 }
+
+// ============================================================================
+// Path Conversion Helpers
+// ============================================================================
+
+/**
+ * Convert a relative path to absolute (for file operations)
+ */
+function toAbsolutePath(relativePath: string): string {
+  return `${documentDirectory}${relativePath}`;
+}
+
+/**
+ * Convert an absolute path to relative (for storage)
+ * Handles paths with or without file:// prefix
+ */
+function toRelativePath(absolutePath: string): string {
+  const docDir = documentDirectory || '';
+  if (absolutePath.startsWith(docDir)) {
+    return absolutePath.replace(docDir, '');
+  }
+  // Already relative or unknown format
+  return absolutePath;
+}
+
+/**
+ * Check if a path is absolute (starts with / or file://)
+ */
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith('/') || path.startsWith('file://');
+}
+
+/**
+ * Convert stored video (relative paths) to LocalVideo (absolute paths)
+ */
+function hydrateVideo(stored: StoredVideo): LocalVideo {
+  return {
+    ...stored,
+    videoPath: isAbsolutePath(stored.videoPath) 
+      ? stored.videoPath 
+      : toAbsolutePath(stored.videoPath),
+    thumbnailPath: isAbsolutePath(stored.thumbnailPath)
+      ? stored.thumbnailPath
+      : toAbsolutePath(stored.thumbnailPath),
+  };
+}
+
+// ============================================================================
+// Storage Directory Management
+// ============================================================================
 
 /**
  * Ensure storage directories exist
  */
 async function ensureDirectories(): Promise<void> {
-  const videosInfo = await getInfoAsync(VIDEOS_DIR);
+  const videosDir = getVideosDir();
+  const thumbnailsDir = getThumbnailsDir();
+  
+  const videosInfo = await getInfoAsync(videosDir);
   if (!videosInfo.exists) {
-    await makeDirectoryAsync(VIDEOS_DIR, { intermediates: true });
+    await makeDirectoryAsync(videosDir, { intermediates: true });
   }
 
-  const thumbnailsInfo = await getInfoAsync(THUMBNAILS_DIR);
+  const thumbnailsInfo = await getInfoAsync(thumbnailsDir);
   if (!thumbnailsInfo.exists) {
-    await makeDirectoryAsync(THUMBNAILS_DIR, { intermediates: true });
+    await makeDirectoryAsync(thumbnailsDir, { intermediates: true });
   }
 }
 
@@ -62,18 +138,47 @@ function generateVideoId(): string {
   return `${timestamp}_${random}`;
 }
 
+// ============================================================================
+// Index File Management
+// ============================================================================
+
 /**
  * Read the video index from disk
+ * Includes migration logic for absolute paths from older versions
  */
 async function readIndex(): Promise<VideoIndex> {
   try {
-    const indexInfo = await getInfoAsync(INDEX_FILE);
+    const indexFile = getIndexFile();
+    const indexInfo = await getInfoAsync(indexFile);
     if (!indexInfo.exists) {
       return { videos: [], version: 1 };
     }
 
-    const content = await readAsStringAsync(INDEX_FILE);
-    return JSON.parse(content) as VideoIndex;
+    const content = await readAsStringAsync(indexFile);
+    const index = JSON.parse(content) as VideoIndex;
+    
+    // Migrate any absolute paths to relative paths
+    let needsMigration = false;
+    const migratedVideos = index.videos.map(video => {
+      if (isAbsolutePath(video.videoPath)) {
+        needsMigration = true;
+        console.log('[VideoStorage] Migrating absolute path to relative:', video.id);
+        return {
+          ...video,
+          videoPath: toRelativePath(video.videoPath),
+          thumbnailPath: toRelativePath(video.thumbnailPath),
+        };
+      }
+      return video;
+    });
+    
+    // Persist migration if needed
+    if (needsMigration) {
+      console.log('[VideoStorage] Saving migrated index with relative paths');
+      await writeIndex({ ...index, videos: migratedVideos });
+    }
+    
+    return { ...index, videos: migratedVideos };
   } catch (error) {
     console.error('[VideoStorage] Failed to read index:', error);
     return { videos: [], version: 1 };
@@ -85,7 +190,7 @@ async function readIndex(): Promise<VideoIndex> {
  */
 async function writeIndex(index: VideoIndex): Promise<void> {
   await ensureDirectories();
-  await writeAsStringAsync(INDEX_FILE, JSON.stringify(index, null, 2));
+  await writeAsStringAsync(getIndexFile(), JSON.stringify(index, null, 2));
 }
 
 /**
@@ -121,22 +226,27 @@ export async function saveVideoToPrivateStorage(
   await ensureDirectories();
 
   const id = generateVideoId();
-  const videoPath = `${VIDEOS_DIR}${id}.mp4`;
-  const thumbnailPath = `${THUMBNAILS_DIR}${id}.jpg`;
+  // Use relative paths for storage persistence across app updates
+  const videoRelativePath = `${VIDEOS_RELATIVE_DIR}${id}.mp4`;
+  const thumbnailRelativePath = `${THUMBNAILS_RELATIVE_DIR}${id}.jpg`;
+  // Use absolute paths for file operations
+  const videoAbsolutePath = toAbsolutePath(videoRelativePath);
+  const thumbnailAbsolutePath = toAbsolutePath(thumbnailRelativePath);
 
   // Copy video to private storage
   await copyAsync({
     from: sourceUri,
-    to: videoPath,
+    to: videoAbsolutePath,
   });
 
   // Generate thumbnail
-  await generateThumbnail(videoPath, thumbnailPath);
+  await generateThumbnail(videoAbsolutePath, thumbnailAbsolutePath);
 
-  const video: LocalVideo = {
+  // Store with relative paths for persistence
+  const storedVideo: StoredVideo = {
     id,
-    videoPath,
-    thumbnailPath,
+    videoPath: videoRelativePath,
+    thumbnailPath: thumbnailRelativePath,
     durationSeconds,
     createdAt: new Date().toISOString(),
     savedToGallery: false,
@@ -144,11 +254,13 @@ export async function saveVideoToPrivateStorage(
 
   // Add to index
   const index = await readIndex();
-  index.videos.unshift(video); // Add to beginning (newest first)
+  index.videos.unshift(storedVideo); // Add to beginning (newest first)
   await writeIndex(index);
 
   console.log('[VideoStorage] Saved video:', id);
-  return video;
+
+  // Return hydrated video with absolute paths for immediate use
+  return hydrateVideo(storedVideo);
 }
 
 /**
@@ -156,22 +268,27 @@ export async function saveVideoToPrivateStorage(
  */
 export async function getAllVideos(): Promise<LocalVideo[]> {
   const index = await readIndex();
-  
+
   // Filter out videos whose files no longer exist
-  const validVideos: LocalVideo[] = [];
+  const validStoredVideos: StoredVideo[] = [];
   for (const video of index.videos) {
-    const videoInfo = await getInfoAsync(video.videoPath);
+    // Convert to absolute path for file system check
+    const absoluteVideoPath = isAbsolutePath(video.videoPath)
+      ? video.videoPath
+      : toAbsolutePath(video.videoPath);
+    const videoInfo = await getInfoAsync(absoluteVideoPath);
     if (videoInfo.exists) {
-      validVideos.push(video);
+      validStoredVideos.push(video);
     }
   }
 
   // Update index if we removed any invalid entries
-  if (validVideos.length !== index.videos.length) {
-    await writeIndex({ ...index, videos: validVideos });
+  if (validStoredVideos.length !== index.videos.length) {
+    await writeIndex({ ...index, videos: validStoredVideos });
   }
 
-  return validVideos;
+  // Return hydrated videos with absolute paths
+  return validStoredVideos.map(hydrateVideo);
 }
 
 /**
@@ -179,7 +296,8 @@ export async function getAllVideos(): Promise<LocalVideo[]> {
  */
 export async function getVideoById(id: string): Promise<LocalVideo | null> {
   const index = await readIndex();
-  return index.videos.find((v) => v.id === id) || null;
+  const video = index.videos.find((v) => v.id === id);
+  return video ? hydrateVideo(video) : null;
 }
 
 /**
@@ -207,10 +325,18 @@ export async function deleteVideo(id: string): Promise<void> {
     return;
   }
 
+  // Convert to absolute paths for file operations
+  const absoluteVideoPath = isAbsolutePath(video.videoPath)
+    ? video.videoPath
+    : toAbsolutePath(video.videoPath);
+  const absoluteThumbnailPath = isAbsolutePath(video.thumbnailPath)
+    ? video.thumbnailPath
+    : toAbsolutePath(video.thumbnailPath);
+
   // Delete files
   try {
-    await deleteAsync(video.videoPath, { idempotent: true });
-    await deleteAsync(video.thumbnailPath, { idempotent: true });
+    await deleteAsync(absoluteVideoPath, { idempotent: true });
+    await deleteAsync(absoluteThumbnailPath, { idempotent: true });
   } catch (error) {
     console.error('[VideoStorage] Failed to delete files:', error);
   }
