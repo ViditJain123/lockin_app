@@ -19,6 +19,7 @@ interface ProfileState {
   fetchActivity: (userId: string) => Promise<void>;
   refreshAll: (userId: string) => Promise<void>;
   incrementHoursLocally: (additionalHours: number) => void;
+  addActivityLocally: (minutes: number) => void;
   resetStats: () => void;
   updateStatsLocally: (hours: number, grinds: number, streak: number) => void;
 }
@@ -96,5 +97,25 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     set((state) => ({
       totalHours: state.totalHours + additionalHours,
     }));
+  },
+
+  addActivityLocally: (minutes: number) => {
+    const today = new Date().toISOString().split('T')[0];
+    set((state) => {
+      const existingIndex = state.dailyActivity.findIndex(a => a.date === today);
+      if (existingIndex >= 0) {
+        // Update existing entry for today
+        const updated = [...state.dailyActivity];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          totalMinutes: updated[existingIndex].totalMinutes + minutes,
+        };
+        return { dailyActivity: updated };
+      }
+      // Add new entry for today
+      return {
+        dailyActivity: [...state.dailyActivity, { date: today, totalMinutes: minutes }],
+      };
+    });
   },
 }));

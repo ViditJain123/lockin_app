@@ -13,6 +13,7 @@ import Animated, {
     withSpring,
 } from 'react-native-reanimated';
 
+import { Fonts } from '../constants/Fonts';
 import { useAuth } from '../contexts/AuthContext';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
   text: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     letterSpacing: 0.3,
   },
 });

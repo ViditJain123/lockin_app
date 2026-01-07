@@ -8,14 +8,15 @@ import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function PreviewScreen() {
@@ -40,6 +41,7 @@ export default function PreviewScreen() {
 
   // Profile store for optimistic updates
   const incrementHoursLocally = useProfileStore((s) => s.incrementHoursLocally);
+  const addActivityLocally = useProfileStore((s) => s.addActivityLocally);
   
   // Auth context for user ID
   const { user } = useAuth();
@@ -74,14 +76,26 @@ export default function PreviewScreen() {
 
   const handleAutoSaveToPrivate = async () => {
     if (!videoUri) return;
-    
+
+    // Validate user is authenticated
+    if (!user?.id) {
+      console.error('[Preview] Cannot save: user not authenticated');
+      Alert.alert('Error', 'Please sign in to save videos');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // Pass user.id to record session in Supabase for heatmap
-      const video = await addVideo(videoUri, grindDuration, user?.id);
+      console.log('[Preview] Saving video with userId:', user.id, 'duration:', grindDuration);
+      const video = await addVideo(videoUri, grindDuration, user.id);
       setCurrentVideoId(video.id);
       setIsSaved(true);
       console.log('[Preview] Saved to private storage:', video.id);
+
+      // Optimistic update for heatmap (convert seconds to minutes)
+      const minutes = grindDuration / 60;
+      addActivityLocally(minutes);
+      console.log('[Preview] Added activity locally:', minutes, 'minutes');
     } catch (error) {
       console.error('[Preview] Failed to save to private storage:', error);
       Alert.alert('Error', 'Failed to save video. Please try again.');
@@ -212,8 +226,8 @@ export default function PreviewScreen() {
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
       />
 
-      {/* Top Bar - below sheet grabber */}
-      <View style={[styles.topBar, { paddingTop: 20 }]}>
+      {/* Top Bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
         {/* Close Button */}
         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
           <Ionicons name="close" size={28} color="white" />
@@ -303,7 +317,7 @@ const styles = StyleSheet.create({
   statusText: {
     color: 'white',
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: Fonts.medium,
   },
   bottomBar: {
     position: 'absolute',
@@ -323,7 +337,7 @@ const styles = StyleSheet.create({
   buttonLabel: {
     color: 'white',
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: Fonts.medium,
     textAlign: 'center',
   },
 });

@@ -2,20 +2,21 @@ import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    FlatList,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ActivityHeatmap from '../../components/ActivityHeatmap';
 import ThumbnailItem from '../../components/ThumbnailItem';
+import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
 import { LocalVideo } from '../../lib/videoStorageService';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -222,8 +223,9 @@ export default function ProfileScreen() {
     return 'hours';
   };
 
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+  // Header component that scrolls with the content (Instagram-style)
+  const renderListHeader = () => (
+    <>
       {/* Profile Header Section */}
       <View style={styles.headerSection}>
         {/* Avatar on the left */}
@@ -279,33 +281,43 @@ export default function ProfileScreen() {
       <View style={styles.heatmapContainer}>
         <ActivityHeatmap data={dailyActivity} />
       </View>
+    </>
+  );
 
-      {/* Gallery Grid */}
-      <View style={styles.galleryContainer}>
-        {showPlaceholderGrid ? (
-          renderPlaceholderGrid()
-        ) : (
-          <FlatList
-            data={videos}
-            renderItem={renderThumbnail}
-            keyExtractor={(item) => item.id}
-            numColumns={NUM_COLUMNS}
-            ListFooterComponent={renderFooter}
-            ListEmptyComponent={renderEmptyGallery}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.galleryContent}
-            columnWrapperStyle={videos.length >= NUM_COLUMNS ? styles.galleryRow : undefined}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor="#fa576a"
-                colors={['#fa576a']}
-              />
-            }
-          />
-        )}
+  // When showing placeholder grid, we need to render the full layout with header
+  if (showPlaceholderGrid) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {renderListHeader()}
+        <View style={styles.galleryContainer}>
+          {renderPlaceholderGrid()}
+        </View>
       </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <FlatList
+        data={videos}
+        renderItem={renderThumbnail}
+        keyExtractor={(item) => item.id}
+        numColumns={NUM_COLUMNS}
+        ListHeaderComponent={renderListHeader}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={renderEmptyGallery}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.galleryContent}
+        columnWrapperStyle={videos.length >= NUM_COLUMNS ? styles.galleryRow : undefined}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#fa576a"
+            colors={['#fa576a']}
+          />
+        }
+      />
     </View>
   );
 }
@@ -338,7 +350,7 @@ const styles = StyleSheet.create({
   },
   avatarPlaceholderText: {
     fontSize: 36,
-    fontWeight: 'bold',
+    fontFamily: Fonts.bold,
     color: '#fa576a',
   },
   infoContainer: {
@@ -346,7 +358,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: Fonts.bold,
     color: 'white',
     marginBottom: 12,
   },
@@ -361,11 +373,12 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: Fonts.bold,
     color: 'white',
   },
   statLabel: {
     fontSize: 13,
+    fontFamily: Fonts.regular,
     color: 'rgba(255, 255, 255, 0.6)',
     marginTop: 2,
   },
@@ -405,11 +418,12 @@ const styles = StyleSheet.create({
   emptyGalleryText: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: Fonts.medium,
   },
   emptyGallerySubtext: {
     color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 14,
+    fontFamily: Fonts.regular,
     marginTop: 4,
   },
 });

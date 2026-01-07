@@ -2,11 +2,13 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
 } from 'react-native-reanimated';
+
+import { Fonts } from '../constants/Fonts';
 
 // Animation configuration
 const ANIMATION_DURATION = 900; // ms for shrink animation
@@ -75,7 +77,7 @@ export default function CountdownOverlay({ isVisible, onComplete }: CountdownOve
         setCurrentNumber(num);
 
         // Wait for React to render the new number before making it visible
-        await new Promise<void>((resolve) => requestAnimationFrame(resolve));
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
         if (isCancelled) return;
 
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
   },
   numberText: {
     fontSize: 200,
-    fontWeight: '800',
+    fontFamily: Fonts.bold,
     color: 'white',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 4 },

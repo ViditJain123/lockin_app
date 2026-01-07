@@ -4,32 +4,21 @@ import CoreGraphics
 import UIKit
 
 /// Renders branded frame overlay for timelapse videos
-/// Includes: black frame (square outer, rounded inner), left trapezium with logo and vertical timer
+/// Includes: bottom gradient, logo on left and horizontal timer on right at 3/4 height
 class TimelapseFrameOverlay {
-    
+
     // MARK: - Configuration
-    
+
     /// Frame dimensions (must match encoder output)
     private let frameWidth: CGFloat = 1080
     private let frameHeight: CGFloat = 1920
-    
-    /// Frame border configuration - THICKER
-    private let borderWidth: CGFloat = 48
-    private let innerCornerRadius: CGFloat = 64  // Only inner box has radius
-    
-    /// Trapezoid configuration - wider on left (at edge), narrower on right (inward)
-    private let trapezoidLeftWidth: CGFloat = 320         // Vertical span of left edge (wider = more slant)
-    private let trapezoidRightWidth: CGFloat = 140        // Horizontal depth into screen
-    private let trapezoidHeight: CGFloat = 430            // Total height
-    private let trapezoidCornerRadius: CGFloat = 0
-    
-    /// Logo configuration - sized for trapezoid
-    private let logoSize: CGFloat = 140
-    private let logoTopPadding: CGFloat = 30
 
-    /// Timer configuration - vertical display (MM over SS) - sized for trapezoid
-    private let timerFontSize: CGFloat = 56
-    private let timerLineSpacing: CGFloat = 8
+    /// Logo configuration
+    private let logoSize: CGFloat = 200
+    private let horizontalPadding: CGFloat = 80
+
+    /// Timer configuration - horizontal display (HH:MM:SS)
+    private let timerFontSize: CGFloat = 60
     
     // MARK: - Cached Assets
     
@@ -79,142 +68,71 @@ class TimelapseFrameOverlay {
     }
     
     // MARK: - Static Overlay Rendering
-    
+
     private func renderStaticOverlay() {
         let size = CGSize(width: frameWidth, height: frameHeight)
-        
+
         UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
         guard let context = UIGraphicsGetCurrentContext() else {
             UIGraphicsEndImageContext()
             return
         }
-        
+
         // Clear background (transparent)
         context.clear(CGRect(origin: .zero, size: size))
-        
-        // Draw rectangle panel on the left (centered vertically) - no border frame
-        drawTrapezium(in: context, size: size)
-        
-        // Draw logo in trapezium
+
+        // Draw bottom gradient (black transparent to transparent)
+        drawBottomGradient(in: context, size: size)
+
+        // Draw logo at 3/4 height on left side
         drawLogo(in: context, size: size)
-        
+
         // Get the rendered image
         if let image = UIGraphicsGetImageFromCurrentImageContext()?.cgImage {
             cachedOverlayWithoutTimer = image
             print("[TimelapseFrameOverlay] Static overlay cached successfully")
         }
-        
+
         UIGraphicsEndImageContext()
     }
-    
-    private func drawFrameBorder(in context: CGContext, size: CGSize) {
-        context.setFillColor(UIColor.black.cgColor)
-        
-        // Outer rect - SQUARE corners (edge to edge)
-        let outerRect = CGRect(origin: .zero, size: size)
-        let outerPath = UIBezierPath(rect: outerRect)  // Square corners
-        
-        // Inner rect - ROUNDED corners (content area)
-        let innerRect = CGRect(
-            x: borderWidth,
-            y: borderWidth,
-            width: size.width - borderWidth * 2,
-            height: size.height - borderWidth * 2
+
+    private func drawBottomGradient(in context: CGContext, size: CGSize) {
+        // Gradient from bottom (black with low opacity) to middle (transparent)
+        let gradientColors = [
+            UIColor.black.withAlphaComponent(0.5).cgColor,  // Bottom - subtle black
+            UIColor.black.withAlphaComponent(0.0).cgColor   // Middle - fully transparent
+        ]
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let gradient = CGGradient(
+            colorsSpace: colorSpace,
+            colors: gradientColors as CFArray,
+            locations: [0.0, 1.0]
+        ) else { return }
+
+        // Gradient covers bottom half of the screen
+        let startPoint = CGPoint(x: size.width / 2, y: size.height)  // Bottom
+        let endPoint = CGPoint(x: size.width / 2, y: size.height / 2)  // Middle
+
+        context.drawLinearGradient(
+            gradient,
+            start: startPoint,
+            end: endPoint,
+            options: []
         )
-        let innerPath = UIBezierPath(roundedRect: innerRect, cornerRadius: innerCornerRadius)
-        
-        // Use even-odd fill to create hollow effect
-        outerPath.append(innerPath)
-        outerPath.usesEvenOddFillRule = true
-        
-        context.addPath(outerPath.cgPath)
-        context.fillPath(using: .evenOdd)
-    }
-    
-    private func drawTrapezium(in context: CGContext, size: CGSize) {
-        context.setFillColor(UIColor.black.withAlphaComponent(0.4).cgColor)
-
-        // Calculate trapezoid position - centered vertically on left side
-        let centerY = size.height / 2
-        let topY = centerY - trapezoidHeight / 2
-        let bottomY = centerY + trapezoidHeight / 2
-
-        // Trapezoid shape: WIDER on left (at screen edge), NARROWER on right (facing inward)
-        // The right edge is shorter, so top-right and bottom-right are indented
-        let rightIndent = (trapezoidLeftWidth - trapezoidRightWidth) / 2  // Will be negative, flip the logic
-        let widerWidth = trapezoidLeftWidth    // Left side (at edge) is wider
-        let narrowerWidth = trapezoidRightWidth // Right side (inward) is narrower
-        let indent = (widerWidth - narrowerWidth) / 2
-
-        // Points (going clockwise from top-left)
-        let topLeft = CGPoint(x: 0, y: topY)                              // Full height at left edge
-        let topRight = CGPoint(x: narrowerWidth, y: topY + indent)        // Indented from top
-        let bottomRight = CGPoint(x: narrowerWidth, y: bottomY - indent)  // Indented from bottom
-        let bottomLeft = CGPoint(x: 0, y: bottomY)                        // Full height at left edge
-
-        let path = UIBezierPath()
-        let r = trapezoidCornerRadius
-
-        // Start from top-left (after corner - but left edge is at x=0, so no left rounding needed)
-        path.move(to: CGPoint(x: topLeft.x, y: topLeft.y))
-
-        // Top slanted edge to top-right corner
-        path.addLine(to: CGPoint(x: topRight.x - r, y: topRight.y - r * 0.5))
-
-        // Top-right corner (curved)
-        path.addQuadCurve(
-            to: CGPoint(x: topRight.x, y: topRight.y + r),
-            controlPoint: topRight
-        )
-
-        // Right edge straight down
-        path.addLine(to: CGPoint(x: bottomRight.x, y: bottomRight.y - r))
-
-        // Bottom-right corner (curved)
-        path.addQuadCurve(
-            to: CGPoint(x: bottomRight.x - r, y: bottomRight.y + r * 0.5),
-            controlPoint: bottomRight
-        )
-
-        // Bottom slanted edge to bottom-left
-        path.addLine(to: CGPoint(x: bottomLeft.x, y: bottomLeft.y))
-
-        // Left edge back up to start (straight, flush with screen edge)
-        path.addLine(to: CGPoint(x: topLeft.x, y: topLeft.y))
-        path.close()
-
-        context.addPath(path.cgPath)
-        context.fillPath()
-    }
-    
-    /// Calculate the center X of the trapezoid for positioning content
-    private func getTrapezoidCenterX() -> CGFloat {
-        // Horizontal center of trapezoid (spans from x=0 to x=trapezoidRightWidth)
-        return trapezoidRightWidth / 2
     }
 
-    /// Calculate the Y position for the trapezoid center
-    private func getTrapezoidCenterY() -> CGFloat {
-        return frameHeight / 2
+    /// Get the Y position at 3/4 height (1/4 from bottom)
+    private func getOverlayYPosition() -> CGFloat {
+        return frameHeight * 0.75
     }
-    
+
     private func drawLogo(in context: CGContext, size: CGSize) {
         guard let logo = cachedLogoImage else { return }
 
-        // Calculate total content height (logo + spacing + timer lines)
-        let timerHeight = (timerFontSize + timerLineSpacing) * 2
-        let spacingBetweenLogoAndTimer: CGFloat = 10
-        let totalContentHeight = logoSize + spacingBetweenLogoAndTimer + timerHeight
-
-        // Calculate logo position (centered both horizontally and vertically in trapezoid)
-        let trapezoidCenterY = getTrapezoidCenterY()
-        let trapezoidCenterX = getTrapezoidCenterX()
-
-        // Vertically center the entire content block (logo + timer)
-        let contentStartY = trapezoidCenterY - totalContentHeight / 2
-
-        let logoX = trapezoidCenterX - logoSize / 2
-        let logoY = contentStartY
+        // Position logo at 3/4 height on the left side
+        let logoY = getOverlayYPosition() - logoSize / 2
+        let logoX = horizontalPadding
 
         let logoRect = CGRect(x: logoX, y: logoY, width: logoSize, height: logoSize)
 
@@ -234,65 +152,48 @@ class TimelapseFrameOverlay {
     }
     
     // MARK: - Timer Rendering
-    
+
     private func renderTimerText(_ seconds: Int) -> CGImage? {
-        // Calculate minutes and seconds from total seconds (MM:SS format)
-        let minutes = seconds / 60
+        // Calculate hours, minutes, and seconds from total seconds (HH:MM:SS format)
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
         let secs = seconds % 60
-        
-        // Format as two lines: MM on top, SS below
-        let minutesString = String(format: "%02d", minutes)
-        let secondsString = String(format: "%02d", secs)
-        
+
+        // Format as horizontal: HH:MM:SS
+        let timerString = String(format: "%02d:%02d:%02d", hours, minutes, secs)
+
         let size = CGSize(width: frameWidth, height: frameHeight)
-        
+
         UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
         guard let context = UIGraphicsGetCurrentContext() else {
             UIGraphicsEndImageContext()
             return nil
         }
-        
+
         // Clear background
         context.clear(CGRect(origin: .zero, size: size))
-        
+
         // Configure text attributes
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        
+        paragraphStyle.alignment = .right
+
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .bold),
+            .font: UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold),
             .foregroundColor: UIColor.white,
             .paragraphStyle: paragraphStyle
         ]
-        
-        // Calculate timer position (below logo, centered in trapezoid)
-        let trapezoidCenterX = getTrapezoidCenterX()
-        let trapezoidCenterY = getTrapezoidCenterY()
 
-        // Calculate total content height to center everything
-        let timerHeight = (timerFontSize + timerLineSpacing) * 2
-        let spacingBetweenLogoAndTimer: CGFloat = 10
-        let totalContentHeight = logoSize + spacingBetweenLogoAndTimer + timerHeight
+        // Calculate timer position (right side at 3/4 height)
+        let timerY = getOverlayYPosition() - timerFontSize / 2
+        let timerWidth = frameWidth - horizontalPadding * 2
+        let timerRect = CGRect(x: horizontalPadding, y: timerY, width: timerWidth, height: timerFontSize + 10)
 
-        // Vertically center the entire content block (logo + timer)
-        let contentStartY = trapezoidCenterY - totalContentHeight / 2
-        let timerStartY = contentStartY + logoSize + spacingBetweenLogoAndTimer
+        // Draw the timer text
+        (timerString as NSString).draw(in: timerRect, withAttributes: attributes)
 
-        // Use trapezoid center X for horizontal centering
-        let timerWidth: CGFloat = trapezoidCenterX * 2
-        let lineHeight = timerFontSize + timerLineSpacing
-        
-        // Draw minutes (MM)
-        let minutesRect = CGRect(x: 0, y: timerStartY, width: timerWidth, height: lineHeight)
-        (minutesString as NSString).draw(in: minutesRect, withAttributes: attributes)
-        
-        // Draw seconds (SS) below minutes
-        let secondsRect = CGRect(x: 0, y: timerStartY + lineHeight, width: timerWidth, height: lineHeight)
-        (secondsString as NSString).draw(in: secondsRect, withAttributes: attributes)
-        
         let image = UIGraphicsGetImageFromCurrentImageContext()?.cgImage
         UIGraphicsEndImageContext()
-        
+
         return image
     }
     
@@ -306,7 +207,7 @@ class TimelapseFrameOverlay {
     func applyOverlay(to image: CIImage, elapsedSeconds: Int) -> CIImage {
         var result = image
         
-        // Composite static overlay (frame + trapezium + logo)
+        // Composite static overlay (gradient + logo)
         if let staticOverlay = cachedOverlayWithoutTimer {
             let overlayCI = CIImage(cgImage: staticOverlay)
             result = overlayCI.composited(over: result)

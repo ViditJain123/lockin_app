@@ -6,6 +6,7 @@
  */
 
 import { recordSession } from '@/lib/sessionService';
+import { updateStatsAfterSave } from '@/lib/statsService';
 import {
     deleteVideo as deleteVideoFromStorage,
     getAllVideos,
@@ -60,11 +61,19 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         videos: [video, ...state.videos],
       }));
 
-      // Record session to Supabase for heatmap tracking (fire and forget)
+      // Record session to Supabase for heatmap tracking and update user stats
       if (userId && durationSeconds > 0) {
-        recordSession(userId, durationSeconds * 1000).catch((err) => {
-          console.error('[VideoStore] Failed to record session:', err);
-        });
+        console.log('[VideoStore] Recording session:', { userId, durationMs: durationSeconds * 1000 });
+
+        // Record session in grinds table for heatmap
+        const sessionResult = await recordSession(userId, durationSeconds * 1000);
+        console.log('[VideoStore] Session recorded:', sessionResult);
+
+        // Update user stats (hours, grinds, streak) in user_stats table
+        await updateStatsAfterSave(userId, durationSeconds);
+        console.log('[VideoStore] Stats updated');
+      } else {
+        console.warn('[VideoStore] Skipping session recording:', { userId: !!userId, durationSeconds });
       }
 
       return video;

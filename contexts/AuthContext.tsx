@@ -10,7 +10,6 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -21,7 +20,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Handle app state changes for token refresh
   useEffect(() => {
@@ -37,17 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, []);
 
-  // Initialize session and listen for auth changes
+  // Listen for auth state changes - the INITIAL_SESSION event fires
+  // synchronously with the cached session from AsyncStorage, avoiding
+  // any loading state on app startup
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsLoading(false);
-    });
-
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('[Auth] Auth state changed:', event);
         setSession(session);
         
         // Handle OAuth callback
@@ -209,7 +203,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextType = {
     session,
     user: session?.user ?? null,
-    isLoading,
     signInWithGoogle,
     signOut,
   };

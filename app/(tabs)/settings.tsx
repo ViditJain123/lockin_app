@@ -2,6 +2,8 @@
 import { BlurView } from 'expo-blur';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { Fonts } from '../../constants/Fonts';
+
 export default function SettingsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: '#000000' }]}>
@@ -26,7 +28,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: Fonts.bold,
     color: 'white',
   },
 });

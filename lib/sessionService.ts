@@ -19,26 +19,30 @@ export async function recordSession(
   userId: string,
   durationMs: number
 ): Promise<boolean> {
+  console.log('[SessionService] recordSession called:', { userId, durationMs });
+
   if (!userId || durationMs <= 0) {
     console.warn('[SessionService] Invalid params:', { userId: !!userId, durationMs });
     return false;
   }
 
   try {
-    const { error } = await supabase.from('grinds').insert({
+    const insertData = {
       user_id: userId,
       duration_ms: durationMs,
-      // Video fields left null since we're only storing metadata
-      video_path: 'local', // Placeholder to satisfy NOT NULL constraint
-      video_url: 'local',  // Placeholder to satisfy NOT NULL constraint
-    });
+      video_path: 'local',
+      video_url: 'local',
+    };
+    console.log('[SessionService] Inserting into grinds:', insertData);
+
+    const { data, error } = await supabase.from('grinds').insert(insertData).select();
 
     if (error) {
-      console.error('[SessionService] Failed to record session:', error);
+      console.error('[SessionService] Failed to record session:', error.message, error.details, error.hint);
       return false;
     }
 
-    console.log('[SessionService] Session recorded:', { userId, durationMs });
+    console.log('[SessionService] Session recorded successfully:', data);
     return true;
   } catch (error) {
     console.error('[SessionService] Error recording session:', error);

@@ -1,3 +1,17 @@
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
+import {
+  Quicksand_300Light,
+  Quicksand_400Regular,
+  Quicksand_500Medium,
+  Quicksand_600SemiBold,
+  Quicksand_700Bold,
+} from '@expo-google-fonts/quicksand';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -7,16 +21,22 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
 import { useEffect } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, useColorScheme, View } from 'react-native';
+import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import AuthScreen from '../components/AuthScreen';
+import OnboardingScreen from '../components/OnboardingScreen';
+import DesiredScreenTimeQuestionScreen from '../components/quiz/questions/DesiredScreenTimeQuestionScreen';
+import GoalsQuestionScreen from '../components/quiz/questions/GoalsQuestionScreen';
+import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
+import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { useOnboardingStore, TOTAL_QUIZ_QUESTIONS } from '../store/useOnboardingStore';
 
 export {
-    // Catch any errors thrown by the Layout component.
-    ErrorBoundary
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -37,6 +57,18 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
+    // Quicksand font weights
+    Quicksand_300Light,
+    Quicksand_400Regular,
+    Quicksand_500Medium,
+    Quicksand_600SemiBold,
+    Quicksand_700Bold,
+    // Inter font weights
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
   });
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -62,24 +94,107 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme() || 'light';
-  const { session, isLoading } = useAuth();
+  // Force dark mode throughout the app
+  const colorScheme = 'dark' as const;
+  const { session } = useAuth();
 
-  // Keep the root view background color in sync with the current theme
+  // Onboarding state
+  const {
+    shouldShowOnboarding,
+    _hasHydrated,
+    // Quiz funnel state
+    isInQuizFunnel,
+    currentQuestionIndex,
+    quizAnswers,
+    // Quiz funnel actions
+    startQuizFunnel,
+    goToNextQuestion,
+    goToPreviousQuestion,
+    setAnswer,
+    completeQuizFunnel,
+  } = useOnboardingStore();
+
+  // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {
-    setBackgroundColorAsync(
-      colorScheme === 'dark' ? '#000000' : '#ffffff'
-    );
+    // Force dark mode at the React Native level
+    Appearance.setColorScheme('dark');
+    setBackgroundColorAsync('#000000');
   }, [colorScheme]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
-  // Show loading indicator while checking session
-  if (isLoading) {
+  // Wait for store hydration before deciding what to show
+  if (!_hasHydrated) {
+    return null;
+  }
+
+  // Show onboarding/quiz flow if needed (before auth)
+  if (shouldShowOnboarding()) {
+    // If in quiz funnel, show quiz screens
+    if (isInQuizFunnel) {
+      return (
+        <GestureHandlerRootView style={styles.container}>
+          <StatusBar style="light" />
+          {/* Question 1: Name */}
+          {currentQuestionIndex === 0 && (
+            <NameQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              name={quizAnswers.name}
+              onNameChange={(name) => setAnswer('name', name)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 2: Goals */}
+          {currentQuestionIndex === 1 && (
+            <GoalsQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              userName={quizAnswers.name}
+              selectedGoals={quizAnswers.goals}
+              onGoalsChange={(goals) => setAnswer('goals', goals)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 3: Screen Time */}
+          {currentQuestionIndex === 2 && (
+            <ScreenTimeQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              screenTime={quizAnswers.screenTime}
+              onScreenTimeChange={(hours) => setAnswer('screenTime', hours)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 4: Desired Screen Time */}
+          {currentQuestionIndex === 3 && (
+            <DesiredScreenTimeQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              userName={quizAnswers.name}
+              desiredScreenTime={quizAnswers.desiredScreenTime}
+              onDesiredScreenTimeChange={(hours) => setAnswer('desiredScreenTime', hours)}
+              onContinue={() => {
+                // For now, complete the quiz funnel after question 4
+                // Later, this should call goToNextQuestion() when more questions are added
+                completeQuizFunnel();
+              }}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+        </GestureHandlerRootView>
+      );
+    }
+
+    // Show initial onboarding screen
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: '#000000' }]}>
-        <ActivityIndicator size="large" color="#fa576a" />
-      </View>
+      <GestureHandlerRootView style={styles.container}>
+        <StatusBar style="light" />
+        <OnboardingScreen onComplete={startQuizFunnel} />
+      </GestureHandlerRootView>
     );
   }
 
@@ -102,16 +217,10 @@ function RootLayoutNav() {
           <Stack.Screen
             name="preview"
             options={{
-              presentation: Platform.OS === 'ios'
-                ? isLiquidGlassAvailable()
-                  ? 'formSheet'
-                  : 'modal'
-                : 'modal',
+              presentation: 'fullScreenModal',
               headerShown: false,
               gestureEnabled: true,
-              sheetGrabberVisible: true,
-              sheetAllowedDetents: 'fitToContents',
-              sheetExpandsWhenScrolledToEdge: true,
+              animation: 'slide_from_bottom',
               contentStyle: {
                 backgroundColor: 'black',
               },
@@ -151,11 +260,5 @@ function RootLayoutNav() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000000',
   },
 });

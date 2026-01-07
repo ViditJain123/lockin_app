@@ -2,6 +2,7 @@ import CountdownOverlay from '@/components/CountdownOverlay';
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
 import { TimelapsePreview } from '@/components/TimelapsePreview';
+import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -18,6 +19,8 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Fonts } from '../../constants/Fonts';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -41,6 +44,8 @@ export default function CameraScreen() {
   const setCountingDown = useRecordingStore((s) => s.setCountingDown);
   const recordingError = useRecordingError();
 
+  // Keep screen awake and dim brightness during recording
+  useScreenWakeLock(isRecording);
 
 
   // Show alert on recording error - but only for critical errors
@@ -292,13 +297,14 @@ const styles = StyleSheet.create({
   },
   permissionTitle: {
     fontSize: 24,
-    fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     color: 'rgba(255,255,255,0.95)',
     marginBottom: 12,
     textAlign: 'center',
   },
   permissionText: {
     fontSize: 16,
+    fontFamily: Fonts.regular,
     color: 'rgba(255,255,255,0.7)',
     textAlign: 'center',
     marginBottom: 32,
@@ -306,6 +312,7 @@ const styles = StyleSheet.create({
   },
   permissionHint: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 16,
   },
@@ -334,7 +341,7 @@ const styles = StyleSheet.create({
   durationText: {
     color: 'white',
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: Fonts.semiBold,
     fontVariant: ['tabular-nums'],
   },
 });

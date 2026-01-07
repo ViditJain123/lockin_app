@@ -12,6 +12,8 @@ export default function TabLayout() {
     <NativeTabs
       tintColor="#fa576a"
       tabBarHidden={isRecording || isFinishing || isPreparing || isCountingDown}
+      backgroundColor="rgba(0, 0, 0, 0.9)"
+      blurEffect="dark"
     >
       {/* 
         EXACT TAB ORDER (LEFT → RIGHT)

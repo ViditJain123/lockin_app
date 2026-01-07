@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import GoogleSignInButton from './GoogleSignInButton';
 
+import { Fonts } from '../constants/Fonts';
+
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
 
@@ -85,13 +87,14 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: 42,
-    fontWeight: '800',
+    fontFamily: Fonts.bold,
     color: '#ffffff',
     letterSpacing: 1,
     marginBottom: 8,
   },
   tagline: {
     fontSize: 16,
+    fontFamily: Fonts.medium,
     color: 'rgba(255, 255, 255, 0.6)',
     letterSpacing: 0.5,
   },
@@ -113,11 +116,13 @@ const styles = StyleSheet.create({
   dividerText: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 14,
+    fontFamily: Fonts.regular,
     paddingHorizontal: 16,
   },
   termsText: {
     color: 'rgba(255, 255, 255, 0.4)',
     fontSize: 12,
+    fontFamily: Fonts.regular,
     textAlign: 'center',
     lineHeight: 18,
     paddingHorizontal: 20,
