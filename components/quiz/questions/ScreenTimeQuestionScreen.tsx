@@ -98,7 +98,7 @@ export default function ScreenTimeQuestionScreen({
         {/* Hours display - fixed height container, text grows upward */}
         <View style={styles.hoursContainer}>
           <Text style={[styles.hoursText, { fontSize }]}>
-            {displayText}
+            {displayText} 
           </Text>
         </View>
 

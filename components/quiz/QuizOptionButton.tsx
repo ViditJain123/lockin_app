@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { ReactNode } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -13,6 +13,7 @@ import { Fonts } from '../../constants/Fonts';
 interface QuizOptionButtonProps {
   label: string;
   icon?: string;
+  iconComponent?: ReactNode;
   selected: boolean;
   onPress: () => void;
 }
@@ -24,6 +25,7 @@ interface QuizOptionButtonProps {
 export default function QuizOptionButton({
   label,
   icon,
+  iconComponent,
   selected,
   onPress,
 }: QuizOptionButtonProps) {
@@ -36,10 +38,10 @@ export default function QuizOptionButton({
         pressed && styles.containerPressed,
       ]}
     >
-      {/* Icon on the left */}
-      {icon && (
+      {/* Icon on the left - supports both emoji strings and icon components */}
+      {(icon || iconComponent) && (
         <View style={[styles.iconContainer, selected && styles.iconContainerSelected]}>
-          <Text style={styles.iconText}>{icon}</Text>
+          {iconComponent ? iconComponent : <Text style={styles.iconText}>{icon}</Text>}
         </View>
       )}
 

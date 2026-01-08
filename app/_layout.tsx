@@ -27,10 +27,12 @@ import 'react-native-reanimated';
 
 import AuthScreen from '../components/AuthScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
+import AppsQuestionScreen from '../components/quiz/questions/AppsQuestionScreen';
 import DesiredScreenTimeQuestionScreen from '../components/quiz/questions/DesiredScreenTimeQuestionScreen';
 import GoalsQuestionScreen from '../components/quiz/questions/GoalsQuestionScreen';
 import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
+import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useOnboardingStore, TOTAL_QUIZ_QUESTIONS } from '../store/useOnboardingStore';
 
@@ -177,11 +179,27 @@ function RootLayoutNav() {
               userName={quizAnswers.name}
               desiredScreenTime={quizAnswers.desiredScreenTime}
               onDesiredScreenTimeChange={(hours) => setAnswer('desiredScreenTime', hours)}
-              onContinue={() => {
-                // For now, complete the quiz funnel after question 4
-                // Later, this should call goToNextQuestion() when more questions are added
-                completeQuizFunnel();
-              }}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 5: Social Proof */}
+          {currentQuestionIndex === 4 && (
+            <SocialProofScreen
+              userName={quizAnswers.name}
+              selectedGoals={quizAnswers.goals}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 6: Problematic Apps */}
+          {currentQuestionIndex === 5 && (
+            <AppsQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              selectedApps={quizAnswers.problematicApps}
+              onAppsChange={(apps) => setAnswer('problematicApps', apps)}
+              onContinue={completeQuizFunnel}
               onBack={goToPreviousQuestion}
             />
           )}

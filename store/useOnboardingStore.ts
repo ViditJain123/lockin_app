@@ -14,6 +14,7 @@ export interface QuizAnswers {
   goals: string[];
   screenTime: number;
   desiredScreenTime: number;
+  problematicApps: string[];
 }
 
 interface OnboardingState {
@@ -50,6 +51,7 @@ const initialQuizAnswers: QuizAnswers = {
   goals: [],
   screenTime: 4, // Default to 4 hours
   desiredScreenTime: 2, // Default to 2 hours
+  problematicApps: [],
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
