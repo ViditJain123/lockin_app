@@ -34,6 +34,26 @@ const COLORS = {
   disabledText: 'rgba(255, 255, 255, 0.4)',
 };
 
+// Blue variant colors
+const BLUE_COLORS = {
+  gradientTop: '#33B5FF',
+  gradientMid: '#00A3FF',
+  gradientBottom: '#0088CC',
+  highlight: 'rgba(255, 255, 255, 0.3)',
+  shadow: '#006699',
+  text: '#FFFFFF',
+};
+
+// Orange variant colors
+const ORANGE_COLORS = {
+  gradientTop: '#FF9147',
+  gradientMid: '#FF6B35',
+  gradientBottom: '#E85D2C',
+  highlight: 'rgba(255, 255, 255, 0.3)',
+  shadow: '#C44A1D',
+  text: '#FFFFFF',
+};
+
 interface Button3DProps {
   title: string;
   onPress: () => void;
@@ -44,6 +64,7 @@ interface Button3DProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   fullWidth?: boolean;
+  variant?: 'default' | 'blue' | 'orange';
 }
 
 export default function Button3D({
@@ -56,16 +77,25 @@ export default function Button3D({
   style,
   textStyle,
   fullWidth = true,
+  variant = 'default',
 }: Button3DProps) {
   const isDisabled = disabled || loading;
 
-  // Choose colors based on disabled state
+  // Choose colors based on variant and disabled state
+  const getActiveColors = () => {
+    switch (variant) {
+      case 'blue': return BLUE_COLORS;
+      case 'orange': return ORANGE_COLORS;
+      default: return COLORS;
+    }
+  };
+  const activeColors = getActiveColors();
   const gradientColors: readonly [string, string, string, string] = isDisabled
     ? [COLORS.disabledGradientTop, COLORS.disabledGradientMid, COLORS.disabledGradientBottom, COLORS.disabledShadow]
-    : [COLORS.gradientTop, COLORS.gradientMid, COLORS.gradientBottom, COLORS.shadow];
+    : [activeColors.gradientTop, activeColors.gradientMid, activeColors.gradientBottom, activeColors.shadow];
 
-  const shadowColor = isDisabled ? COLORS.disabledShadow : COLORS.shadow;
-  const textColor = isDisabled ? COLORS.disabledText : COLORS.text;
+  const shadowColor = isDisabled ? COLORS.disabledShadow : activeColors.shadow;
+  const textColor = isDisabled ? COLORS.disabledText : activeColors.text;
 
   return (
     <View style={[styles.wrapper, fullWidth && styles.fullWidth, style]}>

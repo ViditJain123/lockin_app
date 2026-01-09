@@ -1,16 +1,16 @@
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import {
-  Quicksand_300Light,
-  Quicksand_400Regular,
-  Quicksand_500Medium,
-  Quicksand_600SemiBold,
-  Quicksand_700Bold,
+    Quicksand_300Light,
+    Quicksand_400Regular,
+    Quicksand_500Medium,
+    Quicksand_600SemiBold,
+    Quicksand_700Bold,
 } from '@expo-google-fonts/quicksand';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -27,18 +27,24 @@ import 'react-native-reanimated';
 
 import AuthScreen from '../components/AuthScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
+import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
 import AppsQuestionScreen from '../components/quiz/questions/AppsQuestionScreen';
+import DependenceResultScreen from '../components/quiz/questions/DependenceResultScreen';
 import DesiredScreenTimeQuestionScreen from '../components/quiz/questions/DesiredScreenTimeQuestionScreen';
 import GoalsQuestionScreen from '../components/quiz/questions/GoalsQuestionScreen';
+import LifetimeUsageScreen from '../components/quiz/questions/LifetimeUsageScreen';
+import LockInSavingsScreen from '../components/quiz/questions/LockInSavingsScreen';
 import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
+import ScienceReplacementScreen from '../components/quiz/questions/ScienceReplacementScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
 import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
+import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { useOnboardingStore, TOTAL_QUIZ_QUESTIONS } from '../store/useOnboardingStore';
+import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
 export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary
+    // Catch any errors thrown by the Layout component.
+    ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -199,6 +205,59 @@ function RootLayoutNav() {
               totalSteps={TOTAL_QUIZ_QUESTIONS}
               selectedApps={quizAnswers.problematicApps}
               onAppsChange={(apps) => setAnswer('problematicApps', apps)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 7: Solution Reveal */}
+          {currentQuestionIndex === 6 && (
+            <SolutionRevealScreen
+              selectedApps={quizAnswers.problematicApps}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 8: Age */}
+          {currentQuestionIndex === 7 && (
+            <AgeQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              selectedAge={quizAnswers.age}
+              onAgeChange={(age) => setAnswer('age', age)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 9: Dependence Result */}
+          {currentQuestionIndex === 8 && (
+            <DependenceResultScreen
+              screenTime={quizAnswers.screenTime}
+              desiredScreenTime={quizAnswers.desiredScreenTime}
+              problematicApps={quizAnswers.problematicApps}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 10: Lifetime Usage */}
+          {currentQuestionIndex === 9 && (
+            <LifetimeUsageScreen
+              screenTime={quizAnswers.screenTime}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 11: LockIn Savings */}
+          {currentQuestionIndex === 10 && (
+            <LockInSavingsScreen
+              screenTime={quizAnswers.screenTime}
+              desiredScreenTime={quizAnswers.desiredScreenTime}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 12: Science Replacement */}
+          {currentQuestionIndex === 11 && (
+            <ScienceReplacementScreen
               onContinue={completeQuizFunnel}
               onBack={goToPreviousQuestion}
             />
