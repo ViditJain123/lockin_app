@@ -1,16 +1,16 @@
 import {
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    Inter_800ExtraBold,
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
 import {
-    Quicksand_300Light,
-    Quicksand_400Regular,
-    Quicksand_500Medium,
-    Quicksand_600SemiBold,
-    Quicksand_700Bold,
+  Quicksand_300Light,
+  Quicksand_400Regular,
+  Quicksand_500Medium,
+  Quicksand_600SemiBold,
+  Quicksand_700Bold,
 } from '@expo-google-fonts/quicksand';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -37,14 +37,15 @@ import LockInSavingsScreen from '../components/quiz/questions/LockInSavingsScree
 import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
 import ScienceReplacementScreen from '../components/quiz/questions/ScienceReplacementScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
+import ScrollScreen from '../components/quiz/questions/ScrollScreen';
 import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
 export {
-    // Catch any errors thrown by the Layout component.
-    ErrorBoundary
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -258,6 +259,13 @@ function RootLayoutNav() {
           {/* Question 12: Science Replacement */}
           {currentQuestionIndex === 11 && (
             <ScienceReplacementScreen
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 13: Scroll Screen */}
+          {currentQuestionIndex === 12 && (
+            <ScrollScreen
               onContinue={completeQuizFunnel}
               onBack={goToPreviousQuestion}
             />
