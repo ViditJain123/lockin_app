@@ -38,8 +38,11 @@ import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen'
 import ScienceReplacementScreen from '../components/quiz/questions/ScienceReplacementScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
 import ScrollScreen from '../components/quiz/questions/ScrollScreen';
+import SleepTimeQuestionScreen from '../components/quiz/questions/SleepTimeQuestionScreen';
 import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
+import WorkingScreen from '../components/quiz/questions/WorkingScreen';
+import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
@@ -190,7 +193,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 5: Social Proof */}
+          {/* Question 6: Social Proof */}
           {currentQuestionIndex === 4 && (
             <SocialProofScreen
               userName={quizAnswers.name}
@@ -199,7 +202,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 6: Problematic Apps */}
+          {/* Question 7: Problematic Apps */}
           {currentQuestionIndex === 5 && (
             <AppsQuestionScreen
               currentStep={currentQuestionIndex + 1}
@@ -210,7 +213,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 7: Solution Reveal */}
+          {/* Question 8: Solution Reveal */}
           {currentQuestionIndex === 6 && (
             <SolutionRevealScreen
               selectedApps={quizAnswers.problematicApps}
@@ -218,7 +221,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 8: Age */}
+          {/* Question 9: Age */}
           {currentQuestionIndex === 7 && (
             <AgeQuestionScreen
               currentStep={currentQuestionIndex + 1}
@@ -229,7 +232,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 9: Dependence Result */}
+          {/* Question 10: Dependence Result */}
           {currentQuestionIndex === 8 && (
             <DependenceResultScreen
               screenTime={quizAnswers.screenTime}
@@ -239,7 +242,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 10: Lifetime Usage */}
+          {/* Question 11: Lifetime Usage */}
           {currentQuestionIndex === 9 && (
             <LifetimeUsageScreen
               screenTime={quizAnswers.screenTime}
@@ -247,7 +250,7 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 11: LockIn Savings */}
+          {/* Question 12: LockIn Savings */}
           {currentQuestionIndex === 10 && (
             <LockInSavingsScreen
               screenTime={quizAnswers.screenTime}
@@ -256,16 +259,42 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 12: Science Replacement */}
+          {/* Question 13: Science Replacement */}
           {currentQuestionIndex === 11 && (
             <ScienceReplacementScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 13: Scroll Screen */}
+          {/* Question 14: Sleep Time */}
           {currentQuestionIndex === 12 && (
+            <SleepTimeQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              userName={quizAnswers.name}
+              sleepTime={quizAnswers.sleepTime}
+              onSleepTimeChange={(sleepTime) => setAnswer('sleepTime', sleepTime)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 15: Scroll Screen */}
+          {currentQuestionIndex === 13 && (
             <ScrollScreen
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 15: Working Screen */}
+          {currentQuestionIndex === 14 && (
+            <WorkingScreen
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 16: Screen Time Permission */}
+          {currentQuestionIndex === 15 && (
+            <ScreenTimePermissionScreen
               onContinue={completeQuizFunnel}
               onBack={goToPreviousQuestion}
             />
