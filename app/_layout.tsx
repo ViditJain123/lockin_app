@@ -25,6 +25,8 @@ import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { initializeRevenueCat } from '../lib/revenueCat';
+import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import AuthScreen from '../components/AuthScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
 import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
@@ -43,6 +45,9 @@ import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
+import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
+import PaymentScreen from '../components/quiz/questions/PaymentScreen';
+import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
@@ -91,6 +96,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      // Initialize RevenueCat and subscription store after fonts are loaded
+      initializeRevenueCat()
+        .then(() => {
+          // Initialize subscription store after RevenueCat is ready
+          useSubscriptionStore.getState().initialize();
+        })
+        .catch((error) => {
+          console.error('[RevenueCat] Initialization error:', error);
+        });
     }
   }, [loaded]);
 
@@ -295,8 +309,31 @@ function RootLayoutNav() {
           {/* Question 16: Screen Time Permission */}
           {currentQuestionIndex === 15 && (
             <ScreenTimePermissionScreen
-              onContinue={completeQuizFunnel}
+              onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 17: App Selection */}
+          {currentQuestionIndex === 16 && (
+            <AppSelectionScreen
+              familyActivitySelection={quizAnswers.familyActivitySelection}
+              onSelectionChange={(selection) => setAnswer('familyActivitySelection', selection)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 18: Payment Screen */}
+          {currentQuestionIndex === 17 && (
+            <PaymentScreen
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 19: Payment Success Screen */}
+          {currentQuestionIndex === 18 && (
+            <PaymentSuccessScreen
+              userName={quizAnswers.name}
+              onContinue={completeQuizFunnel}
             />
           )}
         </GestureHandlerRootView>

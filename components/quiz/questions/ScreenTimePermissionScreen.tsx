@@ -43,9 +43,9 @@ export default function ScreenTimePermissionScreen({
   const handleContinue = async () => {
     setIsRequesting(true);
     try {
-      const status = await ReactNativeDeviceActivity.requestAuthorization();
-      console.log('Authorization status:', status);
-      // Proceed regardless of status - user can grant permission later
+      await ReactNativeDeviceActivity.requestAuthorization('individual');
+      console.log('Authorization requested');
+      // Proceed after requesting - user can grant permission in the system dialog
       onContinue();
     } catch (error) {
       console.error('Authorization error:', error);
