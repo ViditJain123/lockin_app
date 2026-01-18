@@ -59,6 +59,7 @@ function WheelPicker<T>({
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<any>(null);
   const isInitialMount = useRef(true);
+  const isUserScroll = useRef(false);
   const dataLength = data.length;
 
   // Create repeated data for infinite scroll, or use original data
@@ -73,6 +74,11 @@ function WheelPicker<T>({
   // Scroll to selected index on mount and when selectedIndex changes externally
   useEffect(() => {
     if (scrollViewRef.current) {
+      // Skip scroll if this change was triggered by user interaction
+      if (isUserScroll.current) {
+        isUserScroll.current = false;
+        return;
+      }
       const scrollIndex = getScrollIndex(selectedIndex);
       scrollViewRef.current.scrollTo({
         y: scrollIndex * ITEM_HEIGHT,
@@ -93,6 +99,7 @@ function WheelPicker<T>({
         : Math.max(0, Math.min(dataLength - 1, scrollIndex));
 
       if (actualIndex !== selectedIndex) {
+        isUserScroll.current = true;
         onSelect(actualIndex);
       }
 
@@ -125,8 +132,17 @@ function WheelPicker<T>({
         pointerEvents="none"
       />
 
-      {/* Selection highlight */}
-      <View style={[styles.selectionHighlight, { borderColor: accentColor }]} pointerEvents="none" />
+      {/* Selection highlight - always fixed at center */}
+      <View
+        style={[
+          styles.selectionHighlight,
+          {
+            borderColor: accentColor,
+            top: ITEM_HEIGHT * paddingCount,
+          },
+        ]}
+        pointerEvents="none"
+      />
 
       <Animated.ScrollView
         ref={scrollViewRef}
@@ -298,7 +314,6 @@ const styles = StyleSheet.create({
   },
   selectionHighlight: {
     position: 'absolute',
-    top: ITEM_HEIGHT * 2,
     left: 8,
     right: 8,
     height: ITEM_HEIGHT,

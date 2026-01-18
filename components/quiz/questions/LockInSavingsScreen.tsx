@@ -22,6 +22,7 @@ import Button3D from '../../Button3D';
 
 import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { animationReveal } from '../../../lib/haptics';
 
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
@@ -159,6 +160,13 @@ export default function LockInSavingsScreen({
       NUMBER_ANIMATION_DELAY + NUMBER_SCALE_DURATION + TEXT_FADE_DURATION,
       withTiming(1, { duration: 300 })
     );
+
+    // Trigger haptic when years number finishes scaling
+    const hapticTimeout = setTimeout(() => {
+      animationReveal();
+    }, NUMBER_ANIMATION_DELAY + 500); // 500ms is the scale animation duration
+
+    return () => clearTimeout(hapticTimeout);
   }, []);
 
   // Animated styles

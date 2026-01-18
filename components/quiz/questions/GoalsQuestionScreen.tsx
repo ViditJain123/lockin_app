@@ -70,6 +70,9 @@ export default function GoalsQuestionScreen({
     } else if (selectedGoals.length < MAX_SELECTIONS) {
       // Add if under limit
       onGoalsChange([...selectedGoals, goalId]);
+    } else {
+      // At max limit: replace last selected with new selection
+      onGoalsChange([...selectedGoals.slice(0, -1), goalId]);
     }
   };
 

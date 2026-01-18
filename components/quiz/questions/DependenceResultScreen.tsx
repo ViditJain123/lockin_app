@@ -23,6 +23,7 @@ import CloudBackground from '../CloudBackground';
 
 import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { animationReveal } from '../../../lib/haptics';
 
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
@@ -136,6 +137,13 @@ export default function DependenceResultScreen({
       BAR_ANIMATION_DELAY + BAR_ANIMATION_DURATION,
       withTiming(1, { duration: 300 })
     );
+
+    // Trigger haptic when bars finish animating
+    const hapticTimeout = setTimeout(() => {
+      animationReveal();
+    }, BAR_ANIMATION_DELAY + BAR_ANIMATION_DURATION);
+
+    return () => clearTimeout(hapticTimeout);
   }, []);
 
   // Animated styles

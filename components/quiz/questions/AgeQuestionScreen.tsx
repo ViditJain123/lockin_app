@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
     Dimensions,
@@ -25,16 +24,13 @@ const ageImage = require('../../../assets/images/age.png');
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Cyan color matching the reference image icons
-const ICON_COLOR = '#00CED1';
-
-// Age options with icons
+// Age options with age-appropriate emojis
 const AGE_OPTIONS = [
-  { id: 'under_18', label: 'Under 18', iconName: 'person' as const },
-  { id: '18_24', label: '18-24', iconName: 'accessibility' as const },
-  { id: '25_29', label: '25-29', iconName: 'person' as const },
-  { id: '30_40', label: '30-40', iconName: 'accessibility' as const },
-  { id: '40_plus', label: '40 and over', iconName: 'person' as const },
+  { id: 'under_18', label: 'Under 18', emoji: '🧒' },
+  { id: '18_24', label: '18-24', emoji: '🧑' },
+  { id: '25_29', label: '25-29', emoji: '👨' },
+  { id: '30_40', label: '30-40', emoji: '🧔' },
+  { id: '40_plus', label: '40 and over', emoji: '👨‍🦳' },
 ];
 
 interface AgeQuestionScreenProps {
@@ -120,7 +116,7 @@ export default function AgeQuestionScreen({
               <QuizOptionButton
                 key={option.id}
                 label={option.label}
-                iconComponent={<Ionicons name={option.iconName} size={20} color={ICON_COLOR} />}
+                icon={option.emoji}
                 selected={selectedAge === option.id}
                 onPress={() => handleOptionPress(option.id)}
               />

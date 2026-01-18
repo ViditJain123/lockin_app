@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { Fonts } from '../constants/Fonts';
+import { buttonPress } from '../lib/haptics';
 
 // 3D Button Colors - Reddish Pink Brand Theme
 const COLORS = {
@@ -103,7 +104,10 @@ export default function Button3D({
       <View style={[styles.shadowLayer, { backgroundColor: shadowColor }]} />
 
       <Pressable
-        onPress={onPress}
+        onPress={() => {
+          buttonPress();
+          onPress();
+        }}
         disabled={isDisabled}
         style={({ pressed }) => [
           styles.pressable,

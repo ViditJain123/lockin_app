@@ -44,8 +44,10 @@ import SleepTimeQuestionScreen from '../components/quiz/questions/SleepTimeQuest
 import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
-import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
-import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
+// Family Controls screens (disabled for non-production bundle IDs)
+// import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
+// import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
+import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
@@ -306,31 +308,23 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 16: Screen Time Permission */}
+          {/* Family Controls screens removed for non-production bundle IDs */}
+          {/* Question 16: Login Screen */}
           {currentQuestionIndex === 15 && (
-            <ScreenTimePermissionScreen
+            <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 17: App Selection */}
+          {/* Question 17: Payment Screen */}
           {currentQuestionIndex === 16 && (
-            <AppSelectionScreen
-              familyActivitySelection={quizAnswers.familyActivitySelection}
-              onSelectionChange={(selection) => setAnswer('familyActivitySelection', selection)}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 18: Payment Screen */}
-          {currentQuestionIndex === 17 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 19: Payment Success Screen */}
-          {currentQuestionIndex === 18 && (
+          {/* Question 18: Payment Success Screen */}
+          {currentQuestionIndex === 17 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
               onContinue={completeQuizFunnel}

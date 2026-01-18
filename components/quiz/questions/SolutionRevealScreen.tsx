@@ -24,6 +24,7 @@ import Button3D from '../../Button3D';
 
 import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { animationReveal } from '../../../lib/haptics';
 
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
@@ -246,6 +247,13 @@ export default function SolutionRevealScreen({
       BUTTON_DELAY,
       withTiming(1, { duration: BUTTON_DURATION })
     );
+
+    // Trigger haptic when "With LockIn" section finishes animating
+    const hapticTimeout = setTimeout(() => {
+      animationReveal();
+    }, SECTION_2_DELAY + SECTION_2_DURATION);
+
+    return () => clearTimeout(hapticTimeout);
   }, []);
 
   // Animated styles

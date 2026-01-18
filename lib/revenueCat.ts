@@ -3,10 +3,9 @@ import Purchases, {
   LOG_LEVEL,
   PurchasesOffering,
 } from 'react-native-purchases';
-import { Platform } from 'react-native';
 
 // RevenueCat API Key
-const REVENUECAT_API_KEY = 'test_NtbMDJfbOyARzkglQhbWTJWfRJq';
+const REVENUECAT_API_KEY = 'appl_KVGpvrOMlrFsPdLJoXpATMlJuUO';
 
 // Product identifiers (from App Store Connect / Google Play)
 export const PRODUCT_IDS = {

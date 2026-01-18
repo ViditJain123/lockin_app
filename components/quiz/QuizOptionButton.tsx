@@ -9,6 +9,7 @@ import {
 
 import { BrandColors } from '../../constants/BrandColors';
 import { Fonts } from '../../constants/Fonts';
+import { optionSelect } from '../../lib/haptics';
 
 interface QuizOptionButtonProps {
   label: string;
@@ -31,7 +32,10 @@ export default function QuizOptionButton({
 }: QuizOptionButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        optionSelect();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.container,
         selected && styles.containerSelected,

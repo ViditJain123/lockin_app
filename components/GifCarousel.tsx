@@ -20,12 +20,11 @@ const gifs = [
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Frame dimensions and styling
-const FRAME_WIDTH = 140;
-const FRAME_HEIGHT = 180;
-const SKEW_ANGLE = -12; // degrees
+const FRAME_WIDTH = 120;
+const FRAME_HEIGHT = 160;
 const FRAME_GAP = 12;
-const FRAME_BORDER_WIDTH = 2;
-const FRAME_BORDER_COLOR = '#FF3B5C';
+const BORDER_RADIUS = 16;
+const GLOW_COLOR = '#8B4513'; // Reddish-brown (sienna)
 
 // Calculate total width of one set of frames
 const SINGLE_SET_WIDTH = gifs.length * (FRAME_WIDTH + FRAME_GAP);
@@ -52,13 +51,11 @@ export default function GifCarousel() {
     transform: [{ translateX: translateX.value }],
   }));
 
-  // Render a single GIF frame with parallelogram shape
+  // Render a single GIF frame with rounded rectangle and glow
   const renderFrame = (gifSource: number, index: number) => (
     <View key={index} style={styles.frameContainer}>
-      <View style={styles.parallelogramFrame}>
-        <View style={styles.innerContent}>
-          <Image source={gifSource} style={styles.gif} resizeMode="cover" />
-        </View>
+      <View style={styles.rectangleFrame}>
+        <Image source={gifSource} style={styles.gif} resizeMode="cover" />
       </View>
     </View>
   );
@@ -91,25 +88,21 @@ const styles = StyleSheet.create({
   frameContainer: {
     marginRight: FRAME_GAP,
   },
-  parallelogramFrame: {
+  rectangleFrame: {
     width: FRAME_WIDTH,
     height: FRAME_HEIGHT,
-    borderWidth: FRAME_BORDER_WIDTH,
-    borderColor: FRAME_BORDER_COLOR,
-    transform: [{ skewX: `${SKEW_ANGLE}deg` }],
+    borderRadius: BORDER_RADIUS,
     overflow: 'hidden',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-  },
-  innerContent: {
-    width: FRAME_WIDTH + 30, // Extra width to compensate for skew
-    height: FRAME_HEIGHT,
-    marginLeft: -15, // Center the content
-    transform: [{ skewX: `${-SKEW_ANGLE}deg` }], // Counter-skew to show content straight
-    overflow: 'hidden',
+    // Soft glow effect
+    shadowColor: GLOW_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 25,
+    elevation: 15,
   },
   gif: {
-    width: FRAME_WIDTH + 40,
+    width: FRAME_WIDTH,
     height: FRAME_HEIGHT,
-    marginLeft: -5,
   },
 });

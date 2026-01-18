@@ -59,13 +59,6 @@
             "deploymentTarget": "15.1"
           }
         }
-      ],
-      [
-        "react-native-device-activity",
-        {
-          "appleTeamId": "CCQU7Z66V5",
-          "appGroup": "group.com.lockin.club"
-        }
       ]
     ],
     "experiments": {

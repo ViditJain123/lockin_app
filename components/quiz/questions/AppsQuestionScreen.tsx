@@ -88,6 +88,9 @@ export default function AppsQuestionScreen({
     } else if (selectedApps.length < MAX_SELECTIONS) {
       // Add if under limit
       onAppsChange([...selectedApps, appId]);
+    } else {
+      // At max limit: replace last selected with new selection
+      onAppsChange([...selectedApps.slice(0, -1), appId]);
     }
   };
 

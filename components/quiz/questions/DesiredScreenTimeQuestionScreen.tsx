@@ -1,5 +1,5 @@
 import Slider from '@react-native-community/slider';
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Dimensions,
   ImageBackground,
@@ -15,6 +15,7 @@ import QuizProgressBar from '../QuizProgressBar';
 
 import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { sliderTick } from '../../../lib/haptics';
 
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
@@ -52,6 +53,16 @@ export default function DesiredScreenTimeQuestionScreen({
   onBack,
 }: DesiredScreenTimeQuestionScreenProps) {
   const insets = useSafeAreaInsets();
+  const previousDesiredScreenTime = useRef(desiredScreenTime);
+
+  const handleDesiredScreenTimeChange = (value: number) => {
+    const roundedValue = Math.round(value);
+    if (roundedValue !== previousDesiredScreenTime.current) {
+      sliderTick();
+      previousDesiredScreenTime.current = roundedValue;
+    }
+    onDesiredScreenTimeChange(roundedValue);
+  };
 
   // Calculate font size based on slider value (scales from 48 to 80)
   const minFontSize = 48;
@@ -111,7 +122,7 @@ export default function DesiredScreenTimeQuestionScreen({
             maximumValue={MAX_HOURS}
             step={1}
             value={desiredScreenTime}
-            onValueChange={onDesiredScreenTimeChange}
+            onValueChange={handleDesiredScreenTimeChange}
             minimumTrackTintColor={SLIDER_COLOR}
             maximumTrackTintColor={BrandColors.input.background}
             thumbTintColor="#FFFFFF"

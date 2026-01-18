@@ -5,8 +5,16 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
-// Total number of quiz questions
-export const TOTAL_QUIZ_QUESTIONS = 19;
+// Total number of quiz questions (including login screen)
+export const TOTAL_QUIZ_QUESTIONS = 18;
+
+// ============================================================
+// DEV MODE OPTIONS:
+// - 'skip': Skip onboarding, go directly to auth/main app
+// - 'force': Always show onboarding (ignores completion state)
+// - 'normal': Production behavior (show onboarding only if not completed)
+// ============================================================
+export const DEV_MODE: 'skip' | 'force' | 'normal' = 'normal';
 
 // Interface for sleep time
 export interface SleepTime {
@@ -70,8 +78,8 @@ const initialQuizAnswers: QuizAnswers = {
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set, get) => ({
-      // Default: show onboarding always (as requested)
-      showOnboardingAlways: true,
+      // Default: show onboarding only once (set to true for testing/debugging)
+      showOnboardingAlways: false,
       hasCompletedOnboarding: false,
       _hasHydrated: false,
 
@@ -87,13 +95,19 @@ export const useOnboardingStore = create<OnboardingState>()(
       // Determine if onboarding should be shown
       shouldShowOnboarding: () => {
         const { showOnboardingAlways, hasCompletedOnboarding } = get();
-        
-        // If toggle is ON, always show onboarding
+
+        // DEV MODE handling
+        if (DEV_MODE === 'skip') {
+          return false;
+        }
+        if (DEV_MODE === 'force') {
+          return true;
+        }
+
+        // Normal production behavior (DEV_MODE === 'normal')
         if (showOnboardingAlways) {
           return true;
         }
-        
-        // If toggle is OFF, only show if user hasn't completed onboarding
         return !hasCompletedOnboarding;
       },
 
@@ -161,10 +175,11 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       // Complete the quiz funnel
       completeQuizFunnel: () => {
-        set({ 
+        set({
           hasCompletedOnboarding: true,
           isInQuizFunnel: false,
           currentQuestionIndex: 0,
+          showOnboardingAlways: false, // Ensure debug flag is off
         });
       },
 

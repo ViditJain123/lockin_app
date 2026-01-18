@@ -1,33 +1,46 @@
-import { BlurView } from 'expo-blur';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import {
+  Dimensions,
+  Image,
+  ImageBackground,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import GoogleSignInButton from './GoogleSignInButton';
 
 import { Fonts } from '../constants/Fonts';
 
+// Assets
+const nightSkyBackground = require('../assets/images/night-sky-background.jpeg');
+const logo = require('../assets/images/logo-no-bg.png');
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Background gradient effect */}
-      <View style={styles.gradientOverlay} />
-      
+    <ImageBackground
+      source={nightSkyBackground}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      {/* Dark overlay for better readability */}
+      <View style={styles.overlay} />
+
       {/* Content */}
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingTop: insets.top }]}>
         {/* Logo/Brand Section */}
         <View style={styles.brandSection}>
-          <BlurView intensity={20} style={styles.logoContainer}>
-            <Text style={styles.logoText}>🔒</Text>
-          </BlurView>
-          <Text style={styles.appName}>LockIn</Text>
+          <Image source={logo} style={styles.logo} resizeMode="contain" />
           <Text style={styles.tagline}>Focus. Create. Achieve.</Text>
         </View>
 
         {/* Sign In Section */}
-        <View style={styles.signInSection}>
+        <View style={[styles.signInSection, { paddingBottom: insets.bottom + 40 }]}>
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
             <Text style={styles.dividerText}>Sign in to continue</Text>
@@ -41,61 +54,37 @@ export default function AuthScreen() {
           </Text>
         </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
-  gradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: 'transparent',
-    // Subtle gradient effect
-    opacity: 0.1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   content: {
     flex: 1,
     paddingHorizontal: 32,
     justifyContent: 'space-between',
-    paddingBottom: 60,
   },
   brandSection: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 40,
   },
-  logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(250, 87, 106, 0.15)',
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  logoText: {
-    fontSize: 48,
-  },
-  appName: {
-    fontSize: 42,
-    fontFamily: Fonts.bold,
-    color: '#ffffff',
-    letterSpacing: 1,
-    marginBottom: 8,
+  logo: {
+    width: SCREEN_WIDTH * 0.65,
+    height: SCREEN_WIDTH * 0.52,
+    marginBottom: 16,
   },
   tagline: {
-    fontSize: 16,
-    fontFamily: Fonts.medium,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 18,
+    fontFamily: Fonts.interSemiBold,
+    color: 'rgba(255, 255, 255, 0.8)',
     letterSpacing: 0.5,
   },
   signInSection: {
@@ -111,16 +100,16 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   dividerText: {
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 14,
     fontFamily: Fonts.regular,
     paddingHorizontal: 16,
   },
   termsText: {
-    color: 'rgba(255, 255, 255, 0.4)',
+    color: 'rgba(255, 255, 255, 0.5)',
     fontSize: 12,
     fontFamily: Fonts.regular,
     textAlign: 'center',
