@@ -47,8 +47,6 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera for timelapse recording</string>
-    <key>NSFamilyControlsUsageDescription</key>
-    <string>LockIn uses Screen Time to help you manage app usage and build better habits</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSPhotoLibraryAddUsageDescription</key>

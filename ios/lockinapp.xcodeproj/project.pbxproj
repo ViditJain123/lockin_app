@@ -7,47 +7,81 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02970686F6E9D569F34768FF /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		1ED05BEF2A0F1F9BD9DD8E9E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		547D4E1511BA2CA7595523FA /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F814B4392418E610B552AC /* ExpoModulesProvider.swift */; };
-		61889716E92A90B2B075C817 /* libPods-lockinapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 879B80D1F585D184A6AD9B59 /* libPods-lockinapp.a */; };
-		9820CC3DB7B6D8F0824FDFCE /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BDF89904B2FC4606459EC424 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		C738C002936C2AC9AC1D8D33 /* libPods-lockinapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A6D69B9C3514FA4B464A28BC /* libPods-lockinapp.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		TL0001001000000001 /* TimelapseEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000001 /* TimelapseEngine.swift */; };
+		TL0001001000000002 /* TimelapseEngineModule.m in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000002 /* TimelapseEngineModule.m */; };
+		TL0001001000000003 /* TimelapseSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000003 /* TimelapseSessionManager.swift */; };
+		TL0001001000000004 /* TimelapseFrameProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000004 /* TimelapseFrameProcessor.swift */; };
+		TL0001001000000005 /* TimelapseEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000005 /* TimelapseEncoder.swift */; };
+		TL0001001000000006 /* TimelapseStabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000006 /* TimelapseStabilityManager.swift */; };
+		TL0001001000000007 /* TimelapseBackgroundHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000007 /* TimelapseBackgroundHandler.swift */; };
+		TL0001001000000008 /* TimelapsePhotoLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */; };
+		TL0001001000000009 /* TimelapsePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000009 /* TimelapsePreviewView.swift */; };
+		TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000010 /* TimelapsePreviewViewManager.m */; };
+		TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000011 /* TimelapseFrameOverlay.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		13B07F961A680F5B00A75B9A /* lockinapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = lockinapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = lockinapp/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = lockinapp/Info.plist; sourceTree = "<group>"; };
-		7869E1C59883ECA9B0B3039F /* Pods-lockinapp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.debug.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.debug.xcconfig"; sourceTree = "<group>"; };
-		879B80D1F585D184A6AD9B59 /* libPods-lockinapp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-lockinapp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A45AE00AF446D87A56B22736 /* Pods-lockinapp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.release.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.release.xcconfig"; sourceTree = "<group>"; };
-		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = lockinapp/SplashScreen.storyboard; sourceTree = "<group>"; };
-		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		BDF89904B2FC4606459EC424 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = lockinapp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		D9F814B4392418E610B552AC /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-lockinapp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = lockinapp/AppDelegate.swift; sourceTree = "<group>"; };
-		F11748442D0722820044C1D9 /* lockinapp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "lockinapp-Bridging-Header.h"; path = "lockinapp/lockinapp-Bridging-Header.h"; sourceTree = "<group>"; };
+		0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-lockinapp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.release.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.release.xcconfig"; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* lockinapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = lockinapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = lockinapp/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = lockinapp/Info.plist; sourceTree = "<group>"; };
+		61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = undefined; name = PrivacyInfo.xcprivacy; path = lockinapp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6537FF8C98D19669C05558CC /* Pods-lockinapp.debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.debug.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.debug.xcconfig"; sourceTree = "<group>"; };
+		A6D69B9C3514FA4B464A28BC /* libPods-lockinapp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; fileEncoding = 4; includeInIndex = 0; path = "libPods-lockinapp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = lockinapp/SplashScreen.storyboard; sourceTree = "<group>"; };
+		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = lockinapp/AppDelegate.swift; sourceTree = "<group>"; };
+		F11748442D0722820044C1D9 /* lockinapp-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "lockinapp-Bridging-Header.h"; path = "lockinapp/lockinapp-Bridging-Header.h"; sourceTree = "<group>"; };
+		TL0002001000000001 /* TimelapseEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseEngine.swift; path = lockinapp/TimelapseEngine.swift; sourceTree = "<group>"; };
+		TL0002001000000002 /* TimelapseEngineModule.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapseEngineModule.m; path = lockinapp/TimelapseEngineModule.m; sourceTree = "<group>"; };
+		TL0002001000000003 /* TimelapseSessionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseSessionManager.swift; path = lockinapp/TimelapseSessionManager.swift; sourceTree = "<group>"; };
+		TL0002001000000004 /* TimelapseFrameProcessor.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameProcessor.swift; path = lockinapp/TimelapseFrameProcessor.swift; sourceTree = "<group>"; };
+		TL0002001000000005 /* TimelapseEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseEncoder.swift; path = lockinapp/TimelapseEncoder.swift; sourceTree = "<group>"; };
+		TL0002001000000006 /* TimelapseStabilityManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseStabilityManager.swift; path = lockinapp/TimelapseStabilityManager.swift; sourceTree = "<group>"; };
+		TL0002001000000007 /* TimelapseBackgroundHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseBackgroundHandler.swift; path = lockinapp/TimelapseBackgroundHandler.swift; sourceTree = "<group>"; };
+		TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapsePhotoLibraryManager.swift; path = lockinapp/TimelapsePhotoLibraryManager.swift; sourceTree = "<group>"; };
+		TL0002001000000009 /* TimelapsePreviewView.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapsePreviewView.swift; path = lockinapp/TimelapsePreviewView.swift; sourceTree = "<group>"; };
+		TL0002001000000010 /* TimelapsePreviewViewManager.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapsePreviewViewManager.m; path = lockinapp/TimelapsePreviewViewManager.m; sourceTree = "<group>"; };
+		TL0002001000000011 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = lockinapp/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				61889716E92A90B2B075C817 /* libPods-lockinapp.a in Frameworks */,
+				C738C002936C2AC9AC1D8D33 /* libPods-lockinapp.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		1076F92AB6DC1A7A95BF6D3B /* ExpoModulesProviders */ = {
+		07DFCBE01547C06DA5ED9571 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				AC14ADBFBF1DB5780863A942 /* lockinapp */,
+				ACF60021FD00B69550863DA0 /* lockinapp */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
@@ -57,11 +91,22 @@
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
 				F11748442D0722820044C1D9 /* lockinapp-Bridging-Header.h */,
+				TL0002001000000001 /* TimelapseEngine.swift */,
+				TL0002001000000002 /* TimelapseEngineModule.m */,
+				TL0002001000000003 /* TimelapseSessionManager.swift */,
+				TL0002001000000004 /* TimelapseFrameProcessor.swift */,
+				TL0002001000000005 /* TimelapseEncoder.swift */,
+				TL0002001000000006 /* TimelapseStabilityManager.swift */,
+				TL0002001000000007 /* TimelapseBackgroundHandler.swift */,
+				TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */,
+				TL0002001000000009 /* TimelapsePreviewView.swift */,
+				TL0002001000000010 /* TimelapsePreviewViewManager.m */,
+				TL0002001000000011 /* TimelapseFrameOverlay.swift */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				BDF89904B2FC4606459EC424 /* PrivacyInfo.xcprivacy */,
+				61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */,
 			);
 			name = lockinapp;
 			sourceTree = "<group>";
@@ -70,7 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				879B80D1F585D184A6AD9B59 /* libPods-lockinapp.a */,
+				A6D69B9C3514FA4B464A28BC /* libPods-lockinapp.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -89,8 +134,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				A47B4A1CE807362C0350B104 /* Pods */,
-				1076F92AB6DC1A7A95BF6D3B /* ExpoModulesProviders */,
+				C60979F487C9D009893E3C1D /* Pods */,
+				07DFCBE01547C06DA5ED9571 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -105,20 +150,10 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A47B4A1CE807362C0350B104 /* Pods */ = {
+		ACF60021FD00B69550863DA0 /* lockinapp */ = {
 			isa = PBXGroup;
 			children = (
-				7869E1C59883ECA9B0B3039F /* Pods-lockinapp.debug.xcconfig */,
-				A45AE00AF446D87A56B22736 /* Pods-lockinapp.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
-		AC14ADBFBF1DB5780863A942 /* lockinapp */ = {
-			isa = PBXGroup;
-			children = (
-				D9F814B4392418E610B552AC /* ExpoModulesProvider.swift */,
+				0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */,
 			);
 			name = lockinapp;
 			sourceTree = "<group>";
@@ -132,6 +167,16 @@
 			path = lockinapp/Supporting;
 			sourceTree = "<group>";
 		};
+		C60979F487C9D009893E3C1D /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				6537FF8C98D19669C05558CC /* Pods-lockinapp.debug.xcconfig */,
+				0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -140,13 +185,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "lockinapp" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				88177C7AFF8EFE52BE78CA50 /* [Expo] Configure project */,
+				E7216854CE002BFCFB2D87F7 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				C63D15BAC139125F3F9018A5 /* [CP] Embed Pods Frameworks */,
+				F6E980379FC203E8F4469956 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -166,7 +211,9 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						DevelopmentTeam = CCQU7Z66V5;
 						LastSwiftMigration = 1250;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -196,7 +243,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				9820CC3DB7B6D8F0824FDFCE /* PrivacyInfo.xcprivacy in Resources */,
+				1ED05BEF2A0F1F9BD9DD8E9E /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,11 +256,15 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputFileListPaths = (
+			);
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
 			);
 			name = "Bundle React Native code and images";
+			outputFileListPaths = (
+			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -282,7 +333,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-lockinapp/Pods-lockinapp-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		88177C7AFF8EFE52BE78CA50 /* [Expo] Configure project */ = {
+		E7216854CE002BFCFB2D87F7 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -306,7 +357,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-lockinapp/expo-configure-project.sh\"\n";
 		};
-		C63D15BAC139125F3F9018A5 /* [CP] Embed Pods Frameworks */ = {
+		F6E980379FC203E8F4469956 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -336,21 +387,39 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				547D4E1511BA2CA7595523FA /* ExpoModulesProvider.swift in Sources */,
+				02970686F6E9D569F34768FF /* ExpoModulesProvider.swift in Sources */,
+				TL0001001000000001 /* TimelapseEngine.swift in Sources */,
+				TL0001001000000002 /* TimelapseEngineModule.m in Sources */,
+				TL0001001000000003 /* TimelapseSessionManager.swift in Sources */,
+				TL0001001000000004 /* TimelapseFrameProcessor.swift in Sources */,
+				TL0001001000000005 /* TimelapseEncoder.swift in Sources */,
+				TL0001001000000006 /* TimelapseStabilityManager.swift in Sources */,
+				TL0001001000000007 /* TimelapseBackgroundHandler.swift in Sources */,
+				TL0001001000000008 /* TimelapsePhotoLibraryManager.swift in Sources */,
+				TL0001001000000009 /* TimelapsePreviewView.swift in Sources */,
+				TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */,
+				TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7869E1C59883ECA9B0B3039F /* Pods-lockinapp.debug.xcconfig */;
+			baseConfigurationReference = 6537FF8C98D19669C05558CC /* Pods-lockinapp.debug.xcconfig */;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = lockinapp/lockinapp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CCQU7Z66V5;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -362,7 +431,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -371,6 +440,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.lockin.club;
 				PRODUCT_NAME = lockinapp;
+				REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP = group.com.lockin.club;
 				SWIFT_OBJC_BRIDGING_HEADER = "lockinapp/lockinapp-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -381,19 +451,23 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = A45AE00AF446D87A56B22736 /* Pods-lockinapp.release.xcconfig */;
+			baseConfigurationReference = 0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = lockinapp/lockinapp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = CCQU7Z66V5;
 				INFOPLIST_FILE = lockinapp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -402,6 +476,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.lockin.club;
 				PRODUCT_NAME = lockinapp;
+				REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP = group.com.lockin.club;
 				SWIFT_OBJC_BRIDGING_HEADER = "lockinapp/lockinapp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -464,6 +539,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP = group.com.lockin.club;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -519,6 +595,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
+				REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP = group.com.lockin.club;
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;

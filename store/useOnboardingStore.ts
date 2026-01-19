@@ -14,7 +14,7 @@ export const TOTAL_QUIZ_QUESTIONS = 18;
 // - 'force': Always show onboarding (ignores completion state)
 // - 'normal': Production behavior (show onboarding only if not completed)
 // ============================================================
-export const DEV_MODE: 'skip' | 'force' | 'normal' = 'force';
+export const DEV_MODE: 'skip' | 'force' | 'normal' = 'skip';
 
 // Interface for sleep time
 export interface SleepTime {
