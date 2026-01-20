@@ -10,21 +10,20 @@ export default function TabLayout() {
 
   return (
     <NativeTabs
-      tintColor="#fa576a"
+      tintColor="#FF3B5C"
       tabBarHidden={isRecording || isFinishing || isPreparing || isCountingDown}
-      backgroundColor="rgba(0, 0, 0, 0.9)"
-      blurEffect="dark"
+      backgroundColor="#000000"
     >
-      {/* 
+      {/*
         EXACT TAB ORDER (LEFT → RIGHT)
-        1. Settings
+        1. Analytics
         2. Camera (index)
         3. Profile
       */}
-      
-      <NativeTabs.Trigger name="settings">
-        <Icon sf="gear" />
-        <Label>Settings</Label>
+
+      <NativeTabs.Trigger name="analytics">
+        <Icon sf="chart.pie.fill" />
+        <Label>Analytics</Label>
       </NativeTabs.Trigger>
       
       <NativeTabs.Trigger name="index">

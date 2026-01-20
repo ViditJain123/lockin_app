@@ -43,6 +43,7 @@ import ScrollScreen from '../components/quiz/questions/ScrollScreen';
 import SleepTimeQuestionScreen from '../components/quiz/questions/SleepTimeQuestionScreen';
 import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
+import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
 // Family Controls screens (disabled for non-production bundle IDs)
 // import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
@@ -51,6 +52,7 @@ import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { migrateHeatmapData } from '../lib/heatmapMigration';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
 export {
@@ -148,6 +150,13 @@ function RootLayoutNav() {
     Appearance.setColorScheme('dark');
     setBackgroundColorAsync('#000000');
   }, [colorScheme]);
+
+  // Run one-time heatmap migration when user is authenticated
+  useEffect(() => {
+    if (session?.user?.id) {
+      migrateHeatmapData(session.user.id);
+    }
+  }, [session?.user?.id]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
@@ -294,37 +303,49 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 15: Scroll Screen */}
+          {/* Question 15: Target Hours */}
           {currentQuestionIndex === 13 && (
+            <TargetHoursQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              userName={quizAnswers.name}
+              targetHours={quizAnswers.targetHours}
+              onTargetHoursChange={(hours) => setAnswer('targetHours', hours)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 16: Scroll Screen */}
+          {currentQuestionIndex === 14 && (
             <ScrollScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 15: Working Screen */}
-          {currentQuestionIndex === 14 && (
+          {/* Question 17: Working Screen */}
+          {currentQuestionIndex === 15 && (
             <WorkingScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
           {/* Family Controls screens removed for non-production bundle IDs */}
-          {/* Question 16: Login Screen */}
-          {currentQuestionIndex === 15 && (
+          {/* Question 18: Login Screen */}
+          {currentQuestionIndex === 16 && (
             <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 17: Payment Screen */}
-          {currentQuestionIndex === 16 && (
+          {/* Question 19: Payment Screen */}
+          {currentQuestionIndex === 17 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 18: Payment Success Screen */}
-          {currentQuestionIndex === 17 && (
+          {/* Question 20: Payment Success Screen */}
+          {currentQuestionIndex === 18 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
               onContinue={completeQuizFunnel}
@@ -394,6 +415,20 @@ function RootLayoutNav() {
               contentStyle: {
                 backgroundColor: isLiquidGlassAvailable() ? 'transparent' : backgroundColor,
               },
+            }}
+          />
+          <Stack.Screen
+            name="paywall"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen
+            name="settings-page"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
             }}
           />
         </Stack>

@@ -6,7 +6,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
-export const TOTAL_QUIZ_QUESTIONS = 18;
+export const TOTAL_QUIZ_QUESTIONS = 19;
 
 // ============================================================
 // DEV MODE OPTIONS:
@@ -33,6 +33,7 @@ export interface QuizAnswers {
   age: string;
   sleepTime: SleepTime;
   familyActivitySelection: string | null;
+  targetHours: number;
 }
 
 interface OnboardingState {
@@ -73,6 +74,7 @@ const initialQuizAnswers: QuizAnswers = {
   age: '',
   sleepTime: { hour: 10, minute: 0, period: 'PM' }, // Default to 10:00 PM
   familyActivitySelection: null,
+  targetHours: 4, // Default to 4 hours of daily work target
 };
 
 export const useOnboardingStore = create<OnboardingState>()(

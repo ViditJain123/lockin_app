@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -10,11 +11,11 @@ import {
     RefreshControl,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import ActivityHeatmap from '../../components/ActivityHeatmap';
 import ThumbnailItem from '../../components/ThumbnailItem';
 import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
@@ -71,10 +72,8 @@ export default function ProfileScreen() {
     totalHours,
     totalGrinds,
     currentStreak,
-    dailyActivity,
     isLoading,
     fetchStats,
-    fetchActivity,
     refreshAll,
   } = useProfileStore();
 
@@ -113,7 +112,6 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (user?.id) {
       fetchStats(user.id);
-      fetchActivity(user.id);
     }
     loadVideos();
   }, [user?.id]);
@@ -170,7 +168,7 @@ export default function ProfileScreen() {
     if (!isLoadingVideos || videos.length === 0) return null;
     return (
       <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color="#fa576a" />
+        <ActivityIndicator size="small" color="#FF3B5C" />
       </View>
     );
   };
@@ -226,6 +224,24 @@ export default function ProfileScreen() {
   // Header component that scrolls with the content (Instagram-style)
   const renderListHeader = () => (
     <>
+      {/* Top Row with Pro and Settings buttons */}
+      <View style={styles.topRow}>
+        <TouchableOpacity
+          onPress={() => router.push('/paywall')}
+          style={styles.proButton}
+        >
+          <Ionicons name="star" size={14} color="#FF3B5C" />
+          <Text style={styles.proButtonText}>PRO</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => router.push('/settings-page')}
+          style={styles.settingsButton}
+        >
+          <Ionicons name="settings-outline" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
       {/* Profile Header Section */}
       <View style={styles.headerSection}>
         {/* Avatar on the left */}
@@ -277,10 +293,6 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Activity Heatmap */}
-      <View style={styles.heatmapContainer}>
-        <ActivityHeatmap data={dailyActivity} />
-      </View>
     </>
   );
 
@@ -313,8 +325,8 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor="#fa576a"
-            colors={['#fa576a']}
+            tintColor="#FF3B5C"
+            colors={['#FF3B5C']}
           />
         }
       />
@@ -327,6 +339,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
     paddingHorizontal: 20,
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  proButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 92, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  proButtonText: {
+    color: '#FF3B5C',
+    fontSize: 13,
+    fontFamily: Fonts.bold,
+  },
+  settingsButton: {
+    padding: 4,
   },
   headerSection: {
     flexDirection: 'row',
@@ -341,17 +377,17 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 45,
     borderWidth: 2,
-    borderColor: '#fa576a',
+    borderColor: '#FF3B5C',
   },
   avatarPlaceholder: {
-    backgroundColor: 'rgba(250, 87, 106, 0.3)',
+    backgroundColor: 'rgba(255, 59, 92, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarPlaceholderText: {
     fontSize: 36,
     fontFamily: Fonts.bold,
-    color: '#fa576a',
+    color: '#FF3B5C',
   },
   infoContainer: {
     flex: 1,
@@ -381,9 +417,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     color: 'rgba(255, 255, 255, 0.6)',
     marginTop: 2,
-  },
-  heatmapContainer: {
-    marginBottom: 20,
   },
   galleryContainer: {
     flex: 1,

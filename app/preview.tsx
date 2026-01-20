@@ -218,7 +218,7 @@ export default function PreviewScreen() {
         ref={videoRef}
         source={{ uri: videoUri }}
         style={styles.video}
-        resizeMode={ResizeMode.COVER}
+        resizeMode={ResizeMode.CONTAIN}
         isLooping={true}
         shouldPlay={true}
         isMuted={false}

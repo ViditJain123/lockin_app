@@ -72,7 +72,7 @@ export default function GoogleSignInButton({
     >
       <View style={styles.content}>
         {isLoading ? (
-          <ActivityIndicator size="small" color="#fa576a" />
+          <ActivityIndicator size="small" color="#FF3B5C" />
         ) : (
           <>
             <View style={styles.iconContainer}>

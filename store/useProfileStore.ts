@@ -1,9 +1,10 @@
 import { create } from 'zustand';
+import { getLocalDateString } from '../lib/dateUtils';
 import {
   DailyActivity,
-  fetchDailyActivity,
   fetchUserStats
 } from '../lib/statsService';
+import { useHeatmapStore } from './useHeatmapStore';
 
 interface ProfileState {
   totalHours: number;
@@ -53,10 +54,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     }
   },
 
-  fetchActivity: async (userId: string) => {
+  fetchActivity: async (_userId: string) => {
     set({ isLoadingActivity: true });
 
-    const activity = await fetchDailyActivity(userId, 6);
+    // Read from local heatmap store (using local timezone)
+    const activity = useHeatmapStore.getState().getDailyActivity();
 
     set({
       dailyActivity: activity,
@@ -100,7 +102,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   addActivityLocally: (minutes: number) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(); // Use local timezone
     set((state) => {
       const existingIndex = state.dailyActivity.findIndex(a => a.date === today);
       if (existingIndex >= 0) {

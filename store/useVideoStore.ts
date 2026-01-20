@@ -15,6 +15,7 @@ import {
     saveVideoToPrivateStorage,
 } from '@/lib/videoStorageService';
 import { create } from 'zustand';
+import { useHeatmapStore } from './useHeatmapStore';
 
 interface VideoState {
   // State
@@ -60,6 +61,10 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       set((state) => ({
         videos: [video, ...state.videos],
       }));
+
+      // Update local heatmap with minutes (using local timezone)
+      const minutes = durationSeconds / 60;
+      useHeatmapStore.getState().addMinutes(minutes);
 
       // Record session to Supabase for heatmap tracking and update user stats
       if (userId && durationSeconds > 0) {

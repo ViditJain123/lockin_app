@@ -11,7 +11,7 @@ import Animated, {
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 // Fallback styles for unsupported iOS versions
-const FALLBACK_BG = 'rgba(255,255,255,0.5)';
+const FALLBACK_BG = 'rgba(0, 0, 0, 0.45)';
 
 interface GlassIconButtonProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -101,6 +101,7 @@ const styles = StyleSheet.create({
   glassView: {
     flex: 1,
     overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   iconContainer: {
     flex: 1,
