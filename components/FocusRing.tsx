@@ -17,7 +17,7 @@ export default function FocusRing({ currentHours, targetHours }: FocusRingProps)
 
   // Ring dimensions
   const size = 100;
-  const strokeWidth = 12;
+  const strokeWidth = 24;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
@@ -71,7 +71,7 @@ export default function FocusRing({ currentHours, targetHours }: FocusRingProps)
             ]
           }]}>
             <View style={styles.arrowCircle}>
-              <Text style={styles.arrowText}>→</Text>
+              <Text style={[styles.arrowText, { transform: [{ rotate: '90deg' }] }]}>→</Text>
             </View>
           </View>
         </View>

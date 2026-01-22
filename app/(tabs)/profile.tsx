@@ -160,6 +160,7 @@ export default function ProfileScreen() {
         onPress={() => handleThumbnailPress(item)}
         marginLeft={isLeftColumn ? 0 : GRID_GAP / 2}
         marginRight={isRightColumn ? 0 : GRID_GAP / 2}
+        durationSeconds={item.durationSeconds}
       />
     );
   };
