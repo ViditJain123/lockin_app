@@ -244,7 +244,7 @@ export default function ProfileScreen() {
 
       {/* Profile Header Section */}
       <View style={styles.headerSection}>
-        {/* Avatar on the left */}
+        {/* Centered Avatar with Streak Badge */}
         <View style={styles.avatarContainer}>
           {user?.user_metadata?.avatar_url ? (
             <Image
@@ -258,37 +258,41 @@ export default function ProfileScreen() {
               </Text>
             </View>
           )}
+          {/* Streak Badge Overlay */}
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakIcon}>🔥</Text>
+            <Text style={styles.streakBadgeText}>
+              {isLoading ? '-' : currentStreak}
+            </Text>
+          </View>
         </View>
 
-        {/* Name and Stats on the right */}
-        <View style={styles.infoContainer}>
-          {/* User Name */}
-          <Text style={styles.userName} numberOfLines={1}>
-            {user?.user_metadata?.full_name || 'User'}
-          </Text>
+        {/* Centered User Name */}
+        <Text style={styles.userName} numberOfLines={1}>
+          {user?.user_metadata?.full_name || 'User'}
+        </Text>
 
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {isLoading ? '-' : formatHours(totalHours)}
-              </Text>
-              <Text style={styles.statLabel}>{getHoursLabel(totalHours)}</Text>
-            </View>
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>
+              {isLoading ? '-' : formatHours(totalHours)}
+            </Text>
+            <Text style={styles.statLabel}>{getHoursLabel(totalHours)}</Text>
+          </View>
 
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {isLoading ? '-' : totalGrinds}
-              </Text>
-              <Text style={styles.statLabel}>grinds</Text>
-            </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>
+              {isLoading ? '-' : totalGrinds}
+            </Text>
+            <Text style={styles.statLabel}>grinds</Text>
+          </View>
 
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {isLoading ? '-' : currentStreak}
-              </Text>
-              <Text style={styles.statLabel}>streak</Text>
-            </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>
+              {isLoading ? '-' : currentStreak}
+            </Text>
+            <Text style={styles.statLabel}>streak</Text>
           </View>
         </View>
       </View>
@@ -365,19 +369,42 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerSection: {
-    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 20,
+    paddingTop: 10,
   },
   avatarContainer: {
-    marginRight: 20,
+    position: 'relative',
+    marginBottom: 12,
   },
   avatar: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 2,
     borderColor: '#FF3B5C',
+  },
+  streakBadge: {
+    position: 'absolute',
+    bottom: -5,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  streakIcon: {
+    fontSize: 14,
+  },
+  streakBadgeText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: Fonts.bold,
+    marginLeft: 4,
   },
   avatarPlaceholder: {
     backgroundColor: 'rgba(255, 59, 92, 0.3)',
@@ -385,30 +412,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarPlaceholderText: {
-    fontSize: 36,
+    fontSize: 48,
     fontFamily: Fonts.bold,
     color: '#FF3B5C',
-  },
-  infoContainer: {
-    flex: 1,
   },
   userName: {
     fontSize: 22,
     fontFamily: Fonts.bold,
     color: 'white',
-    marginBottom: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingRight: 10,
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 20,
   },
   statItem: {
     alignItems: 'center',
-    minWidth: 60,
+    minWidth: 80,
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: Fonts.bold,
     color: 'white',
   },
@@ -417,6 +444,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     color: 'rgba(255, 255, 255, 0.6)',
     marginTop: 2,
+    textTransform: 'capitalize',
   },
   galleryContainer: {
     flex: 1,

@@ -60,6 +60,18 @@ export interface TimelapseOptions {
    * Default: 30
    */
   targetVideoSeconds?: number;
+
+  /**
+   * Timer X position (normalized 0-1, where 0=left, 1=right)
+   * Default: 0.9 (right side)
+   */
+  timerPositionX?: number;
+
+  /**
+   * Timer Y position (normalized 0-1, where 0=top, 1=bottom)
+   * Default: 0.75 (3/4 height)
+   */
+  timerPositionY?: number;
 }
 
 export interface TimelapseState {
@@ -165,6 +177,8 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
     saveToGallery: options.saveToGallery ?? true,
     cameraPosition: options.cameraPosition ?? 'back',
     targetVideoSeconds: options.targetVideoSeconds ?? 30,
+    timerPositionX: options.timerPositionX ?? 0.9,
+    timerPositionY: options.timerPositionY ?? 0.75,
   };
 
   await NativeTimelapseEngine.startTimelapse(fullOptions);

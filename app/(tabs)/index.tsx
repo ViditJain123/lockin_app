@@ -1,9 +1,11 @@
 import CountdownOverlay from '@/components/CountdownOverlay';
+import DraggableTimerOverlay from '@/components/DraggableTimerOverlay';
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
+import RecordingTimer from '@/components/RecordingTimer';
 import { TimelapsePreview } from '@/components/TimelapsePreview';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
-import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
+import { isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +14,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
+    Image,
     Platform,
     StyleSheet,
     Text,
@@ -21,8 +23,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '../../constants/Fonts';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Button position constants
 const BUTTON_DEFAULT_BOTTOM = 120; // Position above bottom navigation
@@ -39,9 +39,11 @@ export default function CameraScreen() {
   const isFinishing = useRecordingStore((s) => s.isFinishing);
   const isCountingDown = useRecordingStore((s) => s.isCountingDown);
   const durationSeconds = useRecordingStore((s) => s.durationSeconds);
+  const timerPosition = useRecordingStore((s) => s.timerPosition);
   const startRecording = useRecordingStore((s) => s.startRecording);
   const stopRecording = useRecordingStore((s) => s.stopRecording);
   const setCountingDown = useRecordingStore((s) => s.setCountingDown);
+  const setTimerPosition = useRecordingStore((s) => s.setTimerPosition);
   const recordingError = useRecordingError();
 
   // Keep screen awake and dim brightness during recording
@@ -101,6 +103,8 @@ export default function CameraScreen() {
           params: {
             videoUri: result.uri,
             grindDurationSeconds: String(grindDuration),
+            timerPositionX: String(timerPosition.x),
+            timerPositionY: String(timerPosition.y),
           },
         } as any);
       }
@@ -142,8 +146,10 @@ export default function CameraScreen() {
       codec: 'h264',
       saveToGallery: false,  // Don't auto-save, user will save from preview
       cameraPosition: facing, // Use current camera facing direction
+      timerPositionX: timerPosition.x,  // Pass user's timer position
+      timerPositionY: timerPosition.y,
     });
-  }, [startRecording, facing]);
+  }, [startRecording, facing, timerPosition]);
 
   // Hide countdown only when recording has actually started (prevents black screen flash)
   useEffect(() => {
@@ -198,7 +204,17 @@ export default function CameraScreen() {
       {/* When preparing, recording, or finishing, use native TimelapsePreview which shares the capture session */}
       {/* When not recording, use expo-camera for standard preview */}
       {(isPreparing || isRecording || isFinishing) ? (
-        <TimelapsePreview style={styles.camera} />
+        <>
+          <TimelapsePreview style={styles.camera} />
+          {/* Logo preview - shows where logo will appear in final video */}
+          <View style={styles.logoPreview}>
+            <Image
+              source={require('@/assets/images/logo-no-bg-cropped.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+        </>
       ) : (
         <CameraView
           style={styles.camera}
@@ -213,7 +229,7 @@ export default function CameraScreen() {
         onComplete={handleCountdownComplete}
       />
 
-      {/* Top controls - Flash and Flip buttons (hidden during countdown) */}
+      {/* Top controls - Flash, Timer, and Flip buttons (hidden during countdown) */}
       {!isCountingDown && <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
         {/* Flash toggle - top left */}
         <GlassIconButton
@@ -221,6 +237,12 @@ export default function CameraScreen() {
           onPress={toggleFlash}
           isActive={flashEnabled}
           activeColor="rgba(255, 220, 100, 0.95)"
+        />
+
+        {/* Fixed recording timer - center */}
+        <RecordingTimer
+          durationSeconds={durationSeconds}
+          isRecording={isRecording || isFinishing}
         />
 
         {/* Camera flip - top right (disabled during recording) */}
@@ -231,16 +253,15 @@ export default function CameraScreen() {
         />
       </View>}
 
-      {/* Recording duration display - stays visible during finishing */}
-      {(isRecording || isFinishing) && (
-        <View style={[styles.durationContainer, { top: insets.top + 12 }]}>
-          <View style={styles.durationPill}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.durationText}>
-              {formatDuration(durationSeconds)}
-            </Text>
-          </View>
-        </View>
+      {/* Draggable timer overlay - visible before and during recording */}
+      {!isCountingDown && (
+        <DraggableTimerOverlay
+          durationSeconds={isRecording || isFinishing ? durationSeconds : 0}
+          isRecording={isRecording || isFinishing}
+          isDraggable={!isRecording && !isPreparing && !isFinishing}
+          position={timerPosition}
+          onPositionChange={setTimerPosition}
+        />
       )}
 
       {/* No loader overlay - recording start/stop happens seamlessly in background */}
@@ -278,6 +299,7 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     zIndex: 10,
   },
@@ -316,32 +338,14 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginTop: 16,
   },
-  durationContainer: {
+  logoPreview: {
     position: 'absolute',
     left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
+    top: '75%',
+    transform: [{ translateY: -20 }],  // Center vertically on 75% line (half of logo height)
   },
-  durationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF3B30',
-  },
-  durationText: {
-    color: 'white',
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    fontVariant: ['tabular-nums'],
+  logoImage: {
+    height: 40,  // Scaled for screen (native uses 80 on 1920px canvas)
+    width: 40 * (327 / 127),  // Preserve aspect ratio (327x127 original)
   },
 });

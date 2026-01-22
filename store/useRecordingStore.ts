@@ -24,6 +24,9 @@ interface RecordingState {
   durationSeconds: number;
   estimatedOutputDuration: number;
 
+  // Timer position (normalized 0-1 coordinates)
+  timerPosition: { x: number; y: number };
+
   // Result
   lastResult: TimelapseResult | null;
   lastError: TimelapseError | null;
@@ -33,6 +36,7 @@ interface RecordingState {
   stopRecording: () => Promise<TimelapseResult | null>;
   resetError: () => void;
   setCountingDown: (value: boolean) => void;
+  setTimerPosition: (position: { x: number; y: number }) => void;
 
   // Internal actions
   _setRecordingState: (state: Partial<RecordingState>) => void;
@@ -108,6 +112,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     frameCount: 0,
     durationSeconds: 0,
     estimatedOutputDuration: 0,
+    timerPosition: { x: 0.5, y: 0.15 },
     lastResult: null,
     lastError: null,
 
@@ -213,6 +218,11 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
       set({ isCountingDown: value });
     },
 
+    // Set timer position (normalized 0-1 coordinates)
+    setTimerPosition: (position: { x: number; y: number }) => {
+      set({ timerPosition: position });
+    },
+
     // Internal: Update state
     _setRecordingState: (newState) => {
       set(newState);
@@ -250,3 +260,4 @@ export const useIsRecording = () => useRecordingStore((s) => s.isRecording);
 export const useRecordingDuration = () => useRecordingStore((s) => s.durationSeconds);
 export const useFrameCount = () => useRecordingStore((s) => s.frameCount);
 export const useRecordingError = () => useRecordingStore((s) => s.lastError);
+export const useTimerPosition = () => useRecordingStore((s) => s.timerPosition);

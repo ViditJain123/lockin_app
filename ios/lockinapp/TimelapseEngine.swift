@@ -67,6 +67,8 @@ class TimelapseEngine: RCTEventEmitter {
     private var saveToGallery: Bool = true
     private var cameraPosition: AVCaptureDevice.Position = .back
     private var targetVideoSeconds: Double = 30 // Target video duration for adaptive capture
+    private var timerPositionX: CGFloat = 0.9  // Default: right side
+    private var timerPositionY: CGFloat = 0.75 // Default: 3/4 height
     
     // Threading
     private let stateQueue = DispatchQueue(label: "com.lockin.timelapse.state", qos: .userInitiated)
@@ -235,6 +237,12 @@ class TimelapseEngine: RCTEventEmitter {
         if let target = options["targetVideoSeconds"] as? Double {
             targetVideoSeconds = target
         }
+        if let posX = options["timerPositionX"] as? Double {
+            timerPositionX = CGFloat(posX)
+        }
+        if let posY = options["timerPositionY"] as? Double {
+            timerPositionY = CGFloat(posY)
+        }
     }
     
     private func checkCameraPermission(completion: @escaping (Bool) -> Void) {
@@ -297,9 +305,12 @@ class TimelapseEngine: RCTEventEmitter {
         frameProcessor = TimelapseFrameProcessor(
             captureIntervalMs: captureIntervalMs,
             targetVideoSeconds: targetVideoSeconds,
-            outputFps: outputFps
+            outputFps: outputFps,
+            timerPositionX: timerPositionX,
+            timerPositionY: timerPositionY
         )
-        frameProcessor?.recordingStartTime = CFAbsoluteTimeGetCurrent()
+        // Set to 0 as a marker value - actual time will be set on first frame capture
+        frameProcessor?.recordingStartTime = 0
         frameProcessor?.onFrameReady = { [weak self] pixelBuffer, timestamp in
             self?.processFrame(pixelBuffer, timestamp: timestamp)
         }

@@ -17,15 +17,27 @@ class TimelapseFrameProcessor: NSObject {
 
     // Output FPS for calculating frame targets
     private let outputFps: Int
+
+    // Timer position (normalized 0-1 coordinates)
+    private let timerPositionX: CGFloat
+    private let timerPositionY: CGFloat
     
     // Last capture timestamp
     private var lastCaptureTime: CFAbsoluteTime = 0
-    
+
     // Recording start time for timer overlay
     var recordingStartTime: CFAbsoluteTime?
-    
-    // Frame overlay renderer
-    private let frameOverlay = TimelapseFrameOverlay()
+
+    // Flag to track if start time has been set on first capture
+    private var hasSetStartTime: Bool = false
+
+    // Frame overlay renderer (lazy to use timer position from init)
+    private lazy var frameOverlay: TimelapseFrameOverlay = {
+        return TimelapseFrameOverlay(
+            timerPositionX: timerPositionX,
+            timerPositionY: timerPositionY
+        )
+    }()
     
     // Callback for processed frames
     var onFrameReady: ((CVPixelBuffer, CMTime) -> Void)?
@@ -59,10 +71,16 @@ class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Initialization
 
-    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60) {
+    init(captureIntervalMs: Double = 500,
+         targetVideoSeconds: Double = 30,
+         outputFps: Int = 60,
+         timerPositionX: CGFloat = 0.9,
+         timerPositionY: CGFloat = 0.75) {
         self.baseCaptureIntervalMs = captureIntervalMs
         self.targetVideoSeconds = targetVideoSeconds
         self.outputFps = outputFps
+        self.timerPositionX = timerPositionX
+        self.timerPositionY = timerPositionY
         super.init()
         setupPixelBufferPool()
     }
@@ -125,7 +143,13 @@ class TimelapseFrameProcessor: NSObject {
         }
         
         lastCaptureTime = currentTime
-        
+
+        // Set recording start time on first actual capture, not during init
+        if !hasSetStartTime && recordingStartTime != nil {
+            recordingStartTime = currentTime
+            hasSetStartTime = true
+        }
+
         // Process frame immediately in autoreleasepool
         autoreleasepool {
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
@@ -180,6 +204,7 @@ class TimelapseFrameProcessor: NSObject {
         ))
         
         // Apply branded frame overlay with timer
+        // Use wall-clock time for accurate timer display
         let elapsedSeconds: Int
         if let startTime = recordingStartTime {
             elapsedSeconds = Int(CFAbsoluteTimeGetCurrent() - startTime)
@@ -240,5 +265,6 @@ class TimelapseFrameProcessor: NSObject {
     func reset() {
         lastCaptureTime = 0
         recordingStartTime = nil
+        hasSetStartTime = false
     }
 }

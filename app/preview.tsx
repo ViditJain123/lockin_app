@@ -54,6 +54,8 @@ export default function PreviewScreen() {
   
   // Watch time tracking state
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState(0);
   const playStartTimeRef = useRef<number | null>(null); // When playback started
   const totalWatchedRef = useRef<number>(0); // Cumulative watched seconds this session
 
@@ -134,27 +136,37 @@ export default function PreviewScreen() {
   // Handle playback status updates
   const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
-    
+
     const wasPlaying = isPlaying;
     const nowPlaying = status.isPlaying;
-    
+
+    // Update video duration (only needs to be set once)
+    if (status.durationMillis !== undefined && videoDurationSeconds === 0) {
+      setVideoDurationSeconds(Math.floor(status.durationMillis / 1000));
+    }
+
+    // Update playback position for timer display
+    if (status.positionMillis !== undefined) {
+      setPlaybackPositionSeconds(Math.floor(status.positionMillis / 1000));
+    }
+
     // Detect play -> pause transition (user paused)
     if (wasPlaying && !nowPlaying && !status.didJustFinish) {
       handleRecordWatchTime();
     }
-    
+
     // Detect pause -> play transition (started playing)
     if (!wasPlaying && nowPlaying) {
       playStartTimeRef.current = Date.now();
     }
-    
+
     setIsPlaying(nowPlaying);
-    
+
     // Handle video looping
     if (status.didJustFinish && !status.isLooping) {
       videoRef.current?.replayAsync();
     }
-  }, [isPlaying, handleRecordWatchTime]);
+  }, [isPlaying, videoDurationSeconds, handleRecordWatchTime]);
 
   const handleShare = async () => {
     if (videoUri) {
@@ -225,6 +237,7 @@ export default function PreviewScreen() {
         useNativeControls={false}
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
       />
+
 
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>

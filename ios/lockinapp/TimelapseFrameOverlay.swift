@@ -4,7 +4,7 @@ import CoreGraphics
 import UIKit
 
 /// Renders branded frame overlay for timelapse videos
-/// Includes: bottom gradient, logo on left and horizontal timer on right at 3/4 height
+/// Includes: bottom gradient, logo on left and horizontal timer at user-specified position
 class TimelapseFrameOverlay {
 
     // MARK: - Configuration
@@ -13,12 +13,16 @@ class TimelapseFrameOverlay {
     private let frameWidth: CGFloat = 1080
     private let frameHeight: CGFloat = 1920
 
-    /// Logo configuration
-    private let logoSize: CGFloat = 200
+    /// Logo configuration - height-based sizing to preserve aspect ratio
+    private let logoMaxHeight: CGFloat = 60
     private let horizontalPadding: CGFloat = 80
 
     /// Timer configuration - horizontal display (HH:MM:SS)
     private let timerFontSize: CGFloat = 60
+
+    /// Timer position (normalized 0-1 coordinates)
+    private let timerPositionX: CGFloat  // 0=left, 1=right
+    private let timerPositionY: CGFloat  // 0=top, 1=bottom
     
     // MARK: - Cached Assets
     
@@ -27,8 +31,11 @@ class TimelapseFrameOverlay {
     private let ciContext: CIContext
     
     // MARK: - Initialization
-    
-    init() {
+
+    init(timerPositionX: CGFloat = 0.9, timerPositionY: CGFloat = 0.75) {
+        self.timerPositionX = timerPositionX
+        self.timerPositionY = timerPositionY
+
         // Create Metal-accelerated CIContext
         if let metalDevice = MTLCreateSystemDefaultDevice() {
             self.ciContext = CIContext(mtlDevice: metalDevice, options: [
@@ -38,10 +45,10 @@ class TimelapseFrameOverlay {
         } else {
             self.ciContext = CIContext(options: [.cacheIntermediates: false])
         }
-        
+
         // Load and cache logo
         loadLogo()
-        
+
         // Pre-render static overlay parts
         renderStaticOverlay()
     }
@@ -49,21 +56,20 @@ class TimelapseFrameOverlay {
     // MARK: - Logo Loading
     
     private func loadLogo() {
-        // Try to load from xcassets
+        // Try the cropped no-background version first
+        if let logoUIImage = UIImage(named: "logo-no-bg-cropped") {
+            cachedLogoImage = logoUIImage.cgImage
+            print("[TimelapseFrameOverlay] Logo loaded: logo-no-bg-cropped")
+            return
+        }
+
+        // Fallback to Logo from xcassets
         if let logoUIImage = UIImage(named: "Logo") {
             cachedLogoImage = logoUIImage.cgImage
             print("[TimelapseFrameOverlay] Logo loaded from xcassets")
             return
         }
-        
-        // Fallback: try to load from bundle
-        if let path = Bundle.main.path(forResource: "logo", ofType: "jpg"),
-           let logoUIImage = UIImage(contentsOfFile: path) {
-            cachedLogoImage = logoUIImage.cgImage
-            print("[TimelapseFrameOverlay] Logo loaded from bundle")
-            return
-        }
-        
+
         print("[TimelapseFrameOverlay] Warning: Could not load logo image")
     }
     
@@ -122,19 +128,28 @@ class TimelapseFrameOverlay {
         )
     }
 
-    /// Get the Y position at 3/4 height (1/4 from bottom)
+    /// Get the Y position at 1/4 from top
     private func getOverlayYPosition() -> CGFloat {
-        return frameHeight * 0.75
+        return frameHeight * 0.25
     }
 
     private func drawLogo(in context: CGContext, size: CGSize) {
         guard let logo = cachedLogoImage else { return }
 
-        // Position logo at 3/4 height on the left side
-        let logoY = getOverlayYPosition() - logoSize / 2
-        let logoX = horizontalPadding
+        // Calculate dimensions preserving aspect ratio
+        let imageWidth = CGFloat(logo.width)
+        let imageHeight = CGFloat(logo.height)
+        let aspectRatio = imageWidth / imageHeight
 
-        let logoRect = CGRect(x: logoX, y: logoY, width: logoSize, height: logoSize)
+        // Scale to fit within maxHeight while preserving aspect ratio
+        let logoHeight = logoMaxHeight
+        let logoWidth = logoHeight * aspectRatio
+
+        // Position logo at 3/4 height on the left side
+        let logoY = getOverlayYPosition() - logoHeight / 2
+        let logoX: CGFloat = 0  // Flush to left edge
+
+        let logoRect = CGRect(x: logoX, y: logoY, width: logoWidth, height: logoHeight)
 
         // Draw logo (flip context for CGImage)
         context.saveGState()
@@ -173,9 +188,9 @@ class TimelapseFrameOverlay {
         // Clear background
         context.clear(CGRect(origin: .zero, size: size))
 
-        // Configure text attributes
+        // Configure text attributes - center aligned since we position the timer explicitly
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .right
+        paragraphStyle.alignment = .center
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold),
@@ -183,10 +198,19 @@ class TimelapseFrameOverlay {
             .paragraphStyle: paragraphStyle
         ]
 
-        // Calculate timer position (right side at 3/4 height)
-        let timerY = getOverlayYPosition() - timerFontSize / 2
-        let timerWidth = frameWidth - horizontalPadding * 2
-        let timerRect = CGRect(x: horizontalPadding, y: timerY, width: timerWidth, height: timerFontSize + 10)
+        // Calculate timer size for centering
+        let timerWidth: CGFloat = 250  // Approximate width of HH:MM:SS text
+        let timerHeight: CGFloat = timerFontSize + 10
+
+        // Calculate timer position from normalized coordinates (center the timer pill)
+        let timerX = (timerPositionX * frameWidth) - (timerWidth / 2)
+        let timerY = (timerPositionY * frameHeight) - (timerHeight / 2)
+
+        // Clamp to screen bounds with padding
+        let clampedX = max(horizontalPadding, min(frameWidth - timerWidth - horizontalPadding, timerX))
+        let clampedY = max(horizontalPadding, min(frameHeight - timerHeight - horizontalPadding, timerY))
+
+        let timerRect = CGRect(x: clampedX, y: clampedY, width: timerWidth, height: timerHeight)
 
         // Draw the timer text
         (timerString as NSString).draw(in: timerRect, withAttributes: attributes)
