@@ -128,9 +128,9 @@ class TimelapseFrameOverlay {
         )
     }
 
-    /// Get the Y position at 1/4 from top
+    /// Get the Y position - centered vertically on left edge
     private func getOverlayYPosition() -> CGFloat {
-        return frameHeight * 0.25
+        return frameHeight * 0.5
     }
 
     private func drawLogo(in context: CGContext, size: CGSize) {

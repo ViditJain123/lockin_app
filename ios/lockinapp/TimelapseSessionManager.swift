@@ -151,20 +151,42 @@ class TimelapseSessionManager: NSObject {
     }
     
     private func getCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        // Prefer wide angle camera for timelapse
-        let deviceTypes: [AVCaptureDevice.DeviceType] = [
-            .builtInWideAngleCamera,
-            .builtInDualCamera,
-            .builtInTripleCamera
-        ]
-        
+        // Get all wide-angle cameras at the requested position
         let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: deviceTypes,
+            deviceTypes: [.builtInWideAngleCamera],
             mediaType: .video,
             position: position
         )
-        
-        return discoverySession.devices.first
+
+        let devices = discoverySession.devices
+
+        // On devices with multiple cameras (iPhone 13+), select the main camera (1.0x)
+        // by finding the one with the largest minimum zoom factor close to 1.0
+        // Ultrawide has minZoom ~0.5, Main has minZoom ~1.0
+        if devices.count > 1 {
+            // Find device with zoom factor closest to 1.0 (main camera)
+            let mainCamera = devices.max { device1, device2 in
+                device1.minAvailableVideoZoomFactor < device2.minAvailableVideoZoomFactor
+            }
+            if let main = mainCamera {
+                print("[TimelapseSessionManager] Selected main camera: \(main.localizedName), minZoom: \(main.minAvailableVideoZoomFactor)")
+                return main
+            }
+        }
+
+        // Single camera device or fallback
+        if let device = devices.first {
+            print("[TimelapseSessionManager] Selected camera: \(device.localizedName)")
+            return device
+        }
+
+        // Fallback: try dual/triple camera systems
+        let fallbackSession = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInDualCamera, .builtInTripleCamera],
+            mediaType: .video,
+            position: position
+        )
+        return fallbackSession.devices.first
     }
     
     private func configureDevice(_ device: AVCaptureDevice) throws {

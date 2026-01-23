@@ -28,9 +28,6 @@ class TimelapseFrameProcessor: NSObject {
     // Recording start time for timer overlay
     var recordingStartTime: CFAbsoluteTime?
 
-    // Flag to track if start time has been set on first capture
-    private var hasSetStartTime: Bool = false
-
     // Frame overlay renderer (lazy to use timer position from init)
     private lazy var frameOverlay: TimelapseFrameOverlay = {
         return TimelapseFrameOverlay(
@@ -144,20 +141,14 @@ class TimelapseFrameProcessor: NSObject {
         
         lastCaptureTime = currentTime
 
-        // Set recording start time on first actual capture, not during init
-        if !hasSetStartTime && recordingStartTime != nil {
-            recordingStartTime = currentTime
-            hasSetStartTime = true
-        }
-
         // Process frame immediately in autoreleasepool
         autoreleasepool {
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
                 return
             }
-            
+
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            
+
             // Process on dedicated queue but dispatch synchronously
             // to ensure frame is processed before buffer is released
             processingQueue.sync {
@@ -175,26 +166,26 @@ class TimelapseFrameProcessor: NSObject {
         // Get input dimensions
         let inputWidth = CVPixelBufferGetWidth(inputBuffer)
         let inputHeight = CVPixelBufferGetHeight(inputBuffer)
-        
+
         // Create CIImage from input
         let inputImage = CIImage(cvPixelBuffer: inputBuffer)
-        
+
         // Calculate crop rect for 9:16 aspect ratio centered in input
         let cropRect = calculateCropRect(
             inputWidth: inputWidth,
             inputHeight: inputHeight,
             targetAspect: 9.0 / 16.0
         )
-        
+
         // Crop to 9:16
         var processedImage = inputImage.cropped(to: cropRect)
-        
+
         // Translate to origin (crop maintains original coordinates)
         processedImage = processedImage.transformed(by: CGAffineTransform(
             translationX: -cropRect.origin.x,
             y: -cropRect.origin.y
         ))
-        
+
         // Scale to target size
         let scaleX = CGFloat(targetWidth) / cropRect.width
         let scaleY = CGFloat(targetHeight) / cropRect.height
@@ -202,15 +193,16 @@ class TimelapseFrameProcessor: NSObject {
             scaleX: scaleX,
             y: scaleY
         ))
-        
-        // Apply branded frame overlay with timer
-        // Use wall-clock time for accurate timer display
+
+        // Calculate elapsed time for timer overlay
         let elapsedSeconds: Int
         if let startTime = recordingStartTime {
             elapsedSeconds = Int(CFAbsoluteTimeGetCurrent() - startTime)
         } else {
             elapsedSeconds = 0
         }
+
+        // Apply branded frame overlay with timer
         processedImage = frameOverlay.applyOverlay(to: processedImage, elapsedSeconds: elapsedSeconds)
         
         // Get output buffer from pool
@@ -265,6 +257,5 @@ class TimelapseFrameProcessor: NSObject {
     func reset() {
         lastCaptureTime = 0
         recordingStartTime = nil
-        hasSetStartTime = false
     }
 }

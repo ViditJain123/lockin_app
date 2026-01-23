@@ -3,9 +3,7 @@ import DraggableTimerOverlay from '@/components/DraggableTimerOverlay';
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
 import RecordingTimer from '@/components/RecordingTimer';
-import { TimelapsePreview } from '@/components/TimelapsePreview';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
-import { isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,8 +12,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Image,
-    Platform,
     StyleSheet,
     Text,
     View,
@@ -51,17 +47,15 @@ export default function CameraScreen() {
 
 
   // Show alert on recording error - but only for critical errors
-  // Filter out transient errors like frame encoding failures that don't stop recording
   useEffect(() => {
     if (recordingError) {
-      // Filter out non-critical errors that don't stop recording
-      const isCriticalError = 
+      const isCriticalError =
         recordingError.code === 'START_FAILED' ||
         recordingError.code === 'STOP_FAILED' ||
         recordingError.code === 'PLATFORM_NOT_SUPPORTED' ||
         recordingError.message.includes('stopped') ||
         recordingError.message.includes('denied');
-      
+
       if (isCriticalError) {
         Alert.alert(
           'Recording Error',
@@ -109,49 +103,21 @@ export default function CameraScreen() {
         } as any);
       }
     } else {
-      // Check if timelapse is available
-      if (!isTimelapseAvailable()) {
-        Alert.alert(
-          'Not Available',
-          Platform.OS === 'ios'
-            ? 'Timelapse requires a native build. Please run: npx expo run:ios'
-            : 'Timelapse is currently only available on iOS.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Check if user is on a phone call
-      const callActive = await isCallInProgress();
-      if (callActive) {
-        Alert.alert(
-          'Phone Call Active',
-          'Please end your phone call before starting a timelapse recording.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
       // Start countdown instead of immediate recording
       setCountingDown(true);
     }
-  }, [isRecording, isPreparing, isFinishing, isCountingDown, stopRecording, setCountingDown, durationSeconds]);
+  }, [isRecording, isPreparing, isFinishing, isCountingDown, stopRecording, setCountingDown, durationSeconds, timerPosition]);
 
   // Callback when countdown completes - start the actual recording
-  // Note: Don't hide countdown here - let it stay visible until recording actually starts
   const handleCountdownComplete = useCallback(async () => {
     await startRecording({
-      captureIntervalMs: 500, // 2fps capture
-      outputFps: 60,         // 60fps output
-      codec: 'h264',
-      saveToGallery: false,  // Don't auto-save, user will save from preview
-      cameraPosition: facing, // Use current camera facing direction
-      timerPositionX: timerPosition.x,  // Pass user's timer position
+      cameraPosition: facing,
+      timerPositionX: timerPosition.x,
       timerPositionY: timerPosition.y,
     });
   }, [startRecording, facing, timerPosition]);
 
-  // Hide countdown only when recording has actually started (prevents black screen flash)
+  // Hide countdown only when recording has actually started
   useEffect(() => {
     if (isRecording && isCountingDown) {
       setCountingDown(false);
@@ -200,28 +166,12 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Camera preview - switch between expo-camera and native preview during recording */}
-      {/* When preparing, recording, or finishing, use native TimelapsePreview which shares the capture session */}
-      {/* When not recording, use expo-camera for standard preview */}
-      {(isPreparing || isRecording || isFinishing) ? (
-        <>
-          <TimelapsePreview style={styles.camera} />
-          {/* Logo preview - shows where logo will appear in final video */}
-          <View style={styles.logoPreview}>
-            <Image
-              source={require('@/assets/images/logo-no-bg-cropped.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-        </>
-      ) : (
-        <CameraView
-          style={styles.camera}
-          facing={facing}
-          enableTorch={flashEnabled}
-        />
-      )}
+      {/* Camera preview - always use expo-camera CameraView (even during recording) */}
+      <CameraView
+        style={styles.camera}
+        facing={facing}
+        enableTorch={flashEnabled}
+      />
 
       {/* Countdown Overlay */}
       <CountdownOverlay
@@ -263,8 +213,6 @@ export default function CameraScreen() {
           onPositionChange={setTimerPosition}
         />
       )}
-
-      {/* No loader overlay - recording start/stop happens seamlessly in background */}
 
       {/* Bottom control zone - Record button */}
       <View style={styles.bottomControls}>
@@ -337,15 +285,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 16,
-  },
-  logoPreview: {
-    position: 'absolute',
-    left: 0,
-    top: '75%',
-    transform: [{ translateY: -20 }],  // Center vertically on 75% line (half of logo height)
-  },
-  logoImage: {
-    height: 40,  // Scaled for screen (native uses 80 on 1920px canvas)
-    width: 40 * (327 / 127),  // Preserve aspect ratio (327x127 original)
   },
 });

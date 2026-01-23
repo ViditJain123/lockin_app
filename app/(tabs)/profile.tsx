@@ -225,7 +225,7 @@ export default function ProfileScreen() {
   // Header component that scrolls with the content (Instagram-style)
   const renderListHeader = () => (
     <>
-      {/* Top Row with Pro and Settings buttons */}
+      {/* Top Row with Pro, Trophies and Settings buttons */}
       <View style={styles.topRow}>
         <TouchableOpacity
           onPress={() => router.push('/paywall')}
@@ -235,12 +235,21 @@ export default function ProfileScreen() {
           <Text style={styles.proButtonText}>PRO</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => router.push('/settings-page')}
-          style={styles.settingsButton}
-        >
-          <Ionicons name="settings-outline" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={styles.rightButtons}>
+          <TouchableOpacity
+            onPress={() => router.push('/trophies-page')}
+            style={styles.trophyButton}
+          >
+            <Ionicons name="trophy-outline" size={24} color="white" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/settings-page')}
+            style={styles.settingsButton}
+          >
+            <Ionicons name="settings-outline" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Profile Header Section */}
@@ -365,6 +374,14 @@ const styles = StyleSheet.create({
     color: '#FF3B5C',
     fontSize: 13,
     fontFamily: Fonts.bold,
+  },
+  rightButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trophyButton: {
+    padding: 4,
   },
   settingsButton: {
     padding: 4,
