@@ -1,8 +1,13 @@
 import GlassIconButton from '@/components/GlassIconButton';
+import TrophyReceivedModal from '@/components/TrophyReceivedModal';
+import { BadgeDefinition, getBadgeById } from '@/constants/Badges';
 import { saveToGallery, shareVideo } from '@/lib/mediaUtils';
 import { recordWatchTime } from '@/lib/statsService';
+import { useBadgeStore } from '@/store/useBadgeStore';
 import { useProfileStore } from '@/store/useProfileStore';
+import { useTimerPosition } from '@/store/useRecordingStore';
 import { useVideoStore } from '@/store/useVideoStore';
+import { formatDuration } from '@/modules/TimelapseEngine';
 import { Ionicons } from '@expo/vector-icons';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -18,6 +23,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Timer overlay constants
+const TIMER_WIDTH = 120;
+const TIMER_HEIGHT = 70;
+const PADDING = 20;
+
+const calculateTimerX = (percentX: number, width: number) => {
+  const maxX = Math.max(width - TIMER_WIDTH - PADDING, PADDING);
+  const centerX = percentX * width;
+  return Math.min(Math.max(centerX - TIMER_WIDTH / 2, PADDING), maxX);
+};
+
+const calculateTimerY = (percentY: number, height: number) => {
+  const maxY = Math.max(height - TIMER_HEIGHT - PADDING, PADDING);
+  const centerY = percentY * height;
+  return Math.min(Math.max(centerY - TIMER_HEIGHT / 2, PADDING), maxY);
+};
 
 /**
  * Check if a video URI is a placeholder video
@@ -59,6 +81,13 @@ export default function PreviewScreen() {
   // Profile store for optimistic updates
   const incrementHoursLocally = useProfileStore((s) => s.incrementHoursLocally);
   const addActivityLocally = useProfileStore((s) => s.addActivityLocally);
+  const totalHours = useProfileStore((s) => s.totalHours);
+  const totalGrinds = useProfileStore((s) => s.totalGrinds);
+  const currentStreak = useProfileStore((s) => s.currentStreak);
+
+  // Badge store
+  const checkAndAwardBadges = useBadgeStore((s) => s.checkAndAwardBadges);
+  const markBadgeAsSeen = useBadgeStore((s) => s.markBadgeAsSeen);
 
   // Auth context for user ID
   const { user } = useAuth();
@@ -75,6 +104,15 @@ export default function PreviewScreen() {
   const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState(0);
   const totalWatchedRef = useRef<number>(0); // Cumulative watched seconds this session
+
+  // Trophy modal state
+  const [showTrophyModal, setShowTrophyModal] = useState(false);
+  const [currentTrophyBadge, setCurrentTrophyBadge] = useState<BadgeDefinition | null>(null);
+  const [pendingBadgeIds, setPendingBadgeIds] = useState<string[]>([]);
+
+  // Timer overlay state
+  const timerPosition = useTimerPosition();
+  const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
 
   // Ensure video plays on mount
   useEffect(() => {
@@ -115,6 +153,26 @@ export default function PreviewScreen() {
       const minutes = grindDuration / 60;
       addActivityLocally(minutes);
       console.log('[Preview] Added activity locally:', minutes, 'minutes');
+
+      // Check for new badges after saving
+      // Use current stats + the new grind (totalGrinds will be incremented server-side)
+      const updatedStats = {
+        totalHours: totalHours + (grindDuration / 3600),
+        totalGrinds: totalGrinds + 1,
+        currentStreak: currentStreak, // Streak is calculated server-side
+      };
+      const newBadges = checkAndAwardBadges(updatedStats);
+      console.log('[Preview] New badges earned:', newBadges);
+
+      if (newBadges.length > 0) {
+        // Show the first badge, queue the rest
+        const firstBadge = getBadgeById(newBadges[0]);
+        if (firstBadge) {
+          setCurrentTrophyBadge(firstBadge);
+          setPendingBadgeIds(newBadges.slice(1));
+          setShowTrophyModal(true);
+        }
+      }
     } catch (error) {
       console.error('[Preview] Failed to save to private storage:', error);
       Alert.alert('Error', 'Failed to save video. Please try again.');
@@ -238,6 +296,39 @@ export default function PreviewScreen() {
     router.back();
   };
 
+  // Handle trophy modal actions
+  const handleTrophyClose = () => {
+    if (currentTrophyBadge) {
+      markBadgeAsSeen(currentTrophyBadge.id);
+    }
+    setShowTrophyModal(false);
+    setCurrentTrophyBadge(null);
+    setPendingBadgeIds([]);
+  };
+
+  const handleAddToCollection = () => {
+    if (currentTrophyBadge) {
+      markBadgeAsSeen(currentTrophyBadge.id);
+    }
+
+    // Check if there are more badges to show
+    if (pendingBadgeIds.length > 0) {
+      const nextBadgeId = pendingBadgeIds[0];
+      const nextBadge = getBadgeById(nextBadgeId);
+      if (nextBadge) {
+        setCurrentTrophyBadge(nextBadge);
+        setPendingBadgeIds(pendingBadgeIds.slice(1));
+      } else {
+        setShowTrophyModal(false);
+        setCurrentTrophyBadge(null);
+        setPendingBadgeIds([]);
+      }
+    } else {
+      setShowTrophyModal(false);
+      setCurrentTrophyBadge(null);
+    }
+  };
+
   const getStatusText = () => {
     if (isPlaceholder) {
       return { icon: 'information-circle', text: 'Preview Only', color: '#FFA500' };
@@ -254,7 +345,13 @@ export default function PreviewScreen() {
   const status = getStatusText();
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        setContainerLayout({ width, height });
+      }}
+    >
       {/* Video Player */}
       {videoUri ? (
         <Video
@@ -271,6 +368,24 @@ export default function PreviewScreen() {
       ) : (
         <View style={[styles.video, styles.placeholderContainer]}>
           <Text style={styles.placeholderText}>No video available</Text>
+        </View>
+      )}
+
+      {/* Timer Overlay - identical to drag screen but static */}
+      {containerLayout.width > 0 && (
+        <View style={[styles.timerOverlay, {
+          left: calculateTimerX(timerPosition.x, containerLayout.width),
+          top: calculateTimerY(timerPosition.y, containerLayout.height),
+        }]}>
+          <View style={styles.timerBox}>
+            <Text style={styles.timerText}>
+              {formatDuration(playbackPositionSeconds)}
+            </Text>
+            <Text style={styles.brandText}>
+              <Text style={styles.brandLockin}>LOCKIN </Text>
+              <Text style={styles.brandClub}>CLUB</Text>
+            </Text>
+          </View>
         </View>
       )}
 
@@ -322,6 +437,14 @@ export default function PreviewScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Trophy Received Modal */}
+      <TrophyReceivedModal
+        visible={showTrophyModal}
+        badge={currentTrophyBadge}
+        onClose={handleTrophyClose}
+        onAddToCollection={handleAddToCollection}
+      />
     </View>
   );
 }
@@ -402,5 +525,42 @@ const styles = StyleSheet.create({
   },
   buttonLabelDisabled: {
     color: 'rgba(255,255,255,0.4)',
+  },
+  timerOverlay: {
+    position: 'absolute',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  timerBox: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+  },
+  timerText: {
+    fontSize: 20,
+    fontFamily: Fonts.semiBold,
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+  },
+  brandText: {
+    marginTop: 2,
+  },
+  brandLockin: {
+    fontSize: 11,
+    fontFamily: Fonts.semiBold,
+    color: 'rgba(255, 255, 255, 0.95)',
+    letterSpacing: 0.5,
+  },
+  brandClub: {
+    fontSize: 11,
+    fontFamily: Fonts.semiBold,
+    color: '#FF3B5C',
+    letterSpacing: 0.5,
   },
 });

@@ -60,6 +60,24 @@ export interface TimelapseOptions {
    * Default: 30
    */
   targetVideoSeconds?: number;
+
+  /**
+   * Timer position as percentage (0-1) of the frame.
+   * x: 0 = left edge, 1 = right edge
+   * y: 0 = top edge, 1 = bottom edge
+   * Position represents the center of the timer text.
+   * Default: { x: 0.85, y: 0.75 }
+   */
+  timerPosition?: { x: number; y: number };
+
+  /**
+   * Device orientation for rotating timer text in the video.
+   * - 'portrait': No rotation (default)
+   * - 'landscape-left': Timer rotates 90deg clockwise
+   * - 'landscape-right': Timer rotates 90deg counter-clockwise
+   * Default: 'portrait'
+   */
+  orientation?: 'portrait' | 'landscape-left' | 'landscape-right';
 }
 
 export interface TimelapseState {
@@ -158,6 +176,8 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
     throw new Error('Timelapse is only available on iOS');
   }
 
+  const timerPos = options.timerPosition ?? { x: 0.85, y: 0.75 };
+
   const fullOptions = {
     captureIntervalMs: options.captureIntervalMs ?? 500,
     outputFps: options.outputFps ?? 60,
@@ -165,6 +185,9 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
     saveToGallery: options.saveToGallery ?? true,
     cameraPosition: options.cameraPosition ?? 'back',
     targetVideoSeconds: options.targetVideoSeconds ?? 30,
+    timerPositionX: timerPos.x,
+    timerPositionY: timerPos.y,
+    orientation: options.orientation ?? 'portrait',
   };
 
   await NativeTimelapseEngine.startTimelapse(fullOptions);

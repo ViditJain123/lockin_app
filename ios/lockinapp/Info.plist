@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.1</string>
+    <string>1.0.2</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -47,8 +47,12 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera for timelapse recording</string>
+    <key>NSFamilyControlsUsageDescription</key>
+    <string>LockIn uses Screen Time to help you manage app usage and build better habits</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <key>NSMotionUsageDescription</key>
+    <string>Used to detect device orientation for timer display</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Save timelapse videos to your gallery</string>
     <key>NSPhotoLibraryUsageDescription</key>
@@ -59,6 +63,10 @@
     </array>
     <key>RCTNewArchEnabled</key>
     <true/>
+    <key>UIAppFonts</key>
+    <array>
+      <string>Fonts/Quicksand-SemiBold.ttf</string>
+    </array>
     <key>UIBackgroundModes</key>
     <array>
       <string>audio</string>

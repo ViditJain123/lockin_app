@@ -2,7 +2,7 @@
   "expo": {
     "name": "lockin_app",
     "slug": "lockin_app",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "lockinapp",
@@ -21,6 +21,7 @@
         "NSPhotoLibraryAddUsageDescription": "Save timelapse videos to your gallery",
         "NSPhotoLibraryUsageDescription": "Access your photos to save timelapse videos",
         "NSFamilyControlsUsageDescription": "LockIn uses Screen Time to help you manage app usage and build better habits",
+        "NSMotionUsageDescription": "Used to detect device orientation for timer display",
         "UIBackgroundModes": [
           "audio"
         ]

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		02970686F6E9D569F34768FF /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		FONTBUILD0001 /* Quicksand-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FONTREF0001 /* Quicksand-SemiBold.ttf */; };
 		1ED05BEF2A0F1F9BD9DD8E9E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
@@ -27,14 +28,9 @@
 		TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000011 /* TimelapseFrameOverlay.swift */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-lockinapp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		FONTREF0001 /* Quicksand-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Quicksand-SemiBold.ttf"; path = "Quicksand-SemiBold.ttf"; sourceTree = "<group>"; };
 		0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.release.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.release.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* lockinapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = lockinapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = lockinapp/Images.xcassets; sourceTree = "<group>"; };
@@ -60,12 +56,6 @@
 		TL0002001000000011 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = lockinapp/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -86,6 +76,15 @@
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
+		FONTGRP0001 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				FONTREF0001 /* Quicksand-SemiBold.ttf */,
+			);
+			name = Fonts;
+			path = lockinapp/Fonts;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* lockinapp */ = {
 			isa = PBXGroup;
 			children = (
@@ -102,6 +101,7 @@
 				TL0002001000000009 /* TimelapsePreviewView.swift */,
 				TL0002001000000010 /* TimelapsePreviewViewManager.m */,
 				TL0002001000000011 /* TimelapseFrameOverlay.swift */,
+				FONTGRP0001 /* Fonts */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -244,6 +244,7 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				1ED05BEF2A0F1F9BD9DD8E9E /* PrivacyInfo.xcprivacy in Resources */,
+				FONTBUILD0001 /* Quicksand-SemiBold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,9 +404,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {

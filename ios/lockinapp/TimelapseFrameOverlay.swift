@@ -178,7 +178,8 @@ class TimelapseFrameOverlay {
         paragraphStyle.alignment = .right
 
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold),
+            .font: UIFont(name: "Quicksand-SemiBold", size: timerFontSize)
+                ?? UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold),
             .foregroundColor: UIColor.white,
             .paragraphStyle: paragraphStyle
         ]

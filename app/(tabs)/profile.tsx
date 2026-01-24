@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import FeaturedBadges from '../../components/FeaturedBadges';
 import ThumbnailItem from '../../components/ThumbnailItem';
 import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
@@ -306,6 +307,8 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Badge Collection */}
+      <FeaturedBadges />
     </>
   );
 

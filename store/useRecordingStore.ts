@@ -12,6 +12,9 @@ import {
 } from '@/modules/TimelapseEngine';
 import { create } from 'zustand';
 
+// Device orientation types
+export type DeviceOrientation = 'portrait' | 'landscape-left' | 'landscape-right';
+
 interface RecordingState {
   // Basic state
   isRecording: boolean;
@@ -24,6 +27,12 @@ interface RecordingState {
   durationSeconds: number;
   estimatedOutputDuration: number;
 
+  // Timer position (percentage 0-1, center-based)
+  timerPosition: { x: number; y: number };
+
+  // Device orientation
+  deviceOrientation: DeviceOrientation;
+
   // Result
   lastResult: TimelapseResult | null;
   lastError: TimelapseError | null;
@@ -33,6 +42,8 @@ interface RecordingState {
   stopRecording: () => Promise<TimelapseResult | null>;
   resetError: () => void;
   setCountingDown: (value: boolean) => void;
+  setTimerPosition: (position: { x: number; y: number }) => void;
+  setDeviceOrientation: (orientation: DeviceOrientation) => void;
 
   // Internal actions
   _setRecordingState: (state: Partial<RecordingState>) => void;
@@ -108,6 +119,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     frameCount: 0,
     durationSeconds: 0,
     estimatedOutputDuration: 0,
+    timerPosition: { x: 0.85, y: 0.75 }, // Default: right-aligned, 3/4 down
+    deviceOrientation: 'portrait',
     lastResult: null,
     lastError: null,
 
@@ -213,6 +226,16 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
       set({ isCountingDown: value });
     },
 
+    // Set timer position
+    setTimerPosition: (position: { x: number; y: number }) => {
+      set({ timerPosition: position });
+    },
+
+    // Set device orientation
+    setDeviceOrientation: (orientation: DeviceOrientation) => {
+      set({ deviceOrientation: orientation });
+    },
+
     // Internal: Update state
     _setRecordingState: (newState) => {
       set(newState);
@@ -250,3 +273,5 @@ export const useIsRecording = () => useRecordingStore((s) => s.isRecording);
 export const useRecordingDuration = () => useRecordingStore((s) => s.durationSeconds);
 export const useFrameCount = () => useRecordingStore((s) => s.frameCount);
 export const useRecordingError = () => useRecordingStore((s) => s.lastError);
+export const useTimerPosition = () => useRecordingStore((s) => s.timerPosition);
+export const useDeviceOrientation = () => useRecordingStore((s) => s.deviceOrientation);

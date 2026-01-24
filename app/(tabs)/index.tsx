@@ -1,10 +1,12 @@
 import CountdownOverlay from '@/components/CountdownOverlay';
+import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholder';
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
 import { TimelapsePreview } from '@/components/TimelapsePreview';
+import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
-import { useRecordingError, useRecordingStore } from '@/store/useRecordingStore';
+import { useRecordingError, useRecordingStore, useTimerPosition } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -13,6 +15,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  LayoutChangeEvent,
   Platform,
   StyleSheet,
   Text,
@@ -32,7 +35,12 @@ export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [flashEnabled, setFlashEnabled] = useState(false);
+  const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
   const insets = useSafeAreaInsets();
+
+  // Timer position state
+  const timerPosition = useTimerPosition();
+  const setTimerPosition = useRecordingStore((s) => s.setTimerPosition);
 
   // Recording state from Zustand store
   const isRecording = useRecordingStore((s) => s.isRecording);
@@ -47,6 +55,9 @@ export default function CameraScreen() {
 
   // Keep screen awake and dim brightness during recording
   useScreenWakeLock(isRecording);
+
+  // Detect device orientation (locks when recording starts)
+  const deviceOrientation = useOrientationDetection();
 
 
   // Show alert on recording error - but only for critical errors
@@ -143,8 +154,10 @@ export default function CameraScreen() {
       codec: 'h264',
       saveToGallery: false,  // Don't auto-save, user will save from preview
       cameraPosition: facing, // Use current camera facing direction
+      timerPosition: timerPosition, // Use user-positioned timer location
+      orientation: deviceOrientation, // Pass current orientation for timer rotation
     });
-  }, [startRecording, facing]);
+  }, [startRecording, facing, timerPosition, deviceOrientation]);
 
   // Hide countdown only when recording has actually started (prevents black screen flash)
   useEffect(() => {
@@ -152,6 +165,12 @@ export default function CameraScreen() {
       setCountingDown(false);
     }
   }, [isRecording, isCountingDown, setCountingDown]);
+
+  // Handle container layout to get dimensions for draggable timer
+  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setContainerLayout({ width, height });
+  }, []);
 
 
 
@@ -194,7 +213,7 @@ export default function CameraScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={handleContainerLayout}>
       {/* Camera preview - switch between expo-camera and native preview during recording */}
       {/* When preparing, recording, or finishing, use native TimelapsePreview which shares the capture session */}
       {/* When not recording, use expo-camera for standard preview */}
@@ -205,6 +224,18 @@ export default function CameraScreen() {
           style={styles.camera}
           facing={facing}
           enableTorch={flashEnabled}
+        />
+      )}
+
+      {/* Draggable timer placeholder - visible when NOT recording */}
+      {!isRecording && !isPreparing && !isFinishing && !isCountingDown && (
+        <DraggableTimerPlaceholder
+          containerWidth={containerLayout.width}
+          containerHeight={containerLayout.height}
+          position={timerPosition}
+          onPositionChange={setTimerPosition}
+          enabled={true}
+          orientation={deviceOrientation}
         />
       )}
 
