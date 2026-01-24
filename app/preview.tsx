@@ -8,16 +8,30 @@ import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
+
+/**
+ * Check if a video URI is a placeholder video
+ * Placeholder videos come from the bundled asset and should not be saved
+ */
+function isPlaceholderVideo(uri: string): boolean {
+  if (!uri) return true;
+  // Placeholder videos come from expo-asset and contain these patterns
+  return (
+    uri.includes('placeholder-timelapse') ||
+    uri.includes('ExponentAsset') ||
+    uri === ''
+  );
+}
 
 export default function PreviewScreen() {
   const { videoUri, grindDurationSeconds, isFromGallery, videoId } = useLocalSearchParams<{
@@ -29,6 +43,9 @@ export default function PreviewScreen() {
 
   // Check if opened from gallery (already saved video)
   const fromGallery = isFromGallery === 'true';
+
+  // Check if this is a placeholder video (simulated recording)
+  const isPlaceholder = isPlaceholderVideo(videoUri || '');
 
   // Parse grind duration
   const grindDuration = grindDurationSeconds ? parseInt(grindDurationSeconds, 10) : 0;
@@ -42,19 +59,21 @@ export default function PreviewScreen() {
   // Profile store for optimistic updates
   const incrementHoursLocally = useProfileStore((s) => s.incrementHoursLocally);
   const addActivityLocally = useProfileStore((s) => s.addActivityLocally);
-  
+
   // Auth context for user ID
   const { user } = useAuth();
 
   // Local state
-  const [isSaved, setIsSaved] = useState(fromGallery);
+  const [isSaved, setIsSaved] = useState(fromGallery || isPlaceholder);
   const [isSaving, setIsSaving] = useState(false);
   const [savedToGallery, setSavedToGallery] = useState(false);
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(videoId || null);
-  
+
   // Watch time tracking state
   const [isPlaying, setIsPlaying] = useState(false);
   const playStartTimeRef = useRef<number | null>(null); // When playback started
+  const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(0);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState(0);
   const totalWatchedRef = useRef<number>(0); // Cumulative watched seconds this session
 
   // Ensure video plays on mount
@@ -69,13 +88,13 @@ export default function PreviewScreen() {
 
   // Auto-save to private storage on mount (only for new recordings)
   useEffect(() => {
-    if (videoUri && !fromGallery && !isSaved && !isSaving) {
+    if (videoUri && !fromGallery && !isPlaceholder && !isSaved && !isSaving) {
       handleAutoSaveToPrivate();
     }
-  }, [videoUri, fromGallery]);
+  }, [videoUri, fromGallery, isPlaceholder]);
 
   const handleAutoSaveToPrivate = async () => {
-    if (!videoUri) return;
+    if (!videoUri || isPlaceholder) return;
 
     // Validate user is authenticated
     if (!user?.id) {
@@ -107,21 +126,21 @@ export default function PreviewScreen() {
   // Handle watch time recording when video pauses
   const handleRecordWatchTime = useCallback(async () => {
     if (!user?.id || !playStartTimeRef.current) return;
-    
+
     const now = Date.now();
     const sessionWatchedMs = now - playStartTimeRef.current;
     const sessionWatchedSeconds = Math.floor(sessionWatchedMs / 1000);
-    
+
     if (sessionWatchedSeconds <= 0) return;
-    
+
     totalWatchedRef.current += sessionWatchedSeconds;
     playStartTimeRef.current = null;
-    
+
     console.log(`[Preview] Recording ${sessionWatchedSeconds}s of watch time`);
-    
+
     // Optimistic update
     incrementHoursLocally(sessionWatchedSeconds / 3600);
-    
+
     // API call in background
     const result = await recordWatchTime(user.id, sessionWatchedSeconds);
     if (!result.success) {
@@ -134,29 +153,44 @@ export default function PreviewScreen() {
   // Handle playback status updates
   const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
-    
+
     const wasPlaying = isPlaying;
     const nowPlaying = status.isPlaying;
-    
+
+    // Update video duration (only needs to be set once)
+    if (status.durationMillis !== undefined && videoDurationSeconds === 0) {
+      setVideoDurationSeconds(Math.floor(status.durationMillis / 1000));
+    }
+
+    // Update playback position for timer display
+    if (status.positionMillis !== undefined) {
+      setPlaybackPositionSeconds(Math.floor(status.positionMillis / 1000));
+    }
+
     // Detect play -> pause transition (user paused)
     if (wasPlaying && !nowPlaying && !status.didJustFinish) {
       handleRecordWatchTime();
     }
-    
+
     // Detect pause -> play transition (started playing)
     if (!wasPlaying && nowPlaying) {
       playStartTimeRef.current = Date.now();
     }
-    
+
     setIsPlaying(nowPlaying);
-    
+
     // Handle video looping
     if (status.didJustFinish && !status.isLooping) {
       videoRef.current?.replayAsync();
     }
-  }, [isPlaying, handleRecordWatchTime]);
+  }, [isPlaying, handleRecordWatchTime, videoDurationSeconds]);
 
   const handleShare = async () => {
+    if (isPlaceholder) {
+      Alert.alert('Preview Only', 'This is a preview placeholder. No actual video was recorded.');
+      return;
+    }
+
     if (videoUri) {
       const success = await shareVideo(videoUri);
       if (!success) {
@@ -166,8 +200,13 @@ export default function PreviewScreen() {
   };
 
   const handleSaveToGallery = async () => {
+    if (isPlaceholder) {
+      Alert.alert('Preview Only', 'This is a preview placeholder. No actual video was recorded.');
+      return;
+    }
+
     if (!videoUri) return;
-    
+
     if (savedToGallery) {
       Alert.alert('Already Saved', 'This video is already in your photo library');
       return;
@@ -177,12 +216,12 @@ export default function PreviewScreen() {
     try {
       await saveToGallery(videoUri);
       setSavedToGallery(true);
-      
+
       // Update store if we have a video ID
       if (currentVideoId) {
         await markSavedToGallery(currentVideoId);
       }
-      
+
       Alert.alert('Saved', 'Video saved to your photo library');
     } catch (error) {
       if (error instanceof Error && error.message.includes('permission')) {
@@ -200,6 +239,9 @@ export default function PreviewScreen() {
   };
 
   const getStatusText = () => {
+    if (isPlaceholder) {
+      return { icon: 'information-circle', text: 'Preview Only', color: '#FFA500' };
+    }
     if (isSaving) {
       return { icon: null, text: 'Saving...', color: 'white' };
     }
@@ -214,17 +256,23 @@ export default function PreviewScreen() {
   return (
     <View style={styles.container}>
       {/* Video Player */}
-      <Video
-        ref={videoRef}
-        source={{ uri: videoUri }}
-        style={styles.video}
-        resizeMode={ResizeMode.CONTAIN}
-        isLooping={true}
-        shouldPlay={true}
-        isMuted={false}
-        useNativeControls={false}
-        onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-      />
+      {videoUri ? (
+        <Video
+          ref={videoRef}
+          source={{ uri: videoUri }}
+          style={styles.video}
+          resizeMode={ResizeMode.CONTAIN}
+          isLooping={true}
+          shouldPlay={true}
+          isMuted={false}
+          useNativeControls={false}
+          onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+        />
+      ) : (
+        <View style={[styles.video, styles.placeholderContainer]}>
+          <Text style={styles.placeholderText}>No video available</Text>
+        </View>
+      )}
 
       {/* Top Bar */}
       <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
@@ -256,7 +304,9 @@ export default function PreviewScreen() {
             iconSize={26}
             onPress={handleShare}
           />
-          <Text style={styles.buttonLabel}>Share</Text>
+          <Text style={[styles.buttonLabel, isPlaceholder && styles.buttonLabelDisabled]}>
+            Share
+          </Text>
         </View>
 
         <View style={styles.buttonContainer}>
@@ -267,7 +317,7 @@ export default function PreviewScreen() {
             onPress={handleSaveToGallery}
             disabled={isSaving || savedToGallery}
           />
-          <Text style={styles.buttonLabel}>
+          <Text style={[styles.buttonLabel, isPlaceholder && styles.buttonLabelDisabled]}>
             {savedToGallery ? 'In Gallery' : 'Save to Gallery'}
           </Text>
         </View>
@@ -283,6 +333,16 @@ const styles = StyleSheet.create({
   },
   video: {
     ...StyleSheet.absoluteFillObject,
+  },
+  placeholderContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+  },
+  placeholderText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 18,
+    fontFamily: Fonts.medium,
   },
   topBar: {
     position: 'absolute',
@@ -339,5 +399,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Fonts.medium,
     textAlign: 'center',
+  },
+  buttonLabelDisabled: {
+    color: 'rgba(255,255,255,0.4)',
   },
 });

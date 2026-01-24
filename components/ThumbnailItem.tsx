@@ -1,11 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Animated,
   Image,
   StyleSheet,
+  Text,
   TouchableOpacity,
-  View,
-  Animated,
+  View
 } from 'react-native';
+
+function formatThumbnailDuration(seconds: number): string {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 interface ThumbnailItemProps {
   thumbnailUrl: string | null;
@@ -14,6 +26,7 @@ interface ThumbnailItemProps {
   onPress: () => void;
   marginLeft?: number;
   marginRight?: number;
+  durationSeconds?: number;
 }
 
 export default function ThumbnailItem({
@@ -23,6 +36,7 @@ export default function ThumbnailItem({
   onPress,
   marginLeft = 0,
   marginRight = 0,
+  durationSeconds,
 }: ThumbnailItemProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -108,6 +122,13 @@ export default function ThumbnailItem({
           </View>
         </View>
       )}
+
+      {/* Duration badge */}
+      {durationSeconds !== undefined && (
+        <View style={styles.durationBadge}>
+          <Text style={styles.durationText}>{formatThumbnailDuration(durationSeconds)}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -150,5 +171,19 @@ const styles = StyleSheet.create({
     borderTopColor: 'transparent',
     borderBottomWidth: 8,
     borderBottomColor: 'transparent',
+  },
+  durationBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  durationText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
   },
 });

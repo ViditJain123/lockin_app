@@ -25,8 +25,6 @@ import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { initializeRevenueCat } from '../lib/revenueCat';
-import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import AuthScreen from '../components/AuthScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
 import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
@@ -45,12 +43,14 @@ import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
+import { initializeRevenueCat } from '../lib/revenueCat';
+import { useSubscriptionStore } from '../store/useSubscriptionStore';
 // Family Controls screens (disabled for non-production bundle IDs)
 // import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 // import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
-import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
+import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { migrateHeatmapData } from '../lib/heatmapMigration';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
@@ -426,6 +426,13 @@ function RootLayoutNav() {
           />
           <Stack.Screen
             name="settings-page"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen
+            name="trophies-page"
             options={{
               headerShown: false,
               animation: 'slide_from_right',
