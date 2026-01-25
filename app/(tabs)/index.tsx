@@ -6,7 +6,7 @@ import { TimelapsePreview } from '@/components/TimelapsePreview';
 import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
-import { useRecordingError, useRecordingStore, useTimerPosition } from '@/store/useRecordingStore';
+import { TimerFilterType, useRecordingError, useRecordingStore, useTimerFilter, useTimerPosition, useTimerScale } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -41,6 +41,14 @@ export default function CameraScreen() {
   // Timer position state
   const timerPosition = useTimerPosition();
   const setTimerPosition = useRecordingStore((s) => s.setTimerPosition);
+
+  // Timer filter state
+  const timerFilter = useTimerFilter();
+  const setTimerFilter = useRecordingStore((s) => s.setTimerFilter);
+
+  // Timer scale state
+  const timerScale = useTimerScale();
+  const setTimerScale = useRecordingStore((s) => s.setTimerScale);
 
   // Recording state from Zustand store
   const isRecording = useRecordingStore((s) => s.isRecording);
@@ -156,8 +164,16 @@ export default function CameraScreen() {
       cameraPosition: facing, // Use current camera facing direction
       timerPosition: timerPosition, // Use user-positioned timer location
       orientation: deviceOrientation, // Pass current orientation for timer rotation
+      timerFilter: timerFilter, // Pass selected timer filter type
+      timerScale: timerScale, // Pass timer scale
     });
-  }, [startRecording, facing, timerPosition, deviceOrientation]);
+  }, [startRecording, facing, timerPosition, deviceOrientation, timerFilter, timerScale]);
+
+  // Toggle filter type (called from DraggableTimerPlaceholder tap)
+  const handleFilterToggle = useCallback(() => {
+    const nextFilter: TimerFilterType = timerFilter === 'minimal' ? 'dateStamp' : 'minimal';
+    setTimerFilter(nextFilter);
+  }, [timerFilter, setTimerFilter]);
 
   // Hide countdown only when recording has actually started (prevents black screen flash)
   useEffect(() => {
@@ -236,6 +252,10 @@ export default function CameraScreen() {
           onPositionChange={setTimerPosition}
           enabled={true}
           orientation={deviceOrientation}
+          filterType={timerFilter}
+          onFilterToggle={handleFilterToggle}
+          timerScale={timerScale}
+          onScaleChange={setTimerScale}
         />
       )}
 

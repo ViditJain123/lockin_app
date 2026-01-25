@@ -5,9 +5,7 @@ import { saveToGallery, shareVideo } from '@/lib/mediaUtils';
 import { recordWatchTime } from '@/lib/statsService';
 import { useBadgeStore } from '@/store/useBadgeStore';
 import { useProfileStore } from '@/store/useProfileStore';
-import { useTimerPosition } from '@/store/useRecordingStore';
 import { useVideoStore } from '@/store/useVideoStore';
-import { formatDuration } from '@/modules/TimelapseEngine';
 import { Ionicons } from '@expo/vector-icons';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -23,23 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
-
-// Timer overlay constants
-const TIMER_WIDTH = 120;
-const TIMER_HEIGHT = 70;
-const PADDING = 20;
-
-const calculateTimerX = (percentX: number, width: number) => {
-  const maxX = Math.max(width - TIMER_WIDTH - PADDING, PADDING);
-  const centerX = percentX * width;
-  return Math.min(Math.max(centerX - TIMER_WIDTH / 2, PADDING), maxX);
-};
-
-const calculateTimerY = (percentY: number, height: number) => {
-  const maxY = Math.max(height - TIMER_HEIGHT - PADDING, PADDING);
-  const centerY = percentY * height;
-  return Math.min(Math.max(centerY - TIMER_HEIGHT / 2, PADDING), maxY);
-};
 
 /**
  * Check if a video URI is a placeholder video
@@ -109,10 +90,6 @@ export default function PreviewScreen() {
   const [showTrophyModal, setShowTrophyModal] = useState(false);
   const [currentTrophyBadge, setCurrentTrophyBadge] = useState<BadgeDefinition | null>(null);
   const [pendingBadgeIds, setPendingBadgeIds] = useState<string[]>([]);
-
-  // Timer overlay state
-  const timerPosition = useTimerPosition();
-  const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
 
   // Ensure video plays on mount
   useEffect(() => {
@@ -345,13 +322,7 @@ export default function PreviewScreen() {
   const status = getStatusText();
 
   return (
-    <View
-      style={styles.container}
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        setContainerLayout({ width, height });
-      }}
-    >
+    <View style={styles.container}>
       {/* Video Player */}
       {videoUri ? (
         <Video
@@ -368,24 +339,6 @@ export default function PreviewScreen() {
       ) : (
         <View style={[styles.video, styles.placeholderContainer]}>
           <Text style={styles.placeholderText}>No video available</Text>
-        </View>
-      )}
-
-      {/* Timer Overlay - identical to drag screen but static */}
-      {containerLayout.width > 0 && (
-        <View style={[styles.timerOverlay, {
-          left: calculateTimerX(timerPosition.x, containerLayout.width),
-          top: calculateTimerY(timerPosition.y, containerLayout.height),
-        }]}>
-          <View style={styles.timerBox}>
-            <Text style={styles.timerText}>
-              {formatDuration(playbackPositionSeconds)}
-            </Text>
-            <Text style={styles.brandText}>
-              <Text style={styles.brandLockin}>LOCKIN </Text>
-              <Text style={styles.brandClub}>CLUB</Text>
-            </Text>
-          </View>
         </View>
       )}
 
@@ -525,42 +478,5 @@ const styles = StyleSheet.create({
   },
   buttonLabelDisabled: {
     color: 'rgba(255,255,255,0.4)',
-  },
-  timerOverlay: {
-    position: 'absolute',
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  timerBox: {
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-  },
-  timerText: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    color: 'rgba(255, 255, 255, 0.95)',
-    fontVariant: ['tabular-nums'],
-    textAlign: 'center',
-  },
-  brandText: {
-    marginTop: 2,
-  },
-  brandLockin: {
-    fontSize: 11,
-    fontFamily: Fonts.semiBold,
-    color: 'rgba(255, 255, 255, 0.95)',
-    letterSpacing: 0.5,
-  },
-  brandClub: {
-    fontSize: 11,
-    fontFamily: Fonts.semiBold,
-    color: '#FF3B5C',
-    letterSpacing: 0.5,
   },
 });

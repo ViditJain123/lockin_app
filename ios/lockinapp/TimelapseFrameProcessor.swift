@@ -23,9 +23,20 @@ class TimelapseFrameProcessor: NSObject {
     
     // Recording start time for timer overlay
     var recordingStartTime: CFAbsoluteTime?
-    
+
+    // Timer position (percentage 0-1)
+    private let timerPosition: CGPoint
+
+    // Timer filter type
+    private let timerFilter: String
+
+    // Timer scale
+    private let timerScale: CGFloat
+
     // Frame overlay renderer
-    private let frameOverlay = TimelapseFrameOverlay()
+    private lazy var frameOverlay: TimelapseFrameOverlay = {
+        return TimelapseFrameOverlay(timerPosition: timerPosition, filterType: timerFilter, timerScale: timerScale)
+    }()
     
     // Callback for processed frames
     var onFrameReady: ((CVPixelBuffer, CMTime) -> Void)?
@@ -59,10 +70,13 @@ class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Initialization
 
-    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60) {
+    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0) {
         self.baseCaptureIntervalMs = captureIntervalMs
         self.targetVideoSeconds = targetVideoSeconds
         self.outputFps = outputFps
+        self.timerPosition = timerPosition
+        self.timerFilter = timerFilter
+        self.timerScale = timerScale
         super.init()
         setupPixelBufferPool()
     }

@@ -22,6 +22,13 @@ const TimelapseEventEmitter = NativeTimelapseEngine
 // Types
 // ============================================================================
 
+/**
+ * Timer filter type for overlay variants
+ * - 'minimal': Timer with "LOCKIN CLUB" text, semi-transparent background, no border
+ * - 'dateStamp': Timer, date, and logo right-aligned, no background
+ */
+export type TimerFilterType = 'minimal' | 'dateStamp';
+
 export interface TimelapseOptions {
   /**
    * Capture interval in milliseconds
@@ -78,6 +85,22 @@ export interface TimelapseOptions {
    * Default: 'portrait'
    */
   orientation?: 'portrait' | 'landscape-left' | 'landscape-right';
+
+  /**
+   * Timer overlay filter type
+   * - 'minimal': Timer with "LOCKIN CLUB" text, semi-transparent background, no border
+   * - 'dateStamp': Timer, date, and logo right-aligned, no background
+   * Default: 'minimal'
+   */
+  timerFilter?: TimerFilterType;
+
+  /**
+   * Timer overlay scale factor
+   * - 1.0: Default size
+   * - Max: 2.5
+   * Default: 1.0
+   */
+  timerScale?: number;
 }
 
 export interface TimelapseState {
@@ -188,6 +211,8 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
     timerPositionX: timerPos.x,
     timerPositionY: timerPos.y,
     orientation: options.orientation ?? 'portrait',
+    timerFilter: options.timerFilter ?? 'minimal',
+    timerScale: options.timerScale ?? 1.0,
   };
 
   await NativeTimelapseEngine.startTimelapse(fullOptions);

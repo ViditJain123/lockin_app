@@ -8,12 +8,16 @@ import {
     TimelapseError,
     TimelapseOptions,
     TimelapseProgress,
-    TimelapseResult
+    TimelapseResult,
+    TimerFilterType
 } from '@/modules/TimelapseEngine';
 import { create } from 'zustand';
 
 // Device orientation types
 export type DeviceOrientation = 'portrait' | 'landscape-left' | 'landscape-right';
+
+// Re-export TimerFilterType for convenience
+export type { TimerFilterType } from '@/modules/TimelapseEngine';
 
 interface RecordingState {
   // Basic state
@@ -30,6 +34,12 @@ interface RecordingState {
   // Timer position (percentage 0-1, center-based)
   timerPosition: { x: number; y: number };
 
+  // Timer filter type
+  timerFilter: TimerFilterType;
+
+  // Timer scale (1.0 = default, max 2.5)
+  timerScale: number;
+
   // Device orientation
   deviceOrientation: DeviceOrientation;
 
@@ -43,6 +53,8 @@ interface RecordingState {
   resetError: () => void;
   setCountingDown: (value: boolean) => void;
   setTimerPosition: (position: { x: number; y: number }) => void;
+  setTimerFilter: (filter: TimerFilterType) => void;
+  setTimerScale: (scale: number) => void;
   setDeviceOrientation: (orientation: DeviceOrientation) => void;
 
   // Internal actions
@@ -120,6 +132,8 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     durationSeconds: 0,
     estimatedOutputDuration: 0,
     timerPosition: { x: 0.85, y: 0.75 }, // Default: right-aligned, 3/4 down
+    timerFilter: 'minimal', // Default filter type
+    timerScale: 1.0, // Default scale (min 1.0, max 2.5)
     deviceOrientation: 'portrait',
     lastResult: null,
     lastError: null,
@@ -231,6 +245,18 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
       set({ timerPosition: position });
     },
 
+    // Set timer filter type
+    setTimerFilter: (filter: TimerFilterType) => {
+      set({ timerFilter: filter });
+    },
+
+    // Set timer scale
+    setTimerScale: (scale: number) => {
+      // Clamp between 1.0 and 2.5
+      const clampedScale = Math.max(1.0, Math.min(scale, 2.5));
+      set({ timerScale: clampedScale });
+    },
+
     // Set device orientation
     setDeviceOrientation: (orientation: DeviceOrientation) => {
       set({ deviceOrientation: orientation });
@@ -274,4 +300,6 @@ export const useRecordingDuration = () => useRecordingStore((s) => s.durationSec
 export const useFrameCount = () => useRecordingStore((s) => s.frameCount);
 export const useRecordingError = () => useRecordingStore((s) => s.lastError);
 export const useTimerPosition = () => useRecordingStore((s) => s.timerPosition);
+export const useTimerFilter = () => useRecordingStore((s) => s.timerFilter);
+export const useTimerScale = () => useRecordingStore((s) => s.timerScale);
 export const useDeviceOrientation = () => useRecordingStore((s) => s.deviceOrientation);
