@@ -49,12 +49,12 @@ export function useNotificationSetup() {
         return;
       }
 
-      // In development mode with dev notifications enabled, schedule a test notification on launch
-      if (__DEV__ && NOTIFICATION_DEV_MODE_ENABLED) {
+      // If dev mode enabled, schedule a test notification on launch (works in ALL builds including TestFlight)
+      if (NOTIFICATION_DEV_MODE_ENABLED) {
         console.log('[NotificationSetup] DEV mode - scheduling test notification (1 min)');
         await scheduleDevTestNotification(60); // 1 minute
       } else {
-        // In production (or dev with notifications dev mode disabled), check if we should schedule a reminder
+        // Production mode - check if we should schedule a reminder
         await checkAndScheduleReminder();
       }
     }
@@ -84,8 +84,8 @@ export function useNotificationSetup() {
       return;
     }
 
-    if (__DEV__ && NOTIFICATION_DEV_MODE_ENABLED) {
-      // Development mode behavior (with dev notifications enabled)
+    if (NOTIFICATION_DEV_MODE_ENABLED) {
+      // Dev mode behavior - test notifications (works in ALL builds including TestFlight)
       if (nextAppState === 'background') {
         // App went to background - schedule test notification
         console.log('[NotificationSetup] DEV: App backgrounded - scheduling test notification (1 min)');
@@ -96,7 +96,7 @@ export function useNotificationSetup() {
         await cancelDevTestNotification();
       }
     } else {
-      // Production mode behavior (or dev with notifications dev mode disabled)
+      // Production mode behavior - 6-hour reminders
       if (nextAppState === 'background') {
         // App went to background - check and schedule reminder if needed
         console.log('[NotificationSetup] PROD: App backgrounded - checking reminder');

@@ -14,7 +14,7 @@ export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'skip';
 
 // ============================================================
 // NOTIFICATION DEV MODE:
-// - true: Use short 1-minute test notifications in __DEV__ mode
-// - false: Use production 6-hour reminders even in __DEV__ mode
+// - true: Use short 1-minute test notifications (works in ALL builds including TestFlight)
+// - false: Use production 6-hour reminders
 // ============================================================
 export const NOTIFICATION_DEV_MODE_ENABLED: boolean = true;

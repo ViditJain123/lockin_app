@@ -2,7 +2,7 @@
  * TimelapseEngine - React Native wrapper for iOS native timelapse module
  *
  * Production-ready timelapse recording with:
- * - 2fps capture → 60fps output (30x speedup)
+ * - 1fps capture → 60fps output (60x speedup)
  * - Real-time encoding (zero-wait export)
  * - 3-4 hour continuous recording capability
  * - Direct save to Photos library
@@ -32,7 +32,7 @@ export type TimerFilterType = 'minimal' | 'dateStamp';
 export interface TimelapseOptions {
   /**
    * Capture interval in milliseconds
-   * Default: 500 (2 frames per second)
+   * Default: 1000 (1 frame per second)
    */
   captureIntervalMs?: number;
 
@@ -187,8 +187,8 @@ export function isTimelapseAvailable(): boolean {
  * @example
  * ```ts
  * await startTimelapse({
- *   captureIntervalMs: 500,  // 2fps capture
- *   outputFps: 60,           // 60fps output
+ *   captureIntervalMs: 1000,  // 1fps capture
+ *   outputFps: 60,            // 60fps output
  *   codec: 'h264',
  *   saveToGallery: true,
  * });
@@ -202,7 +202,7 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
   const timerPos = options.timerPosition ?? { x: 0.85, y: 0.75 };
 
   const fullOptions = {
-    captureIntervalMs: options.captureIntervalMs ?? 500,
+    captureIntervalMs: options.captureIntervalMs ?? 1000,
     outputFps: options.outputFps ?? 60,
     codec: options.codec ?? 'h264',
     saveToGallery: options.saveToGallery ?? true,
@@ -412,7 +412,7 @@ export function calculateSpeedup(captureIntervalMs: number, outputFps: number): 
  */
 export function estimateOutputDuration(
   recordingDurationSeconds: number,
-  captureIntervalMs: number = 500,
+  captureIntervalMs: number = 1000,
   outputFps: number = 60
 ): number {
   const speedup = calculateSpeedup(captureIntervalMs, outputFps);

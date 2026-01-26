@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
 import { getLocalDateString, getLocalDateStringDaysAgo } from './dateUtils';
 
+// Minimum duration in seconds for a recording to count as a grind (1 hour)
+export const MIN_GRIND_DURATION_SECONDS = 3600;
+
 export interface UserStats {
   totalHours: number;
   totalGrinds: number;
@@ -174,7 +177,7 @@ export async function updateStatsAfterSave(
       const { error: insertError } = await supabase.from('user_stats').insert({
         user_id: userId,
         total_hours: hoursToAdd,
-        total_grinds: 1,
+        total_grinds: durationSeconds >= MIN_GRIND_DURATION_SECONDS ? 1 : 0,
         current_streak: streakResult.newStreak,
         last_grind_at: new Date().toISOString(),
         streak_earned_date: streakResult.newStreakEarnedDate,
@@ -194,7 +197,9 @@ export async function updateStatsAfterSave(
 
   // Calculate new values using calendar-day based streak logic
   const newTotalHours = Number(existingStats.total_hours) + hoursToAdd;
-  const newTotalGrinds = existingStats.total_grinds + 1;
+  const newTotalGrinds = durationSeconds >= MIN_GRIND_DURATION_SECONDS
+    ? existingStats.total_grinds + 1
+    : existingStats.total_grinds;
 
   const streakResult = calculateStreakUpdate(
     existingStats.current_streak || 0,

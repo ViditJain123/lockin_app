@@ -8,15 +8,20 @@ import {
   View
 } from 'react-native';
 
+/**
+ * Format duration as HH:MM (hours:minutes)
+ * Examples:
+ * - 60 seconds (1 min) = "00:01"
+ * - 300 seconds (5 min) = "00:05"
+ * - 3600 seconds (1 hr) = "01:00"
+ * - 5400 seconds (1.5 hr) = "01:30"
+ */
 function formatThumbnailDuration(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
 
-  if (hrs > 0) {
-    return `${hrs}:${mins.toString().padStart(2, '0')}`;
-  }
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // Always show HH:MM format (hours:minutes)
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 }
 
 interface ThumbnailItemProps {

@@ -4,12 +4,12 @@ import CoreImage
 import UIKit
 
 /// Frame processor for timelapse capture
-/// Handles frame timing (2fps sampling), 9:16 crop, and branded overlay
+/// Handles frame timing (1fps sampling), 9:16 crop, and branded overlay
 class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Properties
 
-    // Base capture interval in milliseconds (500ms = 2fps)
+    // Base capture interval in milliseconds (1000ms = 1fps)
     private let baseCaptureIntervalMs: Double
 
     // Target video duration in seconds (for adaptive capture)
@@ -73,7 +73,7 @@ class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Initialization
 
-    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
+    init(captureIntervalMs: Double = 1000, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
         self.baseCaptureIntervalMs = captureIntervalMs
         self.targetVideoSeconds = targetVideoSeconds
         self.outputFps = outputFps

@@ -22,7 +22,7 @@ export default function TabLayout() {
       */}
 
       <NativeTabs.Trigger name="analytics">
-        <Icon sf="chart.pie.fill" />
+        <Icon sf="target" />
         <Label>Analytics</Label>
       </NativeTabs.Trigger>
       

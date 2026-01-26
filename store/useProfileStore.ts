@@ -2,12 +2,58 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { getLocalDateString } from '../lib/dateUtils';
-import {
-  DailyActivity,
-  fetchUserStats
-} from '../lib/statsService';
+import { getLocalDateString, getLocalDateStringDaysAgo } from '../lib/dateUtils';
+import { DailyActivity } from '../lib/statsService';
 import { useHeatmapStore } from './useHeatmapStore';
+import { useVideoStore } from './useVideoStore';
+
+// Minimum daily minutes for streak counting (1 hour = 60 minutes)
+const MIN_DAILY_MINUTES_FOR_STREAK = 60;
+// Minimum grind duration for counting as a "grind" (1 hour = 3600 seconds)
+const MIN_GRIND_SECONDS = 3600;
+
+/**
+ * Calculate streak from heatmap activity data
+ * Streak = consecutive days with >= 1 hour of activity
+ */
+function calculateStreakFromHeatmap(activityByDate: Record<string, number>): number {
+  let streak = 0;
+  let daysBack = 0;
+
+  // Check today first
+  const today = getLocalDateString();
+  const todayMinutes = activityByDate[today] || 0;
+
+  if (todayMinutes >= MIN_DAILY_MINUTES_FOR_STREAK) {
+    // Today qualifies, start streak at 1
+    streak = 1;
+    daysBack = 1;
+  } else {
+    // Today doesn't qualify yet, start checking from yesterday
+    daysBack = 1;
+  }
+
+  // Check consecutive days backwards
+  while (true) {
+    const dateStr = getLocalDateStringDaysAgo(daysBack);
+    const minutes = activityByDate[dateStr] || 0;
+
+    if (minutes >= MIN_DAILY_MINUTES_FOR_STREAK) {
+      if (streak === 0) {
+        // Yesterday qualified, count it as start of streak
+        streak = 1;
+      } else {
+        streak++;
+      }
+      daysBack++;
+    } else {
+      // Streak broken
+      break;
+    }
+  }
+
+  return streak;
+}
 
 // Storage key
 const PROFILE_STORAGE_KEY = 'lockin-profile-state';
@@ -33,6 +79,7 @@ interface ProfileState {
 
   // Actions
   setHasHydrated: (state: boolean) => void;
+  computeStatsFromLocalData: () => void;
   fetchStats: (userId: string) => Promise<void>;
   fetchActivity: (userId: string) => Promise<void>;
   refreshAll: (userId: string) => Promise<void>;
@@ -60,6 +107,36 @@ export const useProfileStore = create<ProfileState>()(
 
       setHasHydrated: (state: boolean) => {
         set({ _hasHydrated: state });
+      },
+
+      // Compute stats from local video data and heatmap (no Supabase)
+      computeStatsFromLocalData: () => {
+        const videos = useVideoStore.getState().videos;
+        const heatmapData = useHeatmapStore.getState().activityByDate;
+
+        // Calculate total hours from all videos
+        const totalSeconds = videos.reduce((sum, v) => sum + v.durationSeconds, 0);
+        const totalHours = totalSeconds / 3600;
+
+        // Calculate total grinds (videos >= 1 hour)
+        const totalGrinds = videos.filter(v => v.durationSeconds >= MIN_GRIND_SECONDS).length;
+
+        // Calculate streak from heatmap data
+        const currentStreak = calculateStreakFromHeatmap(heatmapData);
+
+        console.log('[ProfileStore] Computed local stats:', {
+          totalHours: totalHours.toFixed(2),
+          totalGrinds,
+          currentStreak,
+          videoCount: videos.length,
+        });
+
+        set({
+          totalHours,
+          totalGrinds,
+          currentStreak,
+          lastFetchedAt: Date.now(),
+        });
       },
 
       // Check if cached data is stale or belongs to a different user
@@ -102,23 +179,14 @@ export const useProfileStore = create<ProfileState>()(
       fetchStats: async (userId: string) => {
         set({ isLoading: true, error: null });
 
-        const stats = await fetchUserStats(userId);
+        // Compute stats from local data instead of Supabase
+        get().computeStatsFromLocalData();
 
-        if (stats) {
-          set({
-            totalHours: stats.totalHours,
-            totalGrinds: stats.totalGrinds,
-            currentStreak: stats.currentStreak,
-            isLoading: false,
-            lastFetchedAt: Date.now(),
-            lastFetchedUserId: userId,
-          });
-        } else {
-          set({
-            error: 'Failed to fetch stats',
-            isLoading: false,
-          });
-        }
+        set({
+          isLoading: false,
+          lastFetchedAt: Date.now(),
+          lastFetchedUserId: userId,
+        });
       },
 
       fetchActivity: async (_userId: string) => {

@@ -1,8 +1,10 @@
 import GlassIconButton from '@/components/GlassIconButton';
+import ShortTimelapseWarningModal from '@/components/ShortTimelapseWarningModal';
 import TrophyReceivedModal from '@/components/TrophyReceivedModal';
 import { BadgeDefinition, getBadgeById } from '@/constants/Badges';
 import { saveToGallery, shareVideo } from '@/lib/mediaUtils';
-import { recordWatchTime } from '@/lib/statsService';
+import { MIN_GRIND_DURATION_SECONDS } from '@/lib/statsService';
+import { useShortTimelapseWarningStore } from '@/store/useShortTimelapseWarningStore';
 import { useBadgeStore } from '@/store/useBadgeStore';
 import { useProfileStore } from '@/store/useProfileStore';
 import { useVideoStore } from '@/store/useVideoStore';
@@ -59,9 +61,7 @@ export default function PreviewScreen() {
   const addVideo = useVideoStore((s) => s.addVideo);
   const markSavedToGallery = useVideoStore((s) => s.markSavedToGallery);
 
-  // Profile store for optimistic updates
-  const incrementHoursLocally = useProfileStore((s) => s.incrementHoursLocally);
-  const addActivityLocally = useProfileStore((s) => s.addActivityLocally);
+  // Profile store for badge checking
   const totalHours = useProfileStore((s) => s.totalHours);
   const totalGrinds = useProfileStore((s) => s.totalGrinds);
   const currentStreak = useProfileStore((s) => s.currentStreak);
@@ -69,6 +69,10 @@ export default function PreviewScreen() {
   // Badge store
   const checkAndAwardBadges = useBadgeStore((s) => s.checkAndAwardBadges);
   const markBadgeAsSeen = useBadgeStore((s) => s.markBadgeAsSeen);
+
+  // Short timelapse warning store
+  const dontShowShortWarning = useShortTimelapseWarningStore((s) => s.dontShowAgain);
+  const shortWarningHydrated = useShortTimelapseWarningStore((s) => s._hasHydrated);
 
   // Auth context for user ID
   const { user } = useAuth();
@@ -91,6 +95,9 @@ export default function PreviewScreen() {
   const [currentTrophyBadge, setCurrentTrophyBadge] = useState<BadgeDefinition | null>(null);
   const [pendingBadgeIds, setPendingBadgeIds] = useState<string[]>([]);
 
+  // Short timelapse warning modal state
+  const [showShortWarning, setShowShortWarning] = useState(false);
+
   // Ensure video plays on mount
   useEffect(() => {
     const playVideo = async () => {
@@ -111,6 +118,18 @@ export default function PreviewScreen() {
   const handleAutoSaveToPrivate = async () => {
     if (!videoUri || isPlaceholder) return;
 
+    // Check minimum duration before saving (must be at least 1 minute)
+    const MIN_VIDEO_DURATION_SECONDS = 60;
+    if (grindDuration < MIN_VIDEO_DURATION_SECONDS) {
+      console.log('[Preview] Video too short, not saving:', grindDuration, 'seconds');
+      Alert.alert(
+        'Recording Too Short',
+        'Videos must be at least 1 minute long. This recording was not saved.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+      return;
+    }
+
     // Validate user is authenticated
     if (!user?.id) {
       console.error('[Preview] Cannot save: user not authenticated');
@@ -126,16 +145,22 @@ export default function PreviewScreen() {
       setIsSaved(true);
       console.log('[Preview] Saved to private storage:', video.id);
 
-      // Optimistic update for heatmap (convert seconds to minutes)
-      const minutes = grindDuration / 60;
-      addActivityLocally(minutes);
-      console.log('[Preview] Added activity locally:', minutes, 'minutes');
+      // Note: Activity tracking is handled in useVideoStore.addVideo() via heatmap store
+      // Do NOT add activity here to avoid double-counting
+
+      // Check if this is a short recording (< 1 hour)
+      const isShortRecording = grindDuration < MIN_GRIND_DURATION_SECONDS;
+
+      // Show warning modal for short recordings (if user hasn't opted out)
+      if (isShortRecording && shortWarningHydrated && !dontShowShortWarning) {
+        setShowShortWarning(true);
+      }
 
       // Check for new badges after saving
-      // Use current stats + the new grind (totalGrinds will be incremented server-side)
+      // Use current stats + the new grind (totalGrinds only increments for recordings >= 1 hour)
       const updatedStats = {
         totalHours: totalHours + (grindDuration / 3600),
-        totalGrinds: totalGrinds + 1,
+        totalGrinds: isShortRecording ? totalGrinds : totalGrinds + 1,
         currentStreak: currentStreak, // Streak is calculated server-side
       };
       const newBadges = checkAndAwardBadges(updatedStats);
@@ -158,9 +183,9 @@ export default function PreviewScreen() {
     }
   };
 
-  // Handle watch time recording when video pauses
-  const handleRecordWatchTime = useCallback(async () => {
-    if (!user?.id || !playStartTimeRef.current) return;
+  // Handle watch time recording when video pauses (local tracking only)
+  const handleRecordWatchTime = useCallback(() => {
+    if (!playStartTimeRef.current) return;
 
     const now = Date.now();
     const sessionWatchedMs = now - playStartTimeRef.current;
@@ -171,19 +196,8 @@ export default function PreviewScreen() {
     totalWatchedRef.current += sessionWatchedSeconds;
     playStartTimeRef.current = null;
 
-    console.log(`[Preview] Recording ${sessionWatchedSeconds}s of watch time`);
-
-    // Optimistic update
-    incrementHoursLocally(sessionWatchedSeconds / 3600);
-
-    // API call in background
-    const result = await recordWatchTime(user.id, sessionWatchedSeconds);
-    if (!result.success) {
-      console.error('[Preview] Failed to record watch time');
-      // Rollback optimistic update
-      incrementHoursLocally(-sessionWatchedSeconds / 3600);
-    }
-  }, [user?.id, incrementHoursLocally]);
+    console.log(`[Preview] Recorded ${sessionWatchedSeconds}s of watch time locally`);
+  }, []);
 
   // Handle playback status updates
   const handlePlaybackStatusUpdate = useCallback((status: AVPlaybackStatus) => {
@@ -397,6 +411,12 @@ export default function PreviewScreen() {
         badge={currentTrophyBadge}
         onClose={handleTrophyClose}
         onAddToCollection={handleAddToCollection}
+      />
+
+      {/* Short Timelapse Warning Modal */}
+      <ShortTimelapseWarningModal
+        visible={showShortWarning}
+        onClose={() => setShowShortWarning(false)}
       />
     </View>
   );

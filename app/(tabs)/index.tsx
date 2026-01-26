@@ -112,7 +112,9 @@ export default function CameraScreen() {
     setFacing(newFacing);
   }, [isRecording, facing, flashEnabled]);
 
-  // Toggle flash using native torch controller
+  // Toggle flash
+  // - Before recording: Uses expo-camera's enableTorch prop (via flashEnabled state)
+  // - During recording: Uses native TorchController (TimelapseSessionManager owns the session)
   const toggleFlash = useCallback(async () => {
     // Don't allow flash on front camera (no torch)
     if (facing === 'front') return;
@@ -120,13 +122,16 @@ export default function CameraScreen() {
     const newState = !flashEnabled;
     setFlashEnabled(newState);
 
-    // Use native torch controller
-    const success = await setTorch(newState);
-    if (!success && newState) {
-      // Failed to turn on, revert state
-      setFlashEnabled(false);
+    // Only use native torch controller when recording (TimelapseSessionManager owns the session)
+    // When not recording, expo-camera's enableTorch prop handles it
+    if (isRecording) {
+      const success = await setTorch(newState);
+      if (!success && newState) {
+        // Failed to turn on, revert state
+        setFlashEnabled(false);
+      }
     }
-  }, [facing, flashEnabled]);
+  }, [facing, flashEnabled, isRecording]);
 
   // Handle record button press
   const handleRecordPress = useCallback(async () => {
@@ -193,8 +198,8 @@ export default function CameraScreen() {
   // Note: Don't hide countdown here - let it stay visible until recording actually starts
   const handleCountdownComplete = useCallback(async () => {
     await startRecording({
-      captureIntervalMs: 500, // 2fps capture
-      outputFps: 60,         // 60fps output
+      captureIntervalMs: 1000, // 1fps capture
+      outputFps: 60,           // 60fps output
       codec: 'h264',
       saveToGallery: false,  // Don't auto-save, user will save from preview
       cameraPosition: facing, // Use current camera facing direction

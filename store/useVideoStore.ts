@@ -1,12 +1,11 @@
 /**
  * Video Store
- * 
+ *
  * Zustand store for managing local video state.
  * Syncs with videoStorageService for persistence.
+ * All data is stored locally - no Supabase sync.
  */
 
-import { recordSession } from '@/lib/sessionService';
-import { updateStatsAfterSave } from '@/lib/statsService';
 import {
     deleteVideo as deleteVideoFromStorage,
     getAllVideos,
@@ -21,6 +20,9 @@ import {
   cancelGrindReminderNotification,
   scheduleGrindReminderNotification,
 } from '@/lib/notificationService';
+
+// Minimum video duration to save (1 minute)
+const MIN_VIDEO_DURATION_SECONDS = 60;
 
 interface VideoState {
   // State
@@ -57,11 +59,17 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  // Add a new video to storage and record session to Supabase
-  addVideo: async (sourceUri: string, durationSeconds: number, userId?: string) => {
+  // Add a new video to local storage (no Supabase sync)
+  addVideo: async (sourceUri: string, durationSeconds: number, _userId?: string) => {
+    // Don't save videos under 1 minute
+    if (durationSeconds < MIN_VIDEO_DURATION_SECONDS) {
+      console.log('[VideoStore] Video too short, not saving:', durationSeconds, 'seconds');
+      throw new Error('VIDEO_TOO_SHORT');
+    }
+
     try {
       const video = await saveVideoToPrivateStorage(sourceUri, durationSeconds);
-      
+
       // Add to state (at beginning for newest first)
       set((state) => ({
         videos: [video, ...state.videos],
@@ -70,24 +78,9 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       // Update local heatmap with minutes (using local timezone)
       const minutes = durationSeconds / 60;
       useHeatmapStore.getState().addMinutes(minutes);
-
-      // Record session to Supabase for heatmap tracking and update user stats
-      if (userId && durationSeconds > 0) {
-        console.log('[VideoStore] Recording session:', { userId, durationMs: durationSeconds * 1000 });
-
-        // Record session in grinds table for heatmap
-        const sessionResult = await recordSession(userId, durationSeconds * 1000);
-        console.log('[VideoStore] Session recorded:', sessionResult);
-
-        // Update user stats (hours, grinds, streak) in user_stats table
-        await updateStatsAfterSave(userId, durationSeconds);
-        console.log('[VideoStore] Stats updated');
-      } else {
-        console.warn('[VideoStore] Skipping session recording:', { userId: !!userId, durationSeconds });
-      }
+      console.log('[VideoStore] Added', minutes, 'minutes to heatmap');
 
       // Update notification timestamp and reschedule reminder
-      // (do this regardless of userId - local grind tracking)
       useNotificationStore.getState().updateLastGrindTimestamp();
       await cancelGrindReminderNotification();
       await scheduleGrindReminderNotification();

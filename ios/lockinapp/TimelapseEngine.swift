@@ -9,7 +9,7 @@ import CallKit
 /// Designed for 3-4 hours continuous recording with zero-wait export
 ///
 /// Architecture:
-/// - Frame capture at 2fps using AVCaptureVideoDataOutput
+/// - Frame capture at 1fps using AVCaptureVideoDataOutput
 /// - Real-time encoding to H.264/HEVC at 60fps using AVAssetWriter
 /// - Single-frame memory model (never accumulates frames)
 /// - Background task support for screen lock scenarios
@@ -61,7 +61,7 @@ class TimelapseEngine: RCTEventEmitter {
     private let bufferThreshold: Int = 5
     
     // Configuration
-    private var captureIntervalMs: Double = 500 // 2fps default
+    private var captureIntervalMs: Double = 1000 // 1fps default
     private var outputFps: Int = 60
     private var codec: AVVideoCodecType = .h264
     private var saveToGallery: Bool = true
