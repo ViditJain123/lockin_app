@@ -6,6 +6,7 @@ import { TimelapsePreview } from '@/components/TimelapsePreview';
 import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
+import { setTorch, turnOffTorch } from '@/modules/TorchController';
 import { TimerFilterType, useRecordingError, useRecordingStore, useTimerFilter, useTimerPosition, useTimerScale } from '@/store/useRecordingStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,7 @@ import {
   Dimensions,
   LayoutChangeEvent,
   Platform,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -36,6 +38,7 @@ export default function CameraScreen() {
   const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
+  const [previewLayout, setPreviewLayout] = useState({ width: 0, height: 0, top: 0, left: 0 });
   const insets = useSafeAreaInsets();
 
   // Timer position state
@@ -95,15 +98,35 @@ export default function CameraScreen() {
   }, [recordingError]);
 
   // Toggle camera facing direction
-  const toggleCameraFacing = useCallback(() => {
+  const toggleCameraFacing = useCallback(async () => {
     if (isRecording) return; // Don't switch during recording
-    setFacing((current) => (current === 'back' ? 'front' : 'back'));
-  }, [isRecording]);
 
-  // Toggle flash
-  const toggleFlash = useCallback(() => {
-    setFlashEnabled((current) => !current);
-  }, []);
+    const newFacing = facing === 'back' ? 'front' : 'back';
+
+    // Turn off torch when switching to front camera (no torch available)
+    if (newFacing === 'front' && flashEnabled) {
+      setFlashEnabled(false);
+      await turnOffTorch();
+    }
+
+    setFacing(newFacing);
+  }, [isRecording, facing, flashEnabled]);
+
+  // Toggle flash using native torch controller
+  const toggleFlash = useCallback(async () => {
+    // Don't allow flash on front camera (no torch)
+    if (facing === 'front') return;
+
+    const newState = !flashEnabled;
+    setFlashEnabled(newState);
+
+    // Use native torch controller
+    const success = await setTorch(newState);
+    if (!success && newState) {
+      // Failed to turn on, revert state
+      setFlashEnabled(false);
+    }
+  }, [facing, flashEnabled]);
 
   // Handle record button press
   const handleRecordPress = useCallback(async () => {
@@ -112,6 +135,12 @@ export default function CameraScreen() {
     if (isRecording) {
       // Capture grind duration before stopping (real-world recording time)
       const grindDuration = durationSeconds;
+
+      // Turn off torch when stopping recording
+      if (flashEnabled) {
+        setFlashEnabled(false);
+        await turnOffTorch();
+      }
 
       // Stop recording and navigate to preview
       const result = await stopRecording();
@@ -123,6 +152,13 @@ export default function CameraScreen() {
             grindDurationSeconds: String(grindDuration),
           },
         } as any);
+      } else {
+        // Show error feedback when recording failed to save
+        Alert.alert(
+          'Recording Failed',
+          'Failed to save the recording. Please try again.',
+          [{ text: 'OK' }]
+        );
       }
     } else {
       // Check if timelapse is available
@@ -151,7 +187,7 @@ export default function CameraScreen() {
       // Start countdown instead of immediate recording
       setCountingDown(true);
     }
-  }, [isRecording, isPreparing, isFinishing, isCountingDown, stopRecording, setCountingDown, durationSeconds]);
+  }, [isRecording, isPreparing, isFinishing, isCountingDown, stopRecording, setCountingDown, durationSeconds, flashEnabled]);
 
   // Callback when countdown completes - start the actual recording
   // Note: Don't hide countdown here - let it stay visible until recording actually starts
@@ -186,6 +222,19 @@ export default function CameraScreen() {
   const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setContainerLayout({ width, height });
+
+    // Calculate 9:16 preview that fills width
+    const targetAspect = 9 / 16;
+    const previewWidth = width;
+    const previewHeight = width / targetAspect;
+    const top = (height - previewHeight) / 2;
+
+    setPreviewLayout({
+      width: previewWidth,
+      height: previewHeight,
+      top: Math.max(0, top),
+      left: 0
+    });
   }, []);
 
 
@@ -230,32 +279,42 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container} onLayout={handleContainerLayout}>
+      {/* Force light status bar (white text) on iOS to prevent navbar color switching */}
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+
       {/* Camera preview - switch between expo-camera and native preview during recording */}
       {/* When preparing, recording, or finishing, use native TimelapsePreview which shares the capture session */}
       {/* When not recording, use expo-camera for standard preview */}
-      {(isPreparing || isRecording || isFinishing) ? (
-        <TimelapsePreview style={styles.camera} />
-      ) : (
-        <CameraView
-          style={styles.camera}
-          facing={facing}
-          enableTorch={flashEnabled}
-        />
-      )}
+      <View style={[styles.previewContainer, {
+        width: previewLayout.width,
+        height: previewLayout.height,
+        top: previewLayout.top,
+        left: previewLayout.left,
+      }]}>
+        {(isPreparing || isRecording || isFinishing) ? (
+          <TimelapsePreview style={StyleSheet.absoluteFillObject} />
+        ) : (
+          <CameraView style={StyleSheet.absoluteFillObject} facing={facing} />
+        )}
+      </View>
 
-      {/* Draggable timer placeholder - visible when NOT recording */}
-      {!isRecording && !isPreparing && !isFinishing && !isCountingDown && (
+      {/* Draggable timer placeholder - always visible, gestures disabled during recording */}
+      {containerLayout.width > 0 && previewLayout.height > 0 && (
         <DraggableTimerPlaceholder
-          containerWidth={containerLayout.width}
-          containerHeight={containerLayout.height}
+          containerWidth={previewLayout.width}
+          containerHeight={previewLayout.height}
+          containerTop={previewLayout.top}
+          containerLeft={previewLayout.left}
           position={timerPosition}
           onPositionChange={setTimerPosition}
-          enabled={true}
+          enabled={!isRecording && !isPreparing && !isFinishing && !isCountingDown}
           orientation={deviceOrientation}
           filterType={timerFilter}
           onFilterToggle={handleFilterToggle}
           timerScale={timerScale}
           onScaleChange={setTimerScale}
+          isRecording={isRecording}
+          elapsedSeconds={durationSeconds}
         />
       )}
 
@@ -267,12 +326,13 @@ export default function CameraScreen() {
 
       {/* Top controls - Flash and Flip buttons (hidden during countdown) */}
       {!isCountingDown && <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
-        {/* Flash toggle - top left */}
+        {/* Flash toggle - top left (disabled on front camera - no torch) */}
         <GlassIconButton
           icon={flashEnabled ? 'flash' : 'flash-off'}
           onPress={toggleFlash}
           isActive={flashEnabled}
           activeColor="rgba(255, 220, 100, 0.95)"
+          disabled={facing === 'front'}
         />
 
         {/* Camera flip - top right (disabled during recording) */}
@@ -322,6 +382,11 @@ const styles = StyleSheet.create({
   },
   camera: {
     ...StyleSheet.absoluteFillObject,
+  },
+  previewContainer: {
+    position: 'absolute',
+    backgroundColor: '#000',
+    overflow: 'hidden',
   },
   topControls: {
     position: 'absolute',

@@ -35,7 +35,15 @@ class TimelapseSessionManager: NSObject {
     
     // Camera settings
     private var cameraPosition: AVCaptureDevice.Position = .back
-    
+
+    // Video orientation
+    private var videoOrientation: VideoOrientation = .portrait
+
+    /// Static reference to current video orientation for preview views
+    static var currentOrientation: VideoOrientation {
+        return _sharedSessionManager?.videoOrientation ?? .portrait
+    }
+
     // MARK: - Initialization
     
     override init() {
@@ -43,10 +51,11 @@ class TimelapseSessionManager: NSObject {
         print("[TimelapseSessionManager] Default init() called - WARNING: This does not setup capture session!")
     }
     
-    convenience init(position: AVCaptureDevice.Position = .back) throws {
+    convenience init(position: AVCaptureDevice.Position = .back, orientation: VideoOrientation = .portrait) throws {
         self.init()
-        print("[TimelapseSessionManager] convenience init(position:) called with position: \(position == .back ? "back" : "front")")
+        print("[TimelapseSessionManager] convenience init(position:orientation:) called with position: \(position == .back ? "back" : "front"), orientation: \(orientation.rawValue)")
         self.cameraPosition = position
+        self.videoOrientation = orientation
         try setupSession()
         
         // Set as shared session manager for preview views
@@ -125,20 +134,24 @@ class TimelapseSessionManager: NSObject {
         session.addOutput(output)
         print("[TimelapseSessionManager] Output added to session")
         
-        // Configure video connection for portrait orientation
+        // Configure video connection for the specified orientation
         if let connection = output.connection(with: .video) {
-            // Lock to portrait orientation for consistent framing
+            let angle = videoOrientation.videoRotationAngle
+            print("[TimelapseSessionManager] Configuring video connection with rotation angle: \(angle) for orientation: \(videoOrientation.rawValue)")
+
             if #available(iOS 17.0, *) {
-                if connection.isVideoRotationAngleSupported(90) {
-                    connection.videoRotationAngle = 90
+                if connection.isVideoRotationAngleSupported(angle) {
+                    connection.videoRotationAngle = angle
+                } else {
+                    print("[TimelapseSessionManager] Warning: Rotation angle \(angle) not supported")
                 }
             } else {
                 // Fallback for older iOS versions
                 if connection.isVideoOrientationSupported {
-                    connection.videoOrientation = .portrait
+                    connection.videoOrientation = videoOrientation.avVideoOrientation
                 }
             }
-            
+
             // Enable video stabilization if available
             if connection.isVideoStabilizationSupported {
                 connection.preferredVideoStabilizationMode = .auto

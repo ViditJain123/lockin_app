@@ -58,6 +58,26 @@ interface DraggableTimerPlaceholderProps {
    * Callback when scale changes (pinch gesture)
    */
   onScaleChange?: (scale: number) => void;
+
+  /**
+   * Whether recording is in progress (for showing live timer)
+   */
+  isRecording?: boolean;
+
+  /**
+   * Elapsed seconds during recording
+   */
+  elapsedSeconds?: number;
+
+  /**
+   * Container top offset (for positioning within preview bounds)
+   */
+  containerTop?: number;
+
+  /**
+   * Container left offset (for positioning within preview bounds)
+   */
+  containerLeft?: number;
 }
 
 // Timer placeholder dimensions (increased base size)
@@ -65,7 +85,8 @@ const TIMER_WIDTH = 140;
 const TIMER_HEIGHT = 85;
 const DATESTAMP_WIDTH = 120; // Narrower for dateStamp
 const DATESTAMP_HEIGHT = 110; // Taller for timer + date + logo
-const PADDING = 20;
+const PADDING = 0; // No boundary restrictions - allow dragging to edges
+const HIT_AREA_PADDING = 50; // Extra touch area around overlay for better pinch detection
 
 // Logo image for dateStamp filter
 const logoImage = require('../assets/images/logo-no-bg-cropped.png');
@@ -77,6 +98,14 @@ const formatDate = (): string => {
     month: 'short',
     year: 'numeric',
   });
+};
+
+// Format elapsed seconds as HH:MM:SS
+const formatTime = (seconds: number): string => {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 /**
@@ -94,6 +123,10 @@ export function DraggableTimerPlaceholder({
   onFilterToggle,
   timerScale = 1.0,
   onScaleChange,
+  isRecording = false,
+  elapsedSeconds = 0,
+  containerTop = 0,
+  containerLeft = 0,
 }: DraggableTimerPlaceholderProps) {
   // Calculate rotation based on orientation
   const rotationDegrees = useMemo(() => {
@@ -118,18 +151,26 @@ export function DraggableTimerPlaceholder({
   const scaledTimerHeight = timerHeight * timerScale;
 
   // Convert percentage position to pixel position (top-left corner based)
-  // Uses scaled dimensions to prevent timer from going off-screen when zoomed
+  // Uses unscaled dimensions for center offset (transform scales from layout box center)
+  // but accounts for visual overflow in bounds checking
   const getPixelX = useCallback((percentX: number, width: number) => {
-    const maxXVal = Math.max(width - scaledTimerWidth - PADDING, PADDING);
+    // Visual overflow beyond layout box edges when scaled
+    const visualOverflow = (scaledTimerWidth - timerWidth) / 2;
+    // Bounds account for visual overflow only (no padding)
+    const minX = visualOverflow;
+    const maxX = Math.max(width - timerWidth - visualOverflow, minX);
     const centerX = percentX * width;
-    return Math.min(Math.max(centerX - scaledTimerWidth / 2, PADDING), maxXVal);
-  }, [scaledTimerWidth]);
+    // Center offset uses UNSCALED width (layout box center = visual center)
+    return Math.min(Math.max(centerX - timerWidth / 2, minX), maxX);
+  }, [timerWidth, scaledTimerWidth]);
 
   const getPixelY = useCallback((percentY: number, height: number) => {
-    const maxYVal = Math.max(height - scaledTimerHeight - PADDING, PADDING);
+    const visualOverflow = (scaledTimerHeight - timerHeight) / 2;
+    const minY = visualOverflow;
+    const maxY = Math.max(height - timerHeight - visualOverflow, minY);
     const centerY = percentY * height;
-    return Math.min(Math.max(centerY - scaledTimerHeight / 2, PADDING), maxYVal);
-  }, [scaledTimerHeight]);
+    return Math.min(Math.max(centerY - timerHeight / 2, minY), maxY);
+  }, [timerHeight, scaledTimerHeight]);
 
   // Animated values for position - initialize to center as fallback
   const posX = useSharedValue(containerWidth > 0 ? getPixelX(position.x, containerWidth) : 100);
@@ -144,19 +185,31 @@ export function DraggableTimerPlaceholder({
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
 
-  // Shared values for bounds (needed in worklets) - use scaled dimensions
-  const maxXShared = useSharedValue(Math.max(containerWidth - scaledTimerWidth - PADDING, PADDING));
-  const maxYShared = useSharedValue(Math.max(containerHeight - scaledTimerHeight - PADDING, PADDING));
+  // Calculate visual overflow for bounds
+  const visualOverflowX = (scaledTimerWidth - timerWidth) / 2;
+  const visualOverflowY = (scaledTimerHeight - timerHeight) / 2;
+
+  // Shared values for bounds (needed in worklets) - account for visual overflow only
+  const minXShared = useSharedValue(visualOverflowX);
+  const minYShared = useSharedValue(visualOverflowY);
+  const maxXShared = useSharedValue(Math.max(containerWidth - timerWidth - visualOverflowX, visualOverflowX));
+  const maxYShared = useSharedValue(Math.max(containerHeight - timerHeight - visualOverflowY, visualOverflowY));
 
   // Update animated values when position prop or container dimensions change
   useEffect(() => {
     if (containerWidth > 0 && containerHeight > 0) {
+      const visualOverflowX = (scaledTimerWidth - timerWidth) / 2;
+      const visualOverflowY = (scaledTimerHeight - timerHeight) / 2;
+
       posX.value = getPixelX(position.x, containerWidth);
       posY.value = getPixelY(position.y, containerHeight);
-      maxXShared.value = Math.max(containerWidth - scaledTimerWidth - PADDING, PADDING);
-      maxYShared.value = Math.max(containerHeight - scaledTimerHeight - PADDING, PADDING);
+
+      minXShared.value = visualOverflowX;
+      minYShared.value = visualOverflowY;
+      maxXShared.value = Math.max(containerWidth - timerWidth - visualOverflowX, visualOverflowX);
+      maxYShared.value = Math.max(containerHeight - timerHeight - visualOverflowY, visualOverflowY);
     }
-  }, [position.x, position.y, containerWidth, containerHeight, getPixelX, getPixelY, scaledTimerWidth, scaledTimerHeight]);
+  }, [position.x, position.y, containerWidth, containerHeight, timerWidth, timerHeight, scaledTimerWidth, scaledTimerHeight]);
 
   // Sync pinch scale with prop
   useEffect(() => {
@@ -173,19 +226,19 @@ export function DraggableTimerPlaceholder({
   // Update position callback (runs on JS thread)
   const updatePosition = useCallback(
     (x: number, y: number) => {
-      // Convert pixel position (top-left) to percentage (center-based)
-      const centerX = x + scaledTimerWidth / 2;
-      const centerY = y + scaledTimerHeight / 2;
+      // Center of LAYOUT box (same as visual center due to transform origin)
+      const centerX = x + timerWidth / 2;   // UNSCALED
+      const centerY = y + timerHeight / 2;  // UNSCALED
       const percentX = centerX / containerWidth;
       const percentY = centerY / containerHeight;
 
-      // Clamp to valid range
-      const clampedX = Math.min(Math.max(percentX, 0.05), 0.95);
-      const clampedY = Math.min(Math.max(percentY, 0.05), 0.95);
+      // Clamp to full range (allow dragging to edges)
+      const clampedX = Math.min(Math.max(percentX, 0), 1);
+      const clampedY = Math.min(Math.max(percentY, 0), 1);
 
       onPositionChange({ x: clampedX, y: clampedY });
     },
-    [containerWidth, containerHeight, onPositionChange, scaledTimerWidth, scaledTimerHeight]
+    [containerWidth, containerHeight, onPositionChange, timerWidth, timerHeight]
   );
 
   // Haptic feedback helper
@@ -219,8 +272,8 @@ export function DraggableTimerPlaceholder({
     })
     .onUpdate((event) => {
       'worklet';
-      posX.value = clamp(startX.value + event.translationX, PADDING, maxXShared.value);
-      posY.value = clamp(startY.value + event.translationY, PADDING, maxYShared.value);
+      posX.value = clamp(startX.value + event.translationX, minXShared.value, maxXShared.value);
+      posY.value = clamp(startY.value + event.translationY, minYShared.value, maxYShared.value);
     })
     .onEnd(() => {
       'worklet';
@@ -273,10 +326,13 @@ export function DraggableTimerPlaceholder({
     return null;
   }
 
+  // Calculate display time - live during recording, 00:00:00 otherwise
+  const displayTime = isRecording ? formatTime(elapsedSeconds) : '00:00:00';
+
   // Render minimal filter (timer + LOCKIN CLUB, with background, no border)
   const renderMinimalFilter = () => (
     <View style={styles.timerBoxMinimal}>
-      <Text style={styles.timerText}>00:00:00</Text>
+      <Text style={styles.timerText}>{displayTime}</Text>
       <Text style={styles.brandText}>
         <Text style={styles.brandLockin}>LOCKIN </Text>
         <Text style={styles.brandClub}>CLUB</Text>
@@ -287,7 +343,7 @@ export function DraggableTimerPlaceholder({
   // Render dateStamp filter (timer + date + logo, right-aligned, no background)
   const renderDateStampFilter = () => (
     <View style={styles.dateStampContainer}>
-      <Text style={styles.dateStampTimer}>00:00:00</Text>
+      <Text style={styles.dateStampTimer}>{displayTime}</Text>
       <Text style={styles.dateStampDate}>{formatDate()}</Text>
       <Image
         source={logoImage}
@@ -298,12 +354,33 @@ export function DraggableTimerPlaceholder({
   );
 
   return (
-    <GestureDetector gesture={combinedGesture}>
-      <Animated.View style={[styles.container, animatedStyle]}>
-        {filterType === 'minimal' ? renderMinimalFilter() : renderDateStampFilter()}
-        <Text style={styles.hint}>Tap to change style</Text>
-      </Animated.View>
-    </GestureDetector>
+    <View
+      style={{
+        position: 'absolute',
+        left: containerLeft,
+        top: containerTop,
+        width: containerWidth,
+        height: containerHeight,
+        zIndex: 100,
+      }}
+      pointerEvents="box-none"
+    >
+      <GestureDetector gesture={combinedGesture}>
+        <Animated.View style={[
+          styles.container,
+          animatedStyle,
+          {
+            padding: HIT_AREA_PADDING,
+            margin: -HIT_AREA_PADDING,
+          }
+        ]}>
+          <View>
+            {filterType === 'minimal' ? renderMinimalFilter() : renderDateStampFilter()}
+            {!isRecording && <Text style={styles.hint}>Tap to change style</Text>}
+          </View>
+        </Animated.View>
+      </GestureDetector>
+    </View>
   );
 }
 

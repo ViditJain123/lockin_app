@@ -197,7 +197,13 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     // Stop recording
     stopRecording: async () => {
       const state = get();
-      
+
+      // Prevent re-entrant calls (e.g., double-tap on stop button)
+      if (state.isFinishing) {
+        console.warn('[RecordingStore] Stop already in progress');
+        return null;
+      }
+
       if (!state.isRecording) {
         console.warn('[RecordingStore] Not currently recording');
         return null;

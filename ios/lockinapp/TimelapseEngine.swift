@@ -44,7 +44,7 @@ class TimelapseEngine: RCTEventEmitter {
     // MARK: - Properties
     
     private(set) var state: State = .idle
-    private var sessionManager: TimelapseSessionManager?
+    internal var sessionManager: TimelapseSessionManager?
     private var encoder: TimelapseEncoder?
     private var frameProcessor: TimelapseFrameProcessor?
     private var stabilityManager: TimelapseStabilityManager?
@@ -77,9 +77,15 @@ class TimelapseEngine: RCTEventEmitter {
 
     // Timer scale
     private var timerScale: CGFloat = 1.0
-    
+
+    // Video orientation
+    private var videoOrientation: VideoOrientation = .portrait
+
     // Threading
     private let stateQueue = DispatchQueue(label: "com.lockin.timelapse.state", qos: .userInitiated)
+
+    // Finalization guard to prevent race conditions
+    private var isFinalizationInProgress = false
     
     // MARK: - React Native Event Emitter
     
@@ -140,21 +146,44 @@ class TimelapseEngine: RCTEventEmitter {
     @objc func stopTimelapse(_ resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
         stateQueue.async { [weak self] in
             guard let self = self else { return }
-            
+
             guard self.state == .recording else {
                 rejecter("NOT_RECORDING", "No timelapse recording in progress", nil)
                 return
             }
-            
+
+            // Prevent concurrent finalization (e.g., double-tap or background handler race)
+            guard !self.isFinalizationInProgress else {
+                print("[TimelapseEngine] Finalization already in progress, ignoring duplicate stop")
+                rejecter("FINALIZE_IN_PROGRESS", "Finalization is already in progress", nil)
+                return
+            }
+            self.isFinalizationInProgress = true
+
             self.state = .finalizing
-            
+
             // Stop capture
             self.sessionManager?.stopCapture()
-            
+
+            // Check for nil encoder - reject promise if encoder doesn't exist
+            guard let encoder = self.encoder else {
+                print("[TimelapseEngine] Encoder is nil, cannot finalize")
+                self.state = .error
+                self.isFinalizationInProgress = false
+                rejecter("ENCODER_NIL", "Encoder was not initialized", nil)
+                self.cleanup()
+                return
+            }
+
             // Finalize encoder
-            self.encoder?.finalize { [weak self] result in
+            encoder.finalize { [weak self] result in
                 guard let self = self else { return }
-                
+
+                // Reset finalization flag
+                self.stateQueue.async {
+                    self.isFinalizationInProgress = false
+                }
+
                 switch result {
                 case .success(let outputURL):
                     if self.saveToGallery {
@@ -171,7 +200,7 @@ class TimelapseEngine: RCTEventEmitter {
                                 self.sendEvent(withName: "onTimelapseComplete", body: response)
                                 resolver(response)
                                 self.cleanup()
-                                
+
                             case .failure(let error):
                                 self.state = .error
                                 rejecter("GALLERY_SAVE_FAILED", error.localizedDescription, error)
@@ -189,7 +218,7 @@ class TimelapseEngine: RCTEventEmitter {
                         resolver(response)
                         self.cleanup()
                     }
-                    
+
                 case .failure(let error):
                     self.state = .error
                     rejecter("FINALIZE_FAILED", error.localizedDescription, error)
@@ -257,6 +286,9 @@ class TimelapseEngine: RCTEventEmitter {
         if let scale = options["timerScale"] as? Double {
             timerScale = CGFloat(max(1.0, min(scale, 2.5)))
         }
+        if let orientationStr = options["orientation"] as? String {
+            videoOrientation = VideoOrientation.from(orientationStr)
+        }
     }
     
     private func checkCameraPermission(completion: @escaping (Bool) -> Void) {
@@ -304,11 +336,11 @@ class TimelapseEngine: RCTEventEmitter {
         print("[TimelapseEngine] Output URL: \(outputURL.absoluteString)")
         
         // Initialize encoder
-        print("[TimelapseEngine] Initializing encoder...")
+        print("[TimelapseEngine] Initializing encoder with orientation: \(videoOrientation.rawValue)")
         encoder = try TimelapseEncoder(
             outputURL: outputURL,
-            width: 1080,
-            height: 1920,
+            width: videoOrientation.outputWidth,
+            height: videoOrientation.outputHeight,
             fps: outputFps,
             codec: codec
         )
@@ -322,7 +354,8 @@ class TimelapseEngine: RCTEventEmitter {
             outputFps: outputFps,
             timerPosition: CGPoint(x: timerPositionX, y: timerPositionY),
             timerFilter: timerFilter,
-            timerScale: timerScale
+            timerScale: timerScale,
+            orientation: videoOrientation
         )
         frameProcessor?.recordingStartTime = CFAbsoluteTimeGetCurrent()
         frameProcessor?.onFrameReady = { [weak self] pixelBuffer, timestamp in
@@ -333,8 +366,8 @@ class TimelapseEngine: RCTEventEmitter {
         // Initialize session manager
         // IMPORTANT: We must use the convenience init that takes a position parameter
         // The default init() does NOT setup the capture session!
-        print("[TimelapseEngine] Initializing session manager with position: \(cameraPosition == .back ? "back" : "front")...")
-        sessionManager = try TimelapseSessionManager(position: cameraPosition)
+        print("[TimelapseEngine] Initializing session manager with position: \(cameraPosition == .back ? "back" : "front"), orientation: \(videoOrientation.rawValue)...")
+        sessionManager = try TimelapseSessionManager(position: cameraPosition, orientation: videoOrientation)
         print("[TimelapseEngine] Session manager initialized, setting frame processor...")
         sessionManager?.frameProcessor = frameProcessor
         print("[TimelapseEngine] Frame processor assigned to session manager")
@@ -475,6 +508,9 @@ class TimelapseEngine: RCTEventEmitter {
         // Reset frame buffer
         frameBuffer.removeAll()
         isBufferingPhase = true
+
+        // Reset finalization flag
+        isFinalizationInProgress = false
     }
 }
 
@@ -513,13 +549,32 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
     func backgroundHandlerTaskExpiring(_ handler: TimelapseBackgroundHandler) {
         stateQueue.async { [weak self] in
             guard let self = self, self.state == .recording else { return }
-            
+
+            // Prevent race condition with user-initiated stop
+            guard !self.isFinalizationInProgress else {
+                print("[TimelapseEngine] Background task expiring but finalization already in progress")
+                return
+            }
+            self.isFinalizationInProgress = true
+
             self.emitError("Background time expiring - finalizing recording")
-            
+
             // Force finalize
             self.state = .finalizing
             self.sessionManager?.stopCapture()
-            self.encoder?.finalize { [weak self] result in
+
+            // Check for nil encoder
+            guard let encoder = self.encoder else {
+                print("[TimelapseEngine] Encoder is nil during background expiry")
+                self.isFinalizationInProgress = false
+                self.cleanup()
+                return
+            }
+
+            encoder.finalize { [weak self] result in
+                self?.stateQueue.async {
+                    self?.isFinalizationInProgress = false
+                }
                 switch result {
                 case .success(let url):
                     self?.photoLibraryManager?.saveToGallery(url) { _ in

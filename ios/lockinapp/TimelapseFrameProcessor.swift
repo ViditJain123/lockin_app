@@ -33,9 +33,12 @@ class TimelapseFrameProcessor: NSObject {
     // Timer scale
     private let timerScale: CGFloat
 
+    // Video orientation
+    private let videoOrientation: VideoOrientation
+
     // Frame overlay renderer
     private lazy var frameOverlay: TimelapseFrameOverlay = {
-        return TimelapseFrameOverlay(timerPosition: timerPosition, filterType: timerFilter, timerScale: timerScale)
+        return TimelapseFrameOverlay(timerPosition: timerPosition, filterType: timerFilter, timerScale: timerScale, orientation: videoOrientation)
     }()
     
     // Callback for processed frames
@@ -54,9 +57,9 @@ class TimelapseFrameProcessor: NSObject {
         return CIContext(options: [.cacheIntermediates: false])
     }()
     
-    // Target output dimensions (portrait 9:16)
-    private let targetWidth: Int = 1080
-    private let targetHeight: Int = 1920
+    // Target output dimensions (computed from orientation)
+    private var targetWidth: Int { videoOrientation.outputWidth }
+    private var targetHeight: Int { videoOrientation.outputHeight }
     
     // Processing queue for crop/resize
     private let processingQueue = DispatchQueue(
@@ -70,15 +73,17 @@ class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Initialization
 
-    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0) {
+    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
         self.baseCaptureIntervalMs = captureIntervalMs
         self.targetVideoSeconds = targetVideoSeconds
         self.outputFps = outputFps
         self.timerPosition = timerPosition
         self.timerFilter = timerFilter
         self.timerScale = timerScale
+        self.videoOrientation = orientation
         super.init()
         setupPixelBufferPool()
+        print("[TimelapseFrameProcessor] Initialized with orientation: \(orientation.rawValue), dimensions: \(targetWidth)x\(targetHeight)")
     }
     
     private func setupPixelBufferPool() {
@@ -169,11 +174,11 @@ class TimelapseFrameProcessor: NSObject {
         // Create CIImage from input
         let inputImage = CIImage(cvPixelBuffer: inputBuffer)
         
-        // Calculate crop rect for 9:16 aspect ratio centered in input
+        // Calculate crop rect for target aspect ratio centered in input
         let cropRect = calculateCropRect(
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            targetAspect: 9.0 / 16.0
+            targetAspect: videoOrientation.targetAspectRatio
         )
         
         // Crop to 9:16

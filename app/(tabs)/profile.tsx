@@ -68,14 +68,18 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
+  // Track if this is first mount to skip redundant focus fetch
+  const isFirstMount = useRef(true);
+
   // Profile stats
   const {
     totalHours,
     totalGrinds,
     currentStreak,
     isLoading,
-    fetchStats,
     refreshAll,
+    fetchIfStale,
+    _hasHydrated,
   } = useProfileStore();
 
   // Local videos
@@ -89,8 +93,15 @@ export default function ProfileScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Shimmer animation for placeholders
+  // Compute whether to show placeholder grid (needed before shimmer effect)
+  const showPlaceholderGrid = !isInitialized || (isLoadingVideos && videos.length === 0);
+
+  // Shimmer animation for placeholders - only run when showing placeholders
   useEffect(() => {
+    if (!showPlaceholderGrid) {
+      return;
+    }
+
     const shimmerLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, {
@@ -107,24 +118,30 @@ export default function ProfileScreen() {
     );
     shimmerLoop.start();
     return () => shimmerLoop.stop();
-  }, [shimmerAnim]);
+  }, [shimmerAnim, showPlaceholderGrid]);
 
-  // Initial load
+  // Initial load - only fetch if stale
   useEffect(() => {
-    if (user?.id) {
-      fetchStats(user.id);
+    if (user?.id && _hasHydrated) {
+      fetchIfStale(user.id);
     }
-    loadVideos();
-  }, [user?.id]);
+    if (!isInitialized) {
+      loadVideos();
+    }
+  }, [user?.id, _hasHydrated, isInitialized]);
 
-  // Refresh data when tab comes into focus
+  // Refresh data when tab comes into focus - skip first mount, check staleness
   useFocusEffect(
     useCallback(() => {
+      if (isFirstMount.current) {
+        isFirstMount.current = false;
+        return;
+      }
       if (user?.id) {
-        refreshAll(user.id);
+        fetchIfStale(user.id);
       }
       refreshVideos();
-    }, [user?.id, refreshAll, refreshVideos])
+    }, [user?.id, fetchIfStale, refreshVideos])
   );
 
   // Pull-to-refresh handler
@@ -205,8 +222,6 @@ export default function ProfileScreen() {
       </View>
     );
   };
-
-  const showPlaceholderGrid = !isInitialized || (isLoadingVideos && videos.length === 0);
 
   const formatHours = (hours: number): string => {
     if (hours < 1) {

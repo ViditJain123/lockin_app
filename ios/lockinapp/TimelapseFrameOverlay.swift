@@ -15,9 +15,12 @@ class TimelapseFrameOverlay {
 
     // MARK: - Configuration
 
-    /// Frame dimensions (must match encoder output)
-    private let frameWidth: CGFloat = 1080
-    private let frameHeight: CGFloat = 1920
+    /// Video orientation (determines frame dimensions)
+    private let videoOrientation: VideoOrientation
+
+    /// Frame dimensions (computed from orientation)
+    private var frameWidth: CGFloat { CGFloat(videoOrientation.outputWidth) }
+    private var frameHeight: CGFloat { CGFloat(videoOrientation.outputHeight) }
 
     /// Timer position (percentage 0-1)
     private let timerPosition: CGPoint
@@ -63,10 +66,11 @@ class TimelapseFrameOverlay {
 
     // MARK: - Initialization
 
-    init(timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), filterType: String = "minimal", timerScale: CGFloat = 1.0) {
+    init(timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), filterType: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
         self.timerPosition = timerPosition
         self.filterType = TimerFilterType(rawValue: filterType) ?? .minimal
         self.timerScale = max(1.0, min(timerScale, 2.5))
+        self.videoOrientation = orientation
 
         // Create Metal-accelerated CIContext
         if let metalDevice = MTLCreateSystemDefaultDevice() {
@@ -77,6 +81,8 @@ class TimelapseFrameOverlay {
         } else {
             self.ciContext = CIContext(options: [.cacheIntermediates: false])
         }
+
+        print("[TimelapseFrameOverlay] Initialized with orientation: \(orientation.rawValue), dimensions: \(frameWidth)x\(frameHeight)")
 
         // Pre-render static overlay parts
         renderStaticOverlay()

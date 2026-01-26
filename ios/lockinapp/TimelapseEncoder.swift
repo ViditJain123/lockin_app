@@ -28,6 +28,10 @@ class TimelapseEncoder {
     // State
     private var isWriting = false
     private var framesWritten: Int64 = 0
+
+    // Thread-safe finalization guard
+    private let finalizationLock = DispatchQueue(label: "com.lockin.timelapse.finalization")
+    private var isFinalizationInProgress = false
     
     // MARK: - Initialization
     
@@ -166,38 +170,53 @@ class TimelapseEncoder {
     
     /// Finalize the video file
     /// This should complete nearly instantly since we've been encoding in real-time
+    /// Thread-safe: prevents double finalization from concurrent calls
     func finalize(completion: @escaping (Result<URL, Error>) -> Void) {
-        guard isWriting else {
+        // Thread-safe check and set of finalization flag
+        var shouldProceed = false
+        finalizationLock.sync {
+            if !isFinalizationInProgress && isWriting {
+                isFinalizationInProgress = true
+                shouldProceed = true
+            }
+        }
+
+        guard shouldProceed else {
+            print("[TimelapseEncoder] Finalization already in progress or encoder not writing")
             completion(.failure(TimelapseError.encoderNotReady))
             return
         }
-        
+
         isWriting = false
-        
+
         guard let writer = assetWriter, let input = videoInput else {
+            finalizationLock.sync { isFinalizationInProgress = false }
             completion(.failure(TimelapseError.encoderNotReady))
             return
         }
-        
+
         // Mark input as finished
         input.markAsFinished()
-        
+
         // Finish writing
         writer.finishWriting { [weak self] in
             guard let self = self else { return }
-            
+
+            // Reset finalization flag
+            self.finalizationLock.sync { self.isFinalizationInProgress = false }
+
             switch writer.status {
             case .completed:
                 print("[TimelapseEncoder] Finalized: \(self.framesWritten) frames")
                 completion(.success(self.outputURL))
-                
+
             case .failed:
                 let error = writer.error ?? TimelapseError.encoderFailed("Unknown error")
                 completion(.failure(error))
-                
+
             case .cancelled:
                 completion(.failure(TimelapseError.encoderFailed("Writing cancelled")))
-                
+
             default:
                 completion(.failure(TimelapseError.encoderFailed("Unexpected state: \(writer.status.rawValue)")))
             }
