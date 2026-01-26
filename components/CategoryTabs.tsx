@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { BadgeCategory } from '@/constants/Badges';
@@ -15,7 +15,7 @@ const TABS: { key: BadgeCategory; label: string }[] = [
   { key: 'streak', label: 'Streak' },
 ];
 
-export default function CategoryTabs({ selected, onSelect }: CategoryTabsProps) {
+function CategoryTabs({ selected, onSelect }: CategoryTabsProps) {
   return (
     <View style={styles.container}>
       {TABS.map((tab) => {
@@ -76,3 +76,5 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 });
+
+export default memo(CategoryTabs);

@@ -1,36 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Asset } from 'expo-asset';
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 
 import { getBadgeById } from '@/constants/Badges';
+import { getBadgeAssetModule, getBadgeUri } from '@/lib/badgeAssetCache';
 
-// Badge image mapping - require all badge images statically
-const BADGE_ASSETS: Record<string, number> = {
-  // Hours badges
-  'hours-1': require('../assets/images/lockinbadges/grindhour1.svg'),
-  'hours-5': require('../assets/images/lockinbadges/grindhours5.svg'),
-  'hours-10': require('../assets/images/lockinbadges/grindhours10.svg'),
-  'hours-25': require('../assets/images/lockinbadges/grindhours25.svg'),
-  'hours-50': require('../assets/images/lockinbadges/grindhours50.svg'),
-  'hours-100': require('../assets/images/lockinbadges/grindhours100.svg'),
-  // Grinds badges
-  'grinds-1': require('../assets/images/lockinbadges/grinds1.svg'),
-  'grinds-5': require('../assets/images/lockinbadges/grinds5.svg'),
-  'grinds-10': require('../assets/images/lockinbadges/grinds10.svg'),
-  'grinds-20': require('../assets/images/lockinbadges/grinds20.svg'),
-  'grinds-50': require('../assets/images/lockinbadges/grinds50.svg'),
-  'grinds-75': require('../assets/images/lockinbadges/grinds75.svg'),
-  'grinds-100': require('../assets/images/lockinbadges/grinds100.svg'),
-  // Streak badges
-  'streak-3': require('../assets/images/lockinbadges/streak3.svg'),
-  'streak-5': require('../assets/images/lockinbadges/streak5.svg'),
-  'streak-10': require('../assets/images/lockinbadges/streak10.svg'),
-  'streak-21': require('../assets/images/lockinbadges/streak21.svg'),
-  'streak-30': require('../assets/images/lockinbadges/streak30.svg'),
-};
+// Memoized BadgeImage component to prevent unnecessary re-renders
 
 interface BadgeImageProps {
   badgeId: string;
@@ -39,18 +17,29 @@ interface BadgeImageProps {
   showGlow?: boolean;
 }
 
-export default function BadgeImage({
+function BadgeImage({
   badgeId,
   size,
   locked = false,
   showGlow = false,
 }: BadgeImageProps) {
-  const [assetUri, setAssetUri] = useState<string | null>(null);
+  // Try to get cached URI first (synchronous lookup)
+  const cachedUri = getBadgeUri(badgeId);
+  const assetModule = getBadgeAssetModule(badgeId);
+
+  // State for fallback loading (only used if cache miss)
+  const [assetUri, setAssetUri] = useState<string | null>(cachedUri || null);
   const [useFallback, setUseFallback] = useState(false);
   const badge = getBadgeById(badgeId);
-  const assetModule = BADGE_ASSETS[badgeId];
 
+  // Only run async loading if cache miss (rare edge case during initial app load)
   useEffect(() => {
+    // If already have a cached URI, use it
+    if (cachedUri) {
+      setAssetUri(cachedUri);
+      return;
+    }
+
     if (!assetModule) return;
 
     const loadAsset = async () => {
@@ -69,7 +58,7 @@ export default function BadgeImage({
     };
 
     loadAsset();
-  }, [assetModule]);
+  }, [assetModule, cachedUri]);
 
   if (!badge || !assetModule) {
     // Fallback placeholder
@@ -204,3 +193,5 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 });
+
+export default memo(BadgeImage);

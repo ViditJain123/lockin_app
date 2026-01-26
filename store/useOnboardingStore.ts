@@ -1,20 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { ONBOARDING_DEV_MODE } from '../lib/config';
 
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
 export const TOTAL_QUIZ_QUESTIONS = 19;
-
-// ============================================================
-// DEV MODE OPTIONS:
-// - 'skip': Skip onboarding, go directly to auth/main app
-// - 'force': Always show onboarding (ignores completion state)
-// - 'normal': Production behavior (show onboarding only if not completed)
-// ============================================================
-export const DEV_MODE: 'skip' | 'force' | 'normal' = 'skip';
 
 // Interface for sleep time
 export interface SleepTime {
@@ -99,14 +92,14 @@ export const useOnboardingStore = create<OnboardingState>()(
         const { showOnboardingAlways, hasCompletedOnboarding } = get();
 
         // DEV MODE handling
-        if (DEV_MODE === 'skip') {
+        if (ONBOARDING_DEV_MODE === 'skip') {
           return false;
         }
-        if (DEV_MODE === 'force') {
+        if (ONBOARDING_DEV_MODE === 'force') {
           return true;
         }
 
-        // Normal production behavior (DEV_MODE === 'normal')
+        // Normal production behavior (ONBOARDING_DEV_MODE === 'normal')
         if (showOnboardingAlways) {
           return true;
         }

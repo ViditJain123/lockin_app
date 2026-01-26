@@ -20,11 +20,13 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
-import { useEffect } from 'react';
-import { Appearance, Platform, StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Appearance, AppState, AppStateStatus, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import AppUpdateBanner from '../components/AppUpdateBanner';
+import AppUpdateModal from '../components/AppUpdateModal';
 import AuthScreen from '../components/AuthScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
 import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
@@ -44,6 +46,7 @@ import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScr
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
 import { initializeRevenueCat } from '../lib/revenueCat';
+import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 // Family Controls screens (disabled for non-production bundle IDs)
 // import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
@@ -52,6 +55,8 @@ import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { useNotificationSetup } from '../hooks/useNotificationSetup';
+import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { migrateHeatmapData } from '../lib/heatmapMigration';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
@@ -99,6 +104,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
+      // Preload badge assets in background (fire and forget - don't block splash)
+      preloadAllBadges();
+
       SplashScreen.hideAsync();
       // Initialize RevenueCat and subscription store after fonts are loaded
       initializeRevenueCat()
@@ -128,6 +136,15 @@ function RootLayoutNav() {
   const colorScheme = 'dark' as const;
   const { session } = useAuth();
 
+  // App update state
+  const {
+    showForceUpdateModal,
+    showSoftUpdateBanner,
+    checkForUpdate,
+    _hasHydrated: updateStoreHydrated,
+  } = useAppUpdateStore();
+  const appState = useRef(AppState.currentState);
+
   // Onboarding state
   const {
     shouldShowOnboarding,
@@ -144,6 +161,9 @@ function RootLayoutNav() {
     completeQuizFunnel,
   } = useOnboardingStore();
 
+  // Initialize notification system
+  useNotificationSetup();
+
   // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {
     // Force dark mode at the React Native level
@@ -157,6 +177,27 @@ function RootLayoutNav() {
       migrateHeatmapData(session.user.id);
     }
   }, [session?.user?.id]);
+
+  // Check for app updates on launch and when app comes to foreground
+  useEffect(() => {
+    if (!updateStoreHydrated) return;
+
+    // Check on initial mount
+    checkForUpdate();
+
+    // Listen for app state changes (foreground/background)
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App has come to the foreground - check for updates
+        checkForUpdate();
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [updateStoreHydrated, checkForUpdate]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
@@ -439,6 +480,10 @@ function RootLayoutNav() {
             }}
           />
         </Stack>
+
+        {/* App Update Components */}
+        <AppUpdateBanner visible={showSoftUpdateBanner} />
+        <AppUpdateModal visible={showForceUpdateModal} />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

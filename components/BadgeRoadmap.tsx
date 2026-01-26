@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -17,7 +17,7 @@ interface BadgeRoadmapProps {
   onBadgePress?: (badge: BadgeDefinition) => void;
 }
 
-export default function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapProps) {
+function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapProps) {
   const hasBadge = useBadgeStore((s) => s.hasBadge);
   const totalHours = useProfileStore((s) => s.totalHours);
   const totalGrinds = useProfileStore((s) => s.totalGrinds);
@@ -41,8 +41,8 @@ export default function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapPro
 
   const currentProgress = getCurrentProgress();
 
-  // Generate SVG path for the winding road
-  const generatePath = () => {
+  // Memoize SVG path generation - only recalculate when category changes
+  const pathData = useMemo(() => {
     const pathPoints: string[] = [];
     const centerX = PATH_WIDTH / 2;
     const amplitude = PATH_WIDTH * 0.25; // How far the path swings left/right
@@ -66,7 +66,7 @@ export default function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapPro
     });
 
     return pathPoints.join(' ');
-  };
+  }, [category, badges]);
 
   return (
     <View style={styles.container}>
@@ -79,7 +79,7 @@ export default function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapPro
         >
           {/* Background path (unfilled) */}
           <Path
-            d={generatePath()}
+            d={pathData}
             stroke="rgba(255,255,255,0.1)"
             strokeWidth={8}
             fill="none"
@@ -87,7 +87,7 @@ export default function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapPro
           />
           {/* Progress path (filled up to current progress) */}
           <Path
-            d={generatePath()}
+            d={pathData}
             stroke="#FF3B5C"
             strokeWidth={4}
             fill="none"
@@ -150,3 +150,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+export default memo(BadgeRoadmap);

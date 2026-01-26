@@ -4,18 +4,19 @@
     "slug": "lockin_app",
     "version": "1.0.3",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.jpg",
     "scheme": "lockinapp",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/logo.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
     "ios": {
       "bundleIdentifier": "com.lockin.club",
       "supportsTablet": true,
+      "icon": "./assets/images/logo.jpg",
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording",
         "NSPhotoLibraryAddUsageDescription": "Save timelapse videos to your gallery",
@@ -23,13 +24,14 @@
         "NSFamilyControlsUsageDescription": "LockIn uses Screen Time to help you manage app usage and build better habits",
         "NSMotionUsageDescription": "Used to detect device orientation for timer display",
         "UIBackgroundModes": [
-          "audio"
+          "audio",
+          "remote-notification"
         ]
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/logo.jpg",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -59,6 +61,13 @@
           "ios": {
             "deploymentTarget": "15.1"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/logo.jpg",
+          "color": "#000000"
         }
       ]
     ],

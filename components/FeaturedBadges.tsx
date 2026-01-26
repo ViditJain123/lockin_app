@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 import BadgeImage from './BadgeImage';
@@ -11,7 +11,7 @@ import { useBadgeStore } from '@/store/useBadgeStore';
 const FEATURED_COUNT = 5;
 const HORIZONTAL_PADDING = 20; // Padding on each side of the container
 
-export default function FeaturedBadges() {
+function FeaturedBadges() {
   const { width: screenWidth } = useWindowDimensions();
   const getRecentlyEarnedBadges = useBadgeStore((s) => s.getRecentlyEarnedBadges);
   const earnedBadges = useBadgeStore((s) => s.earnedBadges);
@@ -144,3 +144,5 @@ const styles = StyleSheet.create({
     color: '#FF3B5C',
   },
 });
+
+export default memo(FeaturedBadges);

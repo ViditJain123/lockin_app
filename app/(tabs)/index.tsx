@@ -294,7 +294,11 @@ export default function CameraScreen() {
         {(isPreparing || isRecording || isFinishing) ? (
           <TimelapsePreview style={StyleSheet.absoluteFillObject} />
         ) : (
-          <CameraView style={StyleSheet.absoluteFillObject} facing={facing} />
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing={facing}
+            enableTorch={flashEnabled && facing === 'back'}
+          />
         )}
       </View>
 

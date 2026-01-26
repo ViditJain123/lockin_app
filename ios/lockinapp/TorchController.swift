@@ -129,31 +129,39 @@ class TorchController: NSObject {
 class TorchControllerModule: NSObject {
 
     @objc static func requiresMainQueueSetup() -> Bool {
-        return false
+        return true
     }
 
     @objc func setTorch(_ enabled: Bool,
                         resolver: @escaping RCTPromiseResolveBlock,
                         rejecter: @escaping RCTPromiseRejectBlock) {
-        let success = TorchController.shared.setTorch(enabled)
-        resolver(success)
+        DispatchQueue.main.async {
+            let success = TorchController.shared.setTorch(enabled)
+            resolver(success)
+        }
     }
 
     @objc func getTorchState(_ resolver: @escaping RCTPromiseResolveBlock,
                              rejecter: @escaping RCTPromiseRejectBlock) {
-        let state = TorchController.shared.getTorchState()
-        resolver(state)
+        DispatchQueue.main.async {
+            let state = TorchController.shared.getTorchState()
+            resolver(state)
+        }
     }
 
     @objc func hasTorch(_ resolver: @escaping RCTPromiseResolveBlock,
                         rejecter: @escaping RCTPromiseRejectBlock) {
-        let has = TorchController.shared.hasTorch()
-        resolver(has)
+        DispatchQueue.main.async {
+            let has = TorchController.shared.hasTorch()
+            resolver(has)
+        }
     }
 
     @objc func turnOffTorch(_ resolver: @escaping RCTPromiseResolveBlock,
                             rejecter: @escaping RCTPromiseRejectBlock) {
-        TorchController.shared.turnOffTorch()
-        resolver(true)
+        DispatchQueue.main.async {
+            TorchController.shared.turnOffTorch()
+            resolver(true)
+        }
     }
 }

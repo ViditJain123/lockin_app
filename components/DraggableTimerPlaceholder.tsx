@@ -81,9 +81,9 @@ interface DraggableTimerPlaceholderProps {
 }
 
 // Timer placeholder dimensions (increased base size)
-const TIMER_WIDTH = 140;
+const TIMER_WIDTH = 100;
 const TIMER_HEIGHT = 85;
-const DATESTAMP_WIDTH = 120; // Narrower for dateStamp
+const DATESTAMP_WIDTH = 100; // Narrower for dateStamp
 const DATESTAMP_HEIGHT = 110; // Taller for timer + date + logo
 const PADDING = 0; // No boundary restrictions - allow dragging to edges
 const HIT_AREA_PADDING = 50; // Extra touch area around overlay for better pinch detection
@@ -146,31 +146,24 @@ export function DraggableTimerPlaceholder({
   const timerWidth = filterType === 'dateStamp' ? DATESTAMP_WIDTH : TIMER_WIDTH;
   const timerHeight = filterType === 'dateStamp' ? DATESTAMP_HEIGHT : TIMER_HEIGHT;
 
-  // Scaled dimensions for bounds checking
-  const scaledTimerWidth = timerWidth * timerScale;
-  const scaledTimerHeight = timerHeight * timerScale;
-
   // Convert percentage position to pixel position (top-left corner based)
   // Uses unscaled dimensions for center offset (transform scales from layout box center)
-  // but accounts for visual overflow in bounds checking
   const getPixelX = useCallback((percentX: number, width: number) => {
-    // Visual overflow beyond layout box edges when scaled
-    const visualOverflow = (scaledTimerWidth - timerWidth) / 2;
-    // Bounds account for visual overflow only (no padding)
-    const minX = visualOverflow;
-    const maxX = Math.max(width - timerWidth - visualOverflow, minX);
+    // Allow timer to reach absolute edges (visual content may extend off-screen when scaled)
+    const minX = 0;
+    const maxX = Math.max(width - timerWidth, minX);
     const centerX = percentX * width;
     // Center offset uses UNSCALED width (layout box center = visual center)
     return Math.min(Math.max(centerX - timerWidth / 2, minX), maxX);
-  }, [timerWidth, scaledTimerWidth]);
+  }, [timerWidth]);
 
   const getPixelY = useCallback((percentY: number, height: number) => {
-    const visualOverflow = (scaledTimerHeight - timerHeight) / 2;
-    const minY = visualOverflow;
-    const maxY = Math.max(height - timerHeight - visualOverflow, minY);
+    // Allow timer to reach absolute edges (visual content may extend off-screen when scaled)
+    const minY = 0;
+    const maxY = Math.max(height - timerHeight, minY);
     const centerY = percentY * height;
     return Math.min(Math.max(centerY - timerHeight / 2, minY), maxY);
-  }, [timerHeight, scaledTimerHeight]);
+  }, [timerHeight]);
 
   // Animated values for position - initialize to center as fallback
   const posX = useSharedValue(containerWidth > 0 ? getPixelX(position.x, containerWidth) : 100);
@@ -185,31 +178,25 @@ export function DraggableTimerPlaceholder({
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
 
-  // Calculate visual overflow for bounds
-  const visualOverflowX = (scaledTimerWidth - timerWidth) / 2;
-  const visualOverflowY = (scaledTimerHeight - timerHeight) / 2;
-
-  // Shared values for bounds (needed in worklets) - account for visual overflow only
-  const minXShared = useSharedValue(visualOverflowX);
-  const minYShared = useSharedValue(visualOverflowY);
-  const maxXShared = useSharedValue(Math.max(containerWidth - timerWidth - visualOverflowX, visualOverflowX));
-  const maxYShared = useSharedValue(Math.max(containerHeight - timerHeight - visualOverflowY, visualOverflowY));
+  // Shared values for bounds (needed in worklets) - allow reaching absolute edges
+  const minXShared = useSharedValue(0);
+  const minYShared = useSharedValue(0);
+  const maxXShared = useSharedValue(Math.max(containerWidth - timerWidth, 0));
+  const maxYShared = useSharedValue(Math.max(containerHeight - timerHeight, 0));
 
   // Update animated values when position prop or container dimensions change
   useEffect(() => {
     if (containerWidth > 0 && containerHeight > 0) {
-      const visualOverflowX = (scaledTimerWidth - timerWidth) / 2;
-      const visualOverflowY = (scaledTimerHeight - timerHeight) / 2;
-
       posX.value = getPixelX(position.x, containerWidth);
       posY.value = getPixelY(position.y, containerHeight);
 
-      minXShared.value = visualOverflowX;
-      minYShared.value = visualOverflowY;
-      maxXShared.value = Math.max(containerWidth - timerWidth - visualOverflowX, visualOverflowX);
-      maxYShared.value = Math.max(containerHeight - timerHeight - visualOverflowY, visualOverflowY);
+      // Allow reaching absolute edges
+      minXShared.value = 0;
+      minYShared.value = 0;
+      maxXShared.value = Math.max(containerWidth - timerWidth, 0);
+      maxYShared.value = Math.max(containerHeight - timerHeight, 0);
     }
-  }, [position.x, position.y, containerWidth, containerHeight, timerWidth, timerHeight, scaledTimerWidth, scaledTimerHeight]);
+  }, [position.x, position.y, containerWidth, containerHeight, timerWidth, timerHeight]);
 
   // Sync pinch scale with prop
   useEffect(() => {

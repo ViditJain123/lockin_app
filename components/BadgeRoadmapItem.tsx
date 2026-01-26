@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { memo, useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -22,7 +22,7 @@ interface BadgeRoadmapItemProps {
   onPress?: () => void;
 }
 
-export default function BadgeRoadmapItem({
+function BadgeRoadmapItem({
   badge,
   isUnlocked,
   isClaimable,
@@ -225,3 +225,5 @@ const styles = StyleSheet.create({
     color: '#FF3B5C',
   },
 });
+
+export default memo(BadgeRoadmapItem);

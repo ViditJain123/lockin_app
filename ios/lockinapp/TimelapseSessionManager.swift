@@ -311,11 +311,15 @@ class TimelapseSessionManager: NSObject {
     
     func setTorch(enabled: Bool) throws {
         guard let device = currentDevice, device.hasTorch else { return }
-        
+
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
-        
-        device.torchMode = enabled ? .on : .off
+
+        if enabled {
+            try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+        } else {
+            device.torchMode = .off
+        }
     }
 }
 

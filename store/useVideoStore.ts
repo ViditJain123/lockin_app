@@ -16,6 +16,11 @@ import {
 } from '@/lib/videoStorageService';
 import { create } from 'zustand';
 import { useHeatmapStore } from './useHeatmapStore';
+import { useNotificationStore } from './useNotificationStore';
+import {
+  cancelGrindReminderNotification,
+  scheduleGrindReminderNotification,
+} from '@/lib/notificationService';
 
 interface VideoState {
   // State
@@ -80,6 +85,13 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       } else {
         console.warn('[VideoStore] Skipping session recording:', { userId: !!userId, durationSeconds });
       }
+
+      // Update notification timestamp and reschedule reminder
+      // (do this regardless of userId - local grind tracking)
+      useNotificationStore.getState().updateLastGrindTimestamp();
+      await cancelGrindReminderNotification();
+      await scheduleGrindReminderNotification();
+      console.log('[VideoStore] Notification reminder rescheduled for 6 hours');
 
       return video;
     } catch (error) {

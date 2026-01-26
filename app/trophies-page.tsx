@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,7 +36,7 @@ export default function TrophiesPageScreen() {
     }
   };
 
-  const handleBadgePress = (badge: BadgeDefinition) => {
+  const handleBadgePress = useCallback((badge: BadgeDefinition) => {
     const isUnlocked = hasBadge(badge.id);
     const currentProgress = getCurrentProgress(badge.category);
     const isClaimable = !isUnlocked && currentProgress >= badge.threshold;
@@ -48,7 +48,7 @@ export default function TrophiesPageScreen() {
 
     setSelectedBadge(badge);
     setShowModal(true);
-  };
+  }, [hasBadge, claimBadge, totalHours, totalGrinds, currentStreak]);
 
   const handleCloseModal = () => {
     setShowModal(false);
