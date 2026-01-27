@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import AppleSignInButton from './AppleSignInButton';
 import GoogleSignInButton from './GoogleSignInButton';
 
 import { Fonts } from '../constants/Fonts';
@@ -47,7 +48,10 @@ export default function AuthScreen() {
             <View style={styles.divider} />
           </View>
 
-          <GoogleSignInButton />
+          <View style={styles.buttonContainer}>
+            <AppleSignInButton />
+            <GoogleSignInButton />
+          </View>
 
           <Text style={styles.termsText}>
             By continuing, you agree to our Terms of Service and Privacy Policy
@@ -90,6 +94,10 @@ const styles = StyleSheet.create({
   signInSection: {
     alignItems: 'center',
     gap: 24,
+  },
+  buttonContainer: {
+    width: '100%',
+    gap: 12,
   },
   dividerContainer: {
     flexDirection: 'row',

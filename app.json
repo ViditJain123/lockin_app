@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "lockin_app",
+    "name": "Lockin Club",
     "slug": "lockin_app",
     "version": "1.0.3",
     "orientation": "portrait",
@@ -16,6 +16,7 @@
     "ios": {
       "bundleIdentifier": "com.lockin.club",
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "icon": "./assets/images/logo.jpg",
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording",
@@ -49,6 +50,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-apple-authentication",
       [
         "expo-camera",
         {

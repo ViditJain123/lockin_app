@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import AppleSignInButton from '../../AppleSignInButton';
 import GoogleSignInButton from '../../GoogleSignInButton';
 import CloudBackground from '../CloudBackground';
 
@@ -97,6 +98,7 @@ export default function QuizLoginScreen({
           </View>
 
           <View style={styles.buttonContainer}>
+            <AppleSignInButton />
             <GoogleSignInButton />
           </View>
 
@@ -180,6 +182,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     width: '100%',
+    gap: 12,
   },
   termsText: {
     color: 'rgba(255, 255, 255, 0.5)',

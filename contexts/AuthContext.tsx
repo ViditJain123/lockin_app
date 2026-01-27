@@ -1,8 +1,9 @@
 import { Session, User } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert, AppState, AppStateStatus } from 'react-native';
+import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 
@@ -11,6 +12,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -187,6 +189,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Sign in with Apple using native iOS authentication
+  const signInWithApple = async () => {
+    if (Platform.OS !== 'ios') {
+      console.log('[Auth] Apple Sign-In is only available on iOS');
+      return;
+    }
+
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      console.log('[Auth] Apple Sign-In credential received');
+
+      if (credential.identityToken) {
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log('[Auth] Apple Sign-In successful');
+
+        // Optionally update user metadata with name from Apple (only provided on first sign-in)
+        if (credential.fullName && (credential.fullName.givenName || credential.fullName.familyName)) {
+          const fullName = [credential.fullName.givenName, credential.fullName.familyName]
+            .filter(Boolean)
+            .join(' ');
+
+          if (fullName && data.user) {
+            await supabase.auth.updateUser({
+              data: { full_name: fullName },
+            });
+            console.log('[Auth] Updated user name from Apple:', fullName);
+          }
+        }
+      } else {
+        throw new Error('No identity token received from Apple');
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        // Check if user cancelled
+        if ('code' in error && error.code === 'ERR_REQUEST_CANCELED') {
+          console.log('[Auth] User cancelled Apple Sign-In');
+          return;
+        }
+        console.error('[Auth] Apple Sign-In error:', error);
+        Alert.alert('Sign In Error', error.message);
+      }
+    }
+  };
+
   // Sign out
   const signOut = async () => {
     try {
@@ -204,6 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     user: session?.user ?? null,
     signInWithGoogle,
+    signInWithApple,
     signOut,
   };
 
