@@ -73,7 +73,7 @@ class TimelapseFrameProcessor: NSObject {
     
     // MARK: - Initialization
 
-    init(captureIntervalMs: Double = 1000, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
+    init(captureIntervalMs: Double = 500, targetVideoSeconds: Double = 30, outputFps: Int = 60, timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), timerFilter: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
         self.baseCaptureIntervalMs = captureIntervalMs
         self.targetVideoSeconds = targetVideoSeconds
         self.outputFps = outputFps

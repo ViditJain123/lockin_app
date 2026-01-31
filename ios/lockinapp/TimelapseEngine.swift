@@ -61,7 +61,7 @@ class TimelapseEngine: RCTEventEmitter {
     private let bufferThreshold: Int = 5
     
     // Configuration
-    private var captureIntervalMs: Double = 1000 // 1fps default
+    private var captureIntervalMs: Double = 500 // 1fps default
     private var outputFps: Int = 60
     private var codec: AVVideoCodecType = .h264
     private var saveToGallery: Bool = true

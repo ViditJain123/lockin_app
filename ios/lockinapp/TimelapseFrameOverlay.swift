@@ -205,10 +205,8 @@ class TimelapseFrameOverlay {
         let brandFont = UIFont(name: "Quicksand-SemiBold", size: brandFontSize)
             ?? UIFont.systemFont(ofSize: brandFontSize, weight: .semibold)
 
-        // Measure text sizes using fixed reference string for consistent box width
-        // "88:88:88" is used because 8 is typically the widest digit in proportional fonts
-        let referenceTimerString = "88:88:88"
-        let timerSize = (referenceTimerString as NSString).size(withAttributes: timerAttributes)
+        // Measure text sizes
+        let timerSize = (timerString as NSString).size(withAttributes: timerAttributes)
 
         // "LOCKIN " in white + "CLUB" in red
         let lockinText = "LOCKIN "
@@ -314,13 +312,9 @@ class TimelapseFrameOverlay {
             .foregroundColor: UIColor.white
         ]
 
-        // Measure text sizes using fixed reference strings for consistent positioning
-        // "88:88:88" is used because 8 is typically the widest digit in proportional fonts
-        // "28 May, 2026" is a wide reference date to ensure consistent width
-        let referenceTimerString = "88:88:88"
-        let referenceDateString = "28 May, 2026"
-        let timerSize = (referenceTimerString as NSString).size(withAttributes: timerAttributes)
-        let dateSize = (referenceDateString as NSString).size(withAttributes: dateAttributes)
+        // Measure text sizes
+        let timerSize = (timerString as NSString).size(withAttributes: timerAttributes)
+        let dateSize = (dateString as NSString).size(withAttributes: dateAttributes)
 
         // Logo dimensions (scale to fit) - using computed logoHeight which includes timerScale
         let logoWidth: CGFloat = logoImage != nil ? (logoImage!.size.width / logoImage!.size.height) * logoHeight : logoHeight
