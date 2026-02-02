@@ -13,8 +13,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { PurchasesPackage } from 'react-native-purchases';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Button3D from '../../Button3D';
@@ -22,7 +20,7 @@ import CloudBackground from '../CloudBackground';
 
 import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-import { useSubscriptionStore } from '../../../store/useSubscriptionStore';
+import { useSubscriptionStore, PRODUCT_IDS } from '../../../store/useSubscriptionStore';
 
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
@@ -51,24 +49,23 @@ export default function PaymentScreen({
 }: PaymentScreenProps) {
   const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanType>('yearly');
-  const [isPresentingPaywall, setIsPresentingPaywall] = useState(false);
 
   const {
-    offerings,
+    products,
     isLoading,
     isPurchasing,
     isRestoring,
     isSubscribed,
     error,
-    fetchOfferings,
-    purchasePackage,
+    fetchProducts,
+    purchaseProduct,
     restorePurchases,
     clearError,
   } = useSubscriptionStore();
 
-  // Fetch offerings on mount
+  // Fetch products on mount
   useEffect(() => {
-    fetchOfferings();
+    fetchProducts();
   }, []);
 
   // If already subscribed, continue
@@ -78,67 +75,29 @@ export default function PaymentScreen({
     }
   }, [isSubscribed]);
 
-  // Get packages from offerings
-  const monthlyPackage = offerings?.current?.availablePackages.find(
-    (pkg) => pkg.identifier === '$rc_monthly' || pkg.packageType === 'MONTHLY'
+  // Get products from store
+  const monthlyProduct = products.find(
+    (product) => product.productId === PRODUCT_IDS.monthly
   );
-  const yearlyPackage = offerings?.current?.availablePackages.find(
-    (pkg) => pkg.identifier === '$rc_annual' || pkg.packageType === 'ANNUAL'
+  const yearlyProduct = products.find(
+    (product) => product.productId === PRODUCT_IDS.yearly
   );
 
   // Calculate savings for yearly plan
   const calculateSavings = () => {
-    if (!monthlyPackage || !yearlyPackage) return null;
-    const monthlyPrice = monthlyPackage.product.price;
-    const yearlyPrice = yearlyPackage.product.price;
-    const yearlyMonthlyEquivalent = yearlyPrice / 12;
-    const savings = Math.round((1 - yearlyMonthlyEquivalent / monthlyPrice) * 100);
+    if (!monthlyProduct || !yearlyProduct) return null;
+    const yearlyMonthlyEquivalent = yearlyProduct.price / 12;
+    const savings = Math.round((1 - yearlyMonthlyEquivalent / monthlyProduct.price) * 100);
     return savings > 0 ? savings : null;
   };
 
   const savings = calculateSavings();
 
-  // Present RevenueCat native paywall
-  const presentRevenueCatPaywall = async () => {
-    setIsPresentingPaywall(true);
-    try {
-      const paywallResult = await RevenueCatUI.presentPaywall();
-
-      switch (paywallResult) {
-        case PAYWALL_RESULT.PURCHASED:
-        case PAYWALL_RESULT.RESTORED:
-          console.log('[Paywall] Purchase/restore successful');
-          onContinue();
-          break;
-        case PAYWALL_RESULT.NOT_PRESENTED:
-          console.log('[Paywall] Not presented - user may already be subscribed');
-          // Check if already subscribed
-          const { checkSubscriptionStatus } = useSubscriptionStore.getState();
-          const subscribed = await checkSubscriptionStatus();
-          if (subscribed) {
-            onContinue();
-          }
-          break;
-        case PAYWALL_RESULT.ERROR:
-          console.error('[Paywall] Error presenting paywall');
-          Alert.alert('Error', 'There was a problem loading the subscription options. Please try again.');
-          break;
-        case PAYWALL_RESULT.CANCELLED:
-          console.log('[Paywall] User cancelled');
-          break;
-      }
-    } catch (error) {
-      console.error('[Paywall] Error:', error);
-      Alert.alert('Error', 'Failed to load subscription options. Please try again.');
-    } finally {
-      setIsPresentingPaywall(false);
-    }
-  };
-
-  // Handle subscription purchase (fallback to custom UI)
+  // Handle subscription purchase
   const handleSubscribe = async () => {
-    // Try to present native RevenueCat paywall first
-    await presentRevenueCatPaywall();
+    const productId = selectedPlan === 'monthly' ? PRODUCT_IDS.monthly : PRODUCT_IDS.yearly;
+    await purchaseProduct(productId);
+    // The purchase listener will handle updating the state and triggering onContinue
   };
 
   // Handle restore purchases
@@ -161,16 +120,14 @@ export default function PaymentScreen({
   }, [error]);
 
   // Format monthly equivalent for yearly
-  const formatMonthlyEquivalent = (pkg: PurchasesPackage | undefined) => {
-    if (!pkg) return '';
-    const monthlyPrice = pkg.product.price / 12;
-    const currencyCode = pkg.product.currencyCode;
+  const formatMonthlyEquivalent = (price: number, currency: string) => {
+    const monthlyPrice = price / 12;
     const formatted = monthlyPrice.toFixed(2);
-    const symbol = currencyCode === 'USD' ? '$' : currencyCode;
+    const symbol = currency === 'USD' ? '$' : currency;
     return `${symbol}${formatted}/mo`;
   };
 
-  const isProcessing = isPurchasing || isRestoring || isPresentingPaywall;
+  const isProcessing = isPurchasing || isRestoring;
 
   return (
     <ImageBackground
@@ -264,7 +221,7 @@ export default function PaymentScreen({
                 >
                   <Text style={styles.planName}>Monthly</Text>
                   <Text style={styles.planPrice}>
-                    {monthlyPackage?.product.priceString ?? '---'}
+                    {monthlyProduct?.localizedPrice ?? '---'}
                   </Text>
                   <Text style={styles.planPeriod}>per month</Text>
                   {selectedPlan === 'monthly' && (
@@ -298,12 +255,12 @@ export default function PaymentScreen({
                   )}
                   <Text style={[styles.planName, { marginTop: savings ? 8 : 0 }]}>Yearly</Text>
                   <Text style={styles.planPrice}>
-                    {yearlyPackage?.product.priceString ?? '---'}
+                    {yearlyProduct?.localizedPrice ?? '---'}
                   </Text>
                   <Text style={styles.planPeriod}>per year</Text>
-                  {yearlyPackage && (
+                  {yearlyProduct && (
                     <Text style={styles.monthlyEquivalent}>
-                      {formatMonthlyEquivalent(yearlyPackage)}
+                      {formatMonthlyEquivalent(yearlyProduct.price, yearlyProduct.currency)}
                     </Text>
                   )}
                   {selectedPlan === 'yearly' && (
@@ -321,10 +278,10 @@ export default function PaymentScreen({
         <View style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}>
           {/* Subscribe Button */}
           <Button3D
-            title={isPresentingPaywall ? 'Loading...' : 'Continue'}
+            title={isPurchasing ? 'Processing...' : 'Continue'}
             onPress={handleSubscribe}
             disabled={isProcessing || isLoading}
-            loading={isPresentingPaywall}
+            loading={isPurchasing}
           />
 
           {/* Restore Purchases */}

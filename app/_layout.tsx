@@ -45,7 +45,6 @@ import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
-import { initializeRevenueCat } from '../lib/revenueCat';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 // Family Controls screens (disabled for non-production bundle IDs)
@@ -108,15 +107,8 @@ export default function RootLayout() {
       preloadAllBadges();
 
       SplashScreen.hideAsync();
-      // Initialize RevenueCat and subscription store after fonts are loaded
-      initializeRevenueCat()
-        .then(() => {
-          // Initialize subscription store after RevenueCat is ready
-          useSubscriptionStore.getState().initialize();
-        })
-        .catch((error) => {
-          console.error('[RevenueCat] Initialization error:', error);
-        });
+      // Initialize subscription store (which initializes StoreKit)
+      useSubscriptionStore.getState().initialize();
     }
   }, [loaded]);
 

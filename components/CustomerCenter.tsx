@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import RevenueCatUI, { CUSTOMER_CENTER_MANAGEMENT_OPTION } from 'react-native-purchases-ui';
 
 import { BrandColors } from '../constants/BrandColors';
 import { Fonts } from '../constants/Fonts';
@@ -23,7 +23,7 @@ interface CustomerCenterProps {
  *
  * Features:
  * - Shows subscription status
- * - Opens RevenueCat Customer Center for subscription management
+ * - Links to App Store subscription management
  * - Allows restoring purchases
  *
  * Usage:
@@ -32,16 +32,13 @@ interface CustomerCenterProps {
  */
 export default function CustomerCenter({ showRestoreOnly = false }: CustomerCenterProps) {
   const isSubscribed = useIsSubscribed();
-  const { customerInfo, restorePurchases, isRestoring } = useSubscriptionStore();
-  const [isPresentingCustomerCenter, setIsPresentingCustomerCenter] = useState(false);
+  const { currentSubscription, restorePurchases, isRestoring } = useSubscriptionStore();
 
   // Get subscription expiration date
   const getExpirationDate = (): string | null => {
-    if (!customerInfo?.entitlements.active['Lockin']) return null;
-    const expDate = customerInfo.entitlements.active['Lockin'].expirationDate;
-    if (!expDate) return null;
+    if (!currentSubscription?.expiresDate) return null;
 
-    const date = new Date(expDate);
+    const date = new Date(currentSubscription.expiresDate);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -49,32 +46,23 @@ export default function CustomerCenter({ showRestoreOnly = false }: CustomerCent
     });
   };
 
-  // Present Customer Center
-  const presentCustomerCenter = async () => {
-    setIsPresentingCustomerCenter(true);
-    try {
-      const result = await RevenueCatUI.presentCustomerCenter();
+  // Get product display name
+  const getProductDisplayName = (): string => {
+    if (!currentSubscription?.productId) return 'LockIn Pro';
 
-      // Handle different management options
-      switch (result) {
-        case CUSTOMER_CENTER_MANAGEMENT_OPTION.CANCEL:
-          console.log('[CustomerCenter] User requested cancellation');
-          break;
-        case CUSTOMER_CENTER_MANAGEMENT_OPTION.REFUND:
-          console.log('[CustomerCenter] User requested refund');
-          break;
-        case CUSTOMER_CENTER_MANAGEMENT_OPTION.CHANGE_PLANS:
-          console.log('[CustomerCenter] User changed plans');
-          break;
-        default:
-          console.log('[CustomerCenter] Customer center closed');
-      }
-    } catch (error) {
-      console.error('[CustomerCenter] Error:', error);
-      Alert.alert('Error', 'Could not open subscription management. Please try again.');
-    } finally {
-      setIsPresentingCustomerCenter(false);
+    switch (currentSubscription.productId) {
+      case 'monthly01':
+        return 'LockIn Pro Monthly';
+      case 'yearly01':
+        return 'LockIn Pro Yearly';
+      default:
+        return 'LockIn Pro';
     }
+  };
+
+  // Open App Store subscription management
+  const openSubscriptionManagement = () => {
+    Linking.openURL('https://apps.apple.com/account/subscriptions');
   };
 
   // Handle restore purchases
@@ -123,10 +111,15 @@ export default function CustomerCenter({ showRestoreOnly = false }: CustomerCent
           </View>
           <View style={styles.statusTextContainer}>
             <Text style={styles.statusTitle}>
-              {isSubscribed ? 'LockIn Pro Active' : 'Free Plan'}
+              {isSubscribed ? getProductDisplayName() : 'Free Plan'}
             </Text>
             {isSubscribed && expirationDate && (
-              <Text style={styles.statusSubtitle}>Renews on {expirationDate}</Text>
+              <Text style={styles.statusSubtitle}>
+                {currentSubscription?.autoRenewStatus
+                  ? `Renews on ${expirationDate}`
+                  : `Expires on ${expirationDate}`
+                }
+              </Text>
             )}
             {!isSubscribed && (
               <Text style={styles.statusSubtitle}>Upgrade to unlock all features</Text>
@@ -138,21 +131,14 @@ export default function CustomerCenter({ showRestoreOnly = false }: CustomerCent
         <View style={styles.actionsContainer}>
           {isSubscribed ? (
             <Pressable
-              onPress={presentCustomerCenter}
-              disabled={isPresentingCustomerCenter}
+              onPress={openSubscriptionManagement}
               style={({ pressed }) => [
                 styles.actionButton,
                 pressed && styles.buttonPressed,
               ]}
             >
-              {isPresentingCustomerCenter ? (
-                <ActivityIndicator size="small" color={BrandColors.primary.main} />
-              ) : (
-                <>
-                  <Ionicons name="settings-outline" size={20} color={BrandColors.primary.main} />
-                  <Text style={styles.actionButtonText}>Manage Subscription</Text>
-                </>
-              )}
+              <Ionicons name="settings-outline" size={20} color={BrandColors.primary.main} />
+              <Text style={styles.actionButtonText}>Manage Subscription</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -179,7 +165,7 @@ export default function CustomerCenter({ showRestoreOnly = false }: CustomerCent
       {/* Help Text */}
       <Text style={styles.helpText}>
         {isSubscribed
-          ? 'Manage your subscription, change plans, or request a refund through the Customer Center.'
+          ? 'Manage your subscription, change plans, or cancel through the App Store.'
           : 'Already subscribed? Restore your purchases to unlock LockIn Pro.'}
       </Text>
     </View>

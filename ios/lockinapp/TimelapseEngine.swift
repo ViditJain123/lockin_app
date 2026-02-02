@@ -246,6 +246,12 @@ class TimelapseEngine: RCTEventEmitter {
     
     /// Check if there's a phone call in progress
     @objc func isCallInProgress(_ resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+        // CallKit is not available in China per MIIT requirements (Guideline 5.0)
+        if Locale.current.regionCode == "CN" {
+            resolver(false)
+            return
+        }
+
         let hasActiveCall = callObserver.calls.contains { call in
             // Check if any call is in a connected state (not ended or outgoing)
             return !call.hasEnded && (call.hasConnected || call.isOutgoing)
