@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
+import { useSubscriptionStore } from '../store/useSubscriptionStore';
 
 // Types
 interface AuthContextType {
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('[Auth] Auth state changed:', event);
         setSession(session);
-        
+
         // Handle OAuth callback
         if (event === 'SIGNED_IN' && session) {
           // Close any open auth session browser (ignore errors if already closed)
@@ -54,6 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch {
             // Browser was already dismissed, which is fine
           }
+
+          // Login to RevenueCat with user ID for subscription syncing
+          console.log('[Auth] Logging in to RevenueCat with user ID:', session.user.id);
+          await useSubscriptionStore.getState().loginUser(session.user.id);
+        }
+
+        // Handle sign out - logout from RevenueCat
+        if (event === 'SIGNED_OUT') {
+          console.log('[Auth] Logging out from RevenueCat');
+          await useSubscriptionStore.getState().logoutUser();
         }
       }
     );
@@ -250,6 +261,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign out
   const signOut = async () => {
     try {
+      // Logout from RevenueCat and reset subscription state
+      await useSubscriptionStore.getState().logoutUser();
+      useSubscriptionStore.getState().reset();
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
