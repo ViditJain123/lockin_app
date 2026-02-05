@@ -9,7 +9,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>lockin_app</string>
+    <string>Lockin Club</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -65,6 +65,8 @@
     </array>
     <key>RCTNewArchEnabled</key>
     <true/>
+    <key>REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP</key>
+    <string>$(REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP)</string>
     <key>UIAppFonts</key>
     <array>
       <string>Fonts/Quicksand-SemiBold.ttf</string>

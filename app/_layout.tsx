@@ -47,9 +47,10 @@ import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQ
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
-// Family Controls screens (disabled for non-production bundle IDs)
-// import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
-// import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
+// Family Controls screens
+import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
+import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
+import ConversionRateQuestionScreen from '../components/quiz/questions/ConversionRateQuestionScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
@@ -57,7 +58,9 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { migrateHeatmapData } from '../lib/heatmapMigration';
+import { initializeDailyBlock, unblockApps, isBlockingAvailable } from '../lib/blockingService';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
+import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -190,6 +193,47 @@ function RootLayoutNav() {
       subscription.remove();
     };
   }, [updateStoreHydrated, checkForUpdate]);
+
+  // Handle earned time daily reset and blocking on app foreground
+  useEffect(() => {
+    if (!_hasHydrated || !session) return;
+
+    const earnedTimeStore = useEarnedTimeStore.getState();
+    const { familyActivitySelection } = quizAnswers;
+
+    // Check for new day and handle blocking state
+    const handleBlockingState = () => {
+      if (!isBlockingAvailable() || !familyActivitySelection) return;
+
+      const wasNewDay = earnedTimeStore.checkAndResetForNewDay();
+      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
+
+      if (wasNewDay) {
+        // New day: reset blocking state
+        console.log('[Layout] New day detected, initializing daily block');
+        initializeDailyBlock(familyActivitySelection);
+      } else if (remainingMinutes > 0) {
+        // Same day with remaining time: ensure apps are unblocked
+        console.log('[Layout] Same day with', remainingMinutes, 'min remaining, ensuring unblock');
+        unblockApps(familyActivitySelection, remainingMinutes);
+      }
+    };
+
+    // Run on mount
+    handleBlockingState();
+
+    // Listen for app state changes
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App has come to the foreground - check blocking state
+        handleBlockingState();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [_hasHydrated, session, quizAnswers.familyActivitySelection]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
@@ -362,23 +406,49 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Family Controls screens removed for non-production bundle IDs */}
-          {/* Question 18: Login Screen */}
+          {/* Question 18: Screen Time Permission */}
           {currentQuestionIndex === 16 && (
+            <ScreenTimePermissionScreen
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 19: App Selection */}
+          {currentQuestionIndex === 17 && (
+            <AppSelectionScreen
+              familyActivitySelection={quizAnswers.familyActivitySelection}
+              onSelectionChange={(selection) => setAnswer('familyActivitySelection', selection)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 20: Conversion Rate */}
+          {currentQuestionIndex === 18 && (
+            <ConversionRateQuestionScreen
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={TOTAL_QUIZ_QUESTIONS}
+              conversionRate={quizAnswers.conversionRate}
+              onConversionRateChange={(rate) => setAnswer('conversionRate', rate)}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 21: Login Screen */}
+          {currentQuestionIndex === 19 && (
             <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 19: Payment Screen */}
-          {currentQuestionIndex === 17 && (
+          {/* Question 22: Payment Screen */}
+          {currentQuestionIndex === 20 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 20: Payment Success Screen */}
-          {currentQuestionIndex === 18 && (
+          {/* Question 23: Payment Success Screen */}
+          {currentQuestionIndex === 21 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
               onContinue={completeQuizFunnel}

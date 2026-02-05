@@ -1,29 +1,74 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  DeviceActivitySelectionView,
+  blockSelection,
+  isAvailable as isDeviceActivityAvailable,
+} from 'react-native-device-activity';
 
 import { Fonts } from '../constants/Fonts';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { initializeDailyBlock } from '../lib/blockingService';
+import { ConversionRate, useOnboardingStore } from '../store/useOnboardingStore';
+import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
 
 const SUPABASE_URL = 'https://tsojozycisspcfmabtku.supabase.co';
+
+// Conversion rate display labels
+const CONVERSION_LABELS: Record<ConversionRate, string> = {
+  '6:1': 'Focused (6:1)',
+  '4:1': 'Balanced (4:1)',
+  '3:1': 'Relaxed (3:1)',
+};
 
 export default function SettingsPageScreen() {
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAppPickerVisible, setIsAppPickerVisible] = useState(false);
+  const [tempSelection, setTempSelection] = useState<string | null>(null);
+
+  // Onboarding store for app selection and conversion rate
+  const quizAnswers = useOnboardingStore((s) => s.quizAnswers);
+  const setAnswer = useOnboardingStore((s) => s.setAnswer);
+
+  // Earned time store
+  const earnedTimeToday = useEarnedTimeStore((s) => s.earnedTimeToday);
+  const usedTimeToday = useEarnedTimeStore((s) => s.usedTimeToday);
+  const remainingMinutes = Math.floor(Math.max(0, earnedTimeToday - usedTimeToday) / 60);
+
+  // Format time for display
+  const formatMinutes = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    if (mins >= 60) {
+      const hours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      return `${hours}h ${remainingMins}m`;
+    }
+    return `${mins}m`;
+  };
 
   const handleLogout = () => {
     Alert.alert(
       'Log Out',
       'Are you sure you want to log out?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Log Out',
           style: 'destructive',
@@ -41,10 +86,7 @@ export default function SettingsPageScreen() {
       'Delete Account',
       'This will permanently delete your account and all data. This action cannot be undone.',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -87,6 +129,42 @@ export default function SettingsPageScreen() {
     );
   };
 
+  const handleOpenAppPicker = () => {
+    setTempSelection(quizAnswers.familyActivitySelection);
+    setIsAppPickerVisible(true);
+  };
+
+  const handleAppPickerDone = () => {
+    if (tempSelection) {
+      setAnswer('familyActivitySelection', tempSelection);
+      // Re-block with new selection
+      try {
+        blockSelection({ activitySelectionToken: tempSelection });
+        initializeDailyBlock(tempSelection);
+      } catch (error) {
+        console.error('Error updating blocked apps:', error);
+      }
+    }
+    setIsAppPickerVisible(false);
+  };
+
+  const handleConversionRateChange = () => {
+    const options: ConversionRate[] = ['6:1', '4:1', '3:1'];
+    Alert.alert(
+      'Conversion Rate',
+      'Choose how much screen time you earn per minute of work',
+      [
+        ...options.map((rate) => ({
+          text: CONVERSION_LABELS[rate] + (rate === quizAnswers.conversionRate ? ' (Current)' : ''),
+          onPress: () => setAnswer('conversionRate', rate),
+        })),
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const showDeviceActivitySettings = Platform.OS === 'ios' && isDeviceActivityAvailable();
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -98,8 +176,66 @@ export default function SettingsPageScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Settings List */}
-      <View style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Today's Stats Card */}
+        <View style={styles.statsCard}>
+          <Text style={styles.statsCardTitle}>Today's Screen Time</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{formatMinutes(earnedTimeToday)}</Text>
+              <Text style={styles.statLabel}>Earned</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{formatMinutes(usedTimeToday)}</Text>
+              <Text style={styles.statLabel}>Used</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, styles.statValueHighlight]}>{remainingMinutes}m</Text>
+              <Text style={styles.statLabel}>Remaining</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Screen Time Settings Section */}
+        {showDeviceActivitySettings && (
+          <>
+            <Text style={styles.sectionTitle}>Screen Time</Text>
+
+            {/* Modify Blocked Apps */}
+            <TouchableOpacity onPress={handleOpenAppPicker} style={styles.settingsRow}>
+              <View style={styles.settingsRowLeft}>
+                <View style={[styles.iconContainer, styles.blueIconContainer]}>
+                  <Ionicons name="apps-outline" size={22} color="#007AFF" />
+                </View>
+                <View>
+                  <Text style={styles.settingsRowText}>Blocked Apps</Text>
+                  <Text style={styles.settingsRowSubtext}>Modify which apps are blocked</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.4)" />
+            </TouchableOpacity>
+
+            {/* Conversion Rate */}
+            <TouchableOpacity onPress={handleConversionRateChange} style={[styles.settingsRow, styles.marginTop]}>
+              <View style={styles.settingsRowLeft}>
+                <View style={[styles.iconContainer, styles.greenIconContainer]}>
+                  <Ionicons name="time-outline" size={22} color="#34C759" />
+                </View>
+                <View>
+                  <Text style={styles.settingsRowText}>Conversion Rate</Text>
+                  <Text style={styles.settingsRowSubtext}>{CONVERSION_LABELS[quizAnswers.conversionRate]}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.4)" />
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Account Section */}
+        <Text style={styles.sectionTitle}>Account</Text>
+
         <TouchableOpacity onPress={handleLogout} style={styles.settingsRow}>
           <View style={styles.settingsRowLeft}>
             <View style={styles.iconContainer}>
@@ -112,7 +248,7 @@ export default function SettingsPageScreen() {
 
         <TouchableOpacity
           onPress={handleDeleteAccount}
-          style={[styles.settingsRow, styles.deleteRow]}
+          style={[styles.settingsRow, styles.marginTop]}
           disabled={isDeleting}
         >
           <View style={styles.settingsRowLeft}>
@@ -129,7 +265,43 @@ export default function SettingsPageScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.4)" />
         </TouchableOpacity>
-      </View>
+
+        {/* Bottom spacing */}
+        <View style={{ height: insets.bottom + 40 }} />
+      </ScrollView>
+
+      {/* App Selection Modal */}
+      <Modal
+        visible={isAppPickerVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsAppPickerVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setIsAppPickerVisible(false)}
+              style={styles.modalCancelButton}
+            >
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Select Apps</Text>
+            <TouchableOpacity onPress={handleAppPickerDone} style={styles.modalDoneButton}>
+              <Text style={styles.modalDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.pickerContainer}>
+            <DeviceActivitySelectionView
+              style={styles.picker}
+              familyActivitySelection={tempSelection}
+              onSelectionChange={(event) => {
+                setTempSelection(event.nativeEvent.familyActivitySelection ?? null);
+              }}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -160,8 +332,61 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
+  // Stats Card
+  statsCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  statsCardTitle: {
+    fontSize: 14,
+    fontFamily: Fonts.medium,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 24,
+    fontFamily: Fonts.bold,
+    color: 'white',
+    marginBottom: 4,
+  },
+  statValueHighlight: {
+    color: '#FF3B5C',
+  },
+  statLabel: {
+    fontSize: 12,
+    fontFamily: Fonts.regular,
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  // Section
+  sectionTitle: {
+    fontSize: 13,
+    fontFamily: Fonts.semiBold,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 12,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Settings Rows
   settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,9 +396,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
   },
+  marginTop: {
+    marginTop: 12,
+  },
   settingsRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   iconContainer: {
     width: 32,
@@ -184,15 +413,67 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  blueIconContainer: {
+    backgroundColor: 'rgba(0, 122, 255, 0.15)',
+  },
+  greenIconContainer: {
+    backgroundColor: 'rgba(52, 199, 89, 0.15)',
+  },
+  deleteIconContainer: {
+    backgroundColor: 'rgba(255, 59, 92, 0.15)',
+  },
   settingsRowText: {
     fontSize: 16,
     fontFamily: Fonts.medium,
     color: 'white',
   },
-  deleteRow: {
-    marginTop: 12,
+  settingsRowSubtext: {
+    fontSize: 13,
+    fontFamily: Fonts.regular,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 2,
   },
-  deleteIconContainer: {
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
+  // Modal
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalCancelButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  modalCancelText: {
+    fontSize: 17,
+    fontFamily: Fonts.regular,
+    color: '#007AFF',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontFamily: Fonts.semiBold,
+    color: 'white',
+  },
+  modalDoneButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  modalDoneText: {
+    fontSize: 17,
+    fontFamily: Fonts.semiBold,
+    color: '#007AFF',
+  },
+  pickerContainer: {
+    flex: 1,
+  },
+  picker: {
+    flex: 1,
   },
 });

@@ -16,10 +16,13 @@ import {
 import { create } from 'zustand';
 import { useHeatmapStore } from './useHeatmapStore';
 import { useNotificationStore } from './useNotificationStore';
+import { useEarnedTimeStore } from './useEarnedTimeStore';
+import { useOnboardingStore } from './useOnboardingStore';
 import {
   cancelGrindReminderNotification,
   scheduleGrindReminderNotification,
 } from '@/lib/notificationService';
+import { unblockApps, isBlockingAvailable } from '@/lib/blockingService';
 
 // Minimum video duration to save (1 minute)
 const MIN_VIDEO_DURATION_SECONDS = 60;
@@ -85,6 +88,19 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       await cancelGrindReminderNotification();
       await scheduleGrindReminderNotification();
       console.log('[VideoStore] Notification reminder rescheduled for 6 hours');
+
+      // Add earned screen time based on conversion rate
+      const { conversionRate, familyActivitySelection } = useOnboardingStore.getState().quizAnswers;
+      const earnedTimeStore = useEarnedTimeStore.getState();
+      const earnedSeconds = earnedTimeStore.addEarnedTime(durationSeconds, conversionRate);
+      console.log('[VideoStore] Earned', earnedSeconds, 'seconds of screen time');
+
+      // If user now has available time, unblock their apps
+      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
+      if (remainingMinutes > 0 && isBlockingAvailable() && familyActivitySelection) {
+        unblockApps(familyActivitySelection, remainingMinutes);
+        console.log('[VideoStore] Unblocked apps with', remainingMinutes, 'minutes remaining');
+      }
 
       return video;
     } catch (error) {

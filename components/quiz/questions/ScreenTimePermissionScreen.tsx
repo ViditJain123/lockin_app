@@ -43,10 +43,27 @@ export default function ScreenTimePermissionScreen({
   const handleContinue = async () => {
     setIsRequesting(true);
     try {
+      // Request authorization - this triggers the iOS system dialog
       await ReactNativeDeviceActivity.requestAuthorization('individual');
-      console.log('Authorization requested');
-      // Proceed after requesting - user can grant permission in the system dialog
-      onContinue();
+      console.log('Authorization requested, waiting for user response...');
+
+      // Poll for authorization status change (waits for user to respond to dialog)
+      // Polls every 250ms for up to 10 attempts (2.5 seconds total)
+      const status = await ReactNativeDeviceActivity.pollAuthorizationStatus();
+      console.log('Authorization status:', status);
+
+      if (status === ReactNativeDeviceActivity.AuthorizationStatus.approved) {
+        console.log('Authorization approved, proceeding');
+        onContinue();
+      } else if (status === ReactNativeDeviceActivity.AuthorizationStatus.denied) {
+        console.log('Authorization denied');
+        // Still allow continuing but user won't be able to select apps
+        onContinue();
+      } else {
+        // Still notDetermined after polling - user may have dismissed without choosing
+        console.log('Authorization still pending');
+        onContinue();
+      }
     } catch (error) {
       console.error('Authorization error:', error);
       // Graceful fallback - still allow continuing

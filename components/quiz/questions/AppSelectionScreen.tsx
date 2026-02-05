@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -176,6 +177,13 @@ export default function AppSelectionScreen({
               <Text style={styles.doneButtonText}>Done</Text>
             </Pressable>
           </View>
+
+          {/* Simulator warning for developers */}
+          {__DEV__ && Platform.OS === 'ios' && !Platform.isPad && (
+            <Text style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 12, fontSize: 13 }}>
+              Note: App list is empty on Simulator. Test on a physical device.
+            </Text>
+          )}
 
           {/* DeviceActivitySelectionView */}
           <View style={styles.pickerContainer}>
