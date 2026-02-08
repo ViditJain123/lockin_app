@@ -63,7 +63,7 @@ export default function AppSelectionScreen({
     // Block the selected apps
     if (tempSelection) {
       try {
-        blockSelection({ familyActivitySelection: tempSelection });
+        blockSelection({ activitySelectionToken: tempSelection }, 'onboardingSelection');
       } catch (error) {
         console.error('Error blocking selection:', error);
       }
@@ -77,7 +77,7 @@ export default function AppSelectionScreen({
     // Ensure apps are blocked before continuing
     if (familyActivitySelection) {
       try {
-        blockSelection({ familyActivitySelection });
+        blockSelection({ activitySelectionToken: familyActivitySelection }, 'onboardingSelection');
       } catch (error) {
         console.error('Error blocking selection:', error);
       }

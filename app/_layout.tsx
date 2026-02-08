@@ -144,6 +144,7 @@ function RootLayoutNav() {
   const {
     shouldShowOnboarding,
     _hasHydrated,
+    hasCompletedOnboarding,
     // Quiz funnel state
     isInQuizFunnel,
     currentQuestionIndex,
@@ -216,6 +217,11 @@ function RootLayoutNav() {
         // Same day with remaining time: ensure apps are unblocked
         console.log('[Layout] Same day with', remainingMinutes, 'min remaining, ensuring unblock');
         unblockApps(familyActivitySelection, remainingMinutes);
+      } else {
+        // Same day, no remaining time — ensure apps are blocked
+        // (covers first launch after onboarding + time exhausted cases)
+        console.log('[Layout] No remaining time, ensuring apps are blocked');
+        initializeDailyBlock(familyActivitySelection);
       }
     };
 
@@ -233,7 +239,7 @@ function RootLayoutNav() {
     return () => {
       subscription.remove();
     };
-  }, [_hasHydrated, session, quizAnswers.familyActivitySelection]);
+  }, [_hasHydrated, session, quizAnswers.familyActivitySelection, hasCompletedOnboarding]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
