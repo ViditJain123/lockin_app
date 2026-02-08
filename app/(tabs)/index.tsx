@@ -8,7 +8,6 @@ import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { setTorch, turnOffTorch } from '@/modules/TorchController';
 import { TimerFilterType, useRecordingError, useRecordingStore, useTimerFilter, useTimerPosition, useTimerScale } from '@/store/useRecordingStore';
-import { useRemainingTimeMinutes } from '@/store/useEarnedTimeStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -22,11 +21,9 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 
 import { Fonts } from '../../constants/Fonts';
 
@@ -65,9 +62,6 @@ export default function CameraScreen() {
   const stopRecording = useRecordingStore((s) => s.stopRecording);
   const setCountingDown = useRecordingStore((s) => s.setCountingDown);
   const recordingError = useRecordingError();
-
-  // Earned screen time
-  const remainingTimeMinutes = useRemainingTimeMinutes();
 
   // Keep screen awake and dim brightness during recording
   useScreenWakeLock(isRecording);
@@ -369,18 +363,6 @@ export default function CameraScreen() {
         </View>
       )}
 
-      {/* Earned screen time pill - shows when not recording and user has earned time */}
-      {!isRecording && !isFinishing && !isCountingDown && remainingTimeMinutes > 0 && (
-        <TouchableOpacity
-          style={[styles.screenTimePill, { top: insets.top + 12 }]}
-          onPress={() => router.push('/settings-page' as any)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="time-outline" size={14} color="#34C759" />
-          <Text style={styles.screenTimePillText}>{remainingTimeMinutes}m earned</Text>
-        </TouchableOpacity>
-      )}
-
       {/* No loader overlay - recording start/stop happens seamlessly in background */}
 
       {/* Bottom control zone - Record button */}
@@ -486,20 +468,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Fonts.semiBold,
     fontVariant: ['tabular-nums'],
-  },
-  screenTimePill: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  screenTimePillText: {
-    color: '#34C759',
-    fontSize: 13,
-    fontFamily: Fonts.medium,
-    marginLeft: 4,
   },
 });

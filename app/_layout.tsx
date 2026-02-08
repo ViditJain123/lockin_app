@@ -39,18 +39,11 @@ import LockInSavingsScreen from '../components/quiz/questions/LockInSavingsScree
 import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
 import ScienceReplacementScreen from '../components/quiz/questions/ScienceReplacementScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
-import ScrollScreen from '../components/quiz/questions/ScrollScreen';
 import SleepTimeQuestionScreen from '../components/quiz/questions/SleepTimeQuestionScreen';
-import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
-import WorkingScreen from '../components/quiz/questions/WorkingScreen';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
-// Family Controls screens
-import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
-import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
-import ConversionRateQuestionScreen from '../components/quiz/questions/ConversionRateQuestionScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
@@ -58,9 +51,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { migrateHeatmapData } from '../lib/heatmapMigration';
-import { initializeDailyBlock, unblockApps, isBlockingAvailable } from '../lib/blockingService';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
-import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -144,7 +135,6 @@ function RootLayoutNav() {
   const {
     shouldShowOnboarding,
     _hasHydrated,
-    hasCompletedOnboarding,
     // Quiz funnel state
     isInQuizFunnel,
     currentQuestionIndex,
@@ -194,52 +184,6 @@ function RootLayoutNav() {
       subscription.remove();
     };
   }, [updateStoreHydrated, checkForUpdate]);
-
-  // Handle earned time daily reset and blocking on app foreground
-  useEffect(() => {
-    if (!_hasHydrated || !session) return;
-
-    const earnedTimeStore = useEarnedTimeStore.getState();
-    const { familyActivitySelection } = quizAnswers;
-
-    // Check for new day and handle blocking state
-    const handleBlockingState = () => {
-      if (!isBlockingAvailable() || !familyActivitySelection) return;
-
-      const wasNewDay = earnedTimeStore.checkAndResetForNewDay();
-      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
-
-      if (wasNewDay) {
-        // New day: reset blocking state
-        console.log('[Layout] New day detected, initializing daily block');
-        initializeDailyBlock(familyActivitySelection);
-      } else if (remainingMinutes > 0) {
-        // Same day with remaining time: ensure apps are unblocked
-        console.log('[Layout] Same day with', remainingMinutes, 'min remaining, ensuring unblock');
-        unblockApps(familyActivitySelection, remainingMinutes);
-      } else {
-        // Same day, no remaining time — ensure apps are blocked
-        // (covers first launch after onboarding + time exhausted cases)
-        console.log('[Layout] No remaining time, ensuring apps are blocked');
-        initializeDailyBlock(familyActivitySelection);
-      }
-    };
-
-    // Run on mount
-    handleBlockingState();
-
-    // Listen for app state changes
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to the foreground - check blocking state
-        handleBlockingState();
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [_hasHydrated, session, quizAnswers.familyActivitySelection, hasCompletedOnboarding]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
@@ -301,17 +245,8 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 6: Social Proof */}
+          {/* Question 5: Problematic Apps */}
           {currentQuestionIndex === 4 && (
-            <SocialProofScreen
-              userName={quizAnswers.name}
-              selectedGoals={quizAnswers.goals}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 7: Problematic Apps */}
-          {currentQuestionIndex === 5 && (
             <AppsQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -321,16 +256,16 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 8: Solution Reveal */}
-          {currentQuestionIndex === 6 && (
+          {/* Question 6: Solution Reveal */}
+          {currentQuestionIndex === 5 && (
             <SolutionRevealScreen
               selectedApps={quizAnswers.problematicApps}
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 9: Age */}
-          {currentQuestionIndex === 7 && (
+          {/* Question 7: Age */}
+          {currentQuestionIndex === 6 && (
             <AgeQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -340,8 +275,8 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 10: Dependence Result */}
-          {currentQuestionIndex === 8 && (
+          {/* Question 8: Dependence Result */}
+          {currentQuestionIndex === 7 && (
             <DependenceResultScreen
               screenTime={quizAnswers.screenTime}
               desiredScreenTime={quizAnswers.desiredScreenTime}
@@ -350,16 +285,16 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 11: Lifetime Usage */}
-          {currentQuestionIndex === 9 && (
+          {/* Question 9: Lifetime Usage */}
+          {currentQuestionIndex === 8 && (
             <LifetimeUsageScreen
               screenTime={quizAnswers.screenTime}
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 12: LockIn Savings */}
-          {currentQuestionIndex === 10 && (
+          {/* Question 10: LockIn Savings */}
+          {currentQuestionIndex === 9 && (
             <LockInSavingsScreen
               screenTime={quizAnswers.screenTime}
               desiredScreenTime={quizAnswers.desiredScreenTime}
@@ -367,15 +302,15 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 13: Science Replacement */}
-          {currentQuestionIndex === 11 && (
+          {/* Question 11: Science Replacement */}
+          {currentQuestionIndex === 10 && (
             <ScienceReplacementScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 14: Sleep Time */}
-          {currentQuestionIndex === 12 && (
+          {/* Question 12: Sleep Time */}
+          {currentQuestionIndex === 11 && (
             <SleepTimeQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -386,8 +321,8 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 15: Target Hours */}
-          {currentQuestionIndex === 13 && (
+          {/* Question 13: Target Hours */}
+          {currentQuestionIndex === 12 && (
             <TargetHoursQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -398,63 +333,22 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 16: Scroll Screen */}
-          {currentQuestionIndex === 14 && (
-            <ScrollScreen
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 17: Working Screen */}
-          {currentQuestionIndex === 15 && (
-            <WorkingScreen
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 18: Screen Time Permission */}
-          {currentQuestionIndex === 16 && (
-            <ScreenTimePermissionScreen
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 19: App Selection */}
-          {currentQuestionIndex === 17 && (
-            <AppSelectionScreen
-              familyActivitySelection={quizAnswers.familyActivitySelection}
-              onSelectionChange={(selection) => setAnswer('familyActivitySelection', selection)}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 20: Conversion Rate */}
-          {currentQuestionIndex === 18 && (
-            <ConversionRateQuestionScreen
-              currentStep={currentQuestionIndex + 1}
-              totalSteps={TOTAL_QUIZ_QUESTIONS}
-              conversionRate={quizAnswers.conversionRate}
-              onConversionRateChange={(rate) => setAnswer('conversionRate', rate)}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 21: Login Screen */}
-          {currentQuestionIndex === 19 && (
+          {/* Question 14: Login Screen */}
+          {currentQuestionIndex === 13 && (
             <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 22: Payment Screen */}
-          {currentQuestionIndex === 20 && (
+          {/* Question 15: Payment Screen */}
+          {currentQuestionIndex === 14 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 23: Payment Success Screen */}
-          {currentQuestionIndex === 21 && (
+          {/* Question 16: Payment Success Screen */}
+          {currentQuestionIndex === 15 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
               onContinue={completeQuizFunnel}

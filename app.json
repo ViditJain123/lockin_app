@@ -23,7 +23,6 @@
         "NSCameraUsageDescription": "Required for timelapse recording",
         "NSPhotoLibraryAddUsageDescription": "Save timelapse videos to your gallery",
         "NSPhotoLibraryUsageDescription": "Access your photos to save timelapse videos",
-        "NSFamilyControlsUsageDescription": "LockIn uses Screen Time to help you manage app usage and build better habits",
         "NSMotionUsageDescription": "Used to detect device orientation for timer display",
         "UIBackgroundModes": [
           "audio",
@@ -73,13 +72,6 @@
           "color": "#000000"
         }
       ],
-      [
-        "react-native-device-activity",
-        {
-          "appleTeamId": "CCQU7Z66V5",
-          "appGroup": "group.com.lockin.club"
-        }
-      ]
     ],
     "experiments": {
       "typedRoutes": true

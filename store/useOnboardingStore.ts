@@ -7,7 +7,7 @@ import { ONBOARDING_DEV_MODE } from '../lib/config';
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
-export const TOTAL_QUIZ_QUESTIONS = 22;
+export const TOTAL_QUIZ_QUESTIONS = 16;
 
 // Interface for sleep time
 export interface SleepTime {
@@ -15,9 +15,6 @@ export interface SleepTime {
   minute: number; // 0, 15, 30, 45
   period: 'AM' | 'PM';
 }
-
-// Conversion rate type for earned screen time
-export type ConversionRate = '6:1' | '4:1' | '3:1';
 
 // Interface for quiz answers
 export interface QuizAnswers {
@@ -28,9 +25,7 @@ export interface QuizAnswers {
   problematicApps: string[];
   age: string;
   sleepTime: SleepTime;
-  familyActivitySelection: string | null;
   targetHours: number;
-  conversionRate: ConversionRate;
 }
 
 interface OnboardingState {
@@ -70,9 +65,7 @@ const initialQuizAnswers: QuizAnswers = {
   problematicApps: [],
   age: '',
   sleepTime: { hour: 10, minute: 0, period: 'PM' }, // Default to 10:00 PM
-  familyActivitySelection: null,
   targetHours: 4, // Default to 4 hours of daily work target
-  conversionRate: '4:1', // Default to balanced conversion rate
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
