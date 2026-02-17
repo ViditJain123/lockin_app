@@ -121,7 +121,7 @@ class TimelapseSessionManager: NSObject {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
         ]
         
-        // Don't queue frames - we only need 2fps, drop the rest
+        // Don't queue frames - we only need 1fps, drop the rest
         output.alwaysDiscardsLateVideoFrames = true
         
         // Set delegate on capture queue
@@ -263,12 +263,13 @@ class TimelapseSessionManager: NSObject {
         }
     }
     
-    func stopCapture() {
+    func stopCapture(completion: (() -> Void)? = nil) {
         print("[TimelapseSessionManager] stopCapture() called")
         captureQueue.async { [weak self] in
             print("[TimelapseSessionManager] Stopping capture session...")
             self?.captureSession?.stopRunning()
             print("[TimelapseSessionManager] Capture session stopped")
+            completion?()
         }
     }
     
@@ -334,7 +335,7 @@ extension TimelapseSessionManager: AVCaptureVideoDataOutputSampleBufferDelegate 
     
     func captureOutput(_ output: AVCaptureOutput, didDrop sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         // Frame dropped - this is expected and fine for timelapse
-        // We only need 2fps, camera runs at 30fps
+        // We only need 1fps, camera runs at 30fps
     }
 }
 

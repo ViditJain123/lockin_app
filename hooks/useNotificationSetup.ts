@@ -2,10 +2,11 @@
  * Notification Setup Hook
  *
  * Hook for app layout that handles notification initialization,
- * permission requests, and AppState changes for scheduling.
+ * permission requests, and AppState changes for the 24-hour
+ * re-engagement notification cycle.
  *
- * Development mode: Schedules test notifications 1 minute after launch/background
- * Production mode: Schedules reminders based on last grind timestamp
+ * Development mode: Schedules 5 test notifications at 10-second intervals
+ * Production mode: Schedules 30-day re-engagement cycle on background
  */
 
 import { useEffect, useRef } from 'react';
@@ -14,10 +15,10 @@ import { NOTIFICATION_DEV_MODE_ENABLED } from '../lib/config';
 import {
   initializeNotifications,
   requestNotificationPermission,
-  scheduleDevTestNotification,
-  cancelDevTestNotification,
+  scheduleDevReengagementNotifications,
 } from '../lib/notificationService';
 import { useNotificationStore } from '../store/useNotificationStore';
+import { useVideoStore } from '../store/useVideoStore';
 
 export function useNotificationSetup() {
   const appState = useRef(AppState.currentState);
@@ -28,7 +29,6 @@ export function useNotificationSetup() {
     hasNotificationPermission,
     isNotificationEnabled,
     setHasNotificationPermission,
-    checkAndScheduleReminder,
   } = useNotificationStore();
 
   // Initialize notifications on mount
@@ -49,18 +49,22 @@ export function useNotificationSetup() {
         return;
       }
 
-      // If dev mode enabled, schedule a test notification on launch (works in ALL builds including TestFlight)
       if (NOTIFICATION_DEV_MODE_ENABLED) {
-        console.log('[NotificationSetup] DEV mode - scheduling test notification (1 min)');
-        await scheduleDevTestNotification(60); // 1 minute
+        // Dev mode: schedule test notifications on launch
+        console.log('[NotificationSetup] DEV mode - scheduling test notifications');
+        await scheduleDevReengagementNotifications();
       } else {
-        // Production mode - check if we should schedule a reminder
-        await checkAndScheduleReminder();
+        // Production mode: record app open, cancel old, schedule new
+        const store = useNotificationStore.getState();
+        store.checkPermanentSilence();
+        store.recordAppOpen();
+        await store.cancelReengagementCycle();
+        await store.scheduleReengagementCycle();
       }
     }
 
     setup();
-  }, [setHasNotificationPermission, checkAndScheduleReminder]);
+  }, [setHasNotificationPermission]);
 
   // Handle app state changes (foreground/background)
   useEffect(() => {
@@ -85,26 +89,40 @@ export function useNotificationSetup() {
     }
 
     if (NOTIFICATION_DEV_MODE_ENABLED) {
-      // Dev mode behavior - test notifications (works in ALL builds including TestFlight)
+      // Dev mode behavior
       if (nextAppState === 'background') {
-        // App went to background - schedule test notification
-        console.log('[NotificationSetup] DEV: App backgrounded - scheduling test notification (1 min)');
-        await scheduleDevTestNotification(60);
+        console.log('[NotificationSetup] DEV: App backgrounded - scheduling test notifications');
+        await scheduleDevReengagementNotifications();
       } else if (nextAppState === 'active' && previousState !== 'active') {
-        // App came to foreground - cancel pending test notification
-        console.log('[NotificationSetup] DEV: App foregrounded - cancelling test notification');
-        await cancelDevTestNotification();
+        console.log('[NotificationSetup] DEV: App foregrounded - cancelling test notifications');
+        await useNotificationStore.getState().cancelReengagementCycle();
       }
     } else {
-      // Production mode behavior - 6-hour reminders
-      if (nextAppState === 'background') {
-        // App went to background - check and schedule reminder if needed
-        console.log('[NotificationSetup] PROD: App backgrounded - checking reminder');
-        await useNotificationStore.getState().checkAndScheduleReminder();
-      } else if (nextAppState === 'active' && previousState !== 'active') {
-        // App came to foreground - could refresh state if needed
-        console.log('[NotificationSetup] PROD: App foregrounded');
+      // Production mode behavior
+      if (nextAppState === 'active' && previousState !== 'active') {
+        // User came back — record app open, cancel pending notifications (cycle resets)
+        console.log('[NotificationSetup] PROD: App foregrounded - cancelling cycle');
+        const store = useNotificationStore.getState();
+        store.checkPermanentSilence();
+        store.recordAppOpen();
+        await store.cancelReengagementCycle();
+      } else if (nextAppState === 'background') {
+        // User left — schedule re-engagement cycle (30 daily notifications starting 24h from now)
+        console.log('[NotificationSetup] PROD: App backgrounded - scheduling cycle');
+        await useNotificationStore.getState().scheduleReengagementCycle();
       }
     }
   }
+
+  // Migration: existing users who already have videos should be enrolled
+  const videoStoreInitialized = useVideoStore((s) => s.isInitialized);
+  const videos = useVideoStore((s) => s.videos);
+  const hasEverRecorded = useNotificationStore((s) => s.hasEverRecorded);
+
+  useEffect(() => {
+    if (videoStoreInitialized && !hasEverRecorded && videos.length > 0) {
+      console.log('[NotificationSetup] Migration: existing user has videos, setting hasEverRecorded');
+      useNotificationStore.getState().setHasEverRecorded();
+    }
+  }, [videoStoreInitialized, hasEverRecorded, videos.length]);
 }

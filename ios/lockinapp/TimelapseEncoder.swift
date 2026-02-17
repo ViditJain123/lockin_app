@@ -29,6 +29,9 @@ class TimelapseEncoder {
     private var isWriting = false
     private var framesWritten: Int64 = 0
 
+    // Lock to prevent append-after-finalize race condition
+    private let writeLock = NSLock()
+
     // Thread-safe finalization guard
     private let finalizationLock = DispatchQueue(label: "com.lockin.timelapse.finalization")
     private var isFinalizationInProgress = false
@@ -125,40 +128,53 @@ class TimelapseEncoder {
     /// Append a frame to the video
     /// This method is thread-safe and designed for continuous encoding
     func appendFrame(_ pixelBuffer: CVPixelBuffer, presentationTime: CMTime) throws {
+        writeLock.lock()
+
         guard isWriting else {
+            writeLock.unlock()
             throw TimelapseError.encoderNotReady
         }
-        
+
         guard let input = videoInput, let adaptor = pixelBufferAdaptor else {
+            writeLock.unlock()
             throw TimelapseError.encoderNotReady
         }
-        
+
         // Check writer status
         guard let writer = assetWriter, writer.status == .writing else {
-            if let error = assetWriter?.error {
+            let error = assetWriter?.error
+            writeLock.unlock()
+            if let error = error {
                 throw TimelapseError.encoderFailed(error.localizedDescription)
             }
             throw TimelapseError.encoderFailed("Writer not in writing state")
         }
-        
+
         // Wait for input to be ready
-        // Use a short timeout to avoid blocking
+        // Unlock/relock around sleep to avoid deadlock with finalize()
         var attempts = 0
         while !input.isReadyForMoreMediaData && attempts < 10 {
+            writeLock.unlock()
             Thread.sleep(forTimeInterval: 0.001)  // 1ms
+            writeLock.lock()
+            // Re-check isWriting after re-acquiring lock (finalize may have run)
+            guard isWriting else {
+                writeLock.unlock()
+                throw TimelapseError.encoderNotReady
+            }
             attempts += 1
         }
-        
+
         guard input.isReadyForMoreMediaData else {
-            // Drop frame if encoder isn't ready
-            // This is rare and acceptable for timelapse
+            writeLock.unlock()
             print("[TimelapseEncoder] Dropping frame - encoder not ready")
             return
         }
-        
+
         // Append frame
         let success = adaptor.append(pixelBuffer, withPresentationTime: presentationTime)
-        
+        writeLock.unlock()
+
         if success {
             framesWritten += 1
         } else {
@@ -187,7 +203,10 @@ class TimelapseEncoder {
             return
         }
 
+        // Acquire writeLock to ensure no in-flight append() can sneak past
+        writeLock.lock()
         isWriting = false
+        writeLock.unlock()
 
         guard let writer = assetWriter, let input = videoInput else {
             finalizationLock.sync { isFinalizationInProgress = false }
@@ -195,7 +214,7 @@ class TimelapseEncoder {
             return
         }
 
-        // Mark input as finished
+        // Mark input as finished — safe now that no append() can be in-flight
         input.markAsFinished()
 
         // Finish writing

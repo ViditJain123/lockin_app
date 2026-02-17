@@ -64,6 +64,41 @@ class TimelapseFrameOverlay {
         return UIImage(named: "logo-no-bg-cropped")
     }()
 
+    // MARK: - Pre-computed Fixed Box Dimensions (minimal filter)
+
+    /// Fixed box dimensions that never change frame-to-frame
+    private var fixedBoxWidth: CGFloat = 0
+    private var fixedBoxHeight: CGFloat = 0
+
+    /// Cached fonts (created once, reused every frame)
+    private var cachedTimerFont: UIFont!
+    private var cachedBrandFont: UIFont!
+
+    /// Cached attribute dictionaries
+    private var cachedTimerAttributes: [NSAttributedString.Key: Any] = [:]
+    private var cachedLockinAttributes: [NSAttributedString.Key: Any] = [:]
+    private var cachedClubAttributes: [NSAttributedString.Key: Any] = [:]
+
+    /// Cached brand text metrics (minimal filter)
+    private var cachedBrandTotalWidth: CGFloat = 0
+    private var cachedBrandHeight: CGFloat = 0
+    private var cachedContentHeight: CGFloat = 0
+
+    // MARK: - Pre-computed Fixed DateStamp Dimensions
+
+    /// Fixed content width for dateStamp (prevents right-aligned jitter)
+    private var fixedDateStampContentWidth: CGFloat = 0
+    private var fixedDateStampContentHeight: CGFloat = 0
+
+    /// Cached date text attributes
+    private var cachedDateAttributes: [NSAttributedString.Key: Any] = [:]
+
+    /// Cached logo width
+    private var cachedLogoWidth: CGFloat = 0
+
+    /// Cached timer line height (shared by both filters)
+    private var cachedTimerLineHeight: CGFloat = 0
+
     // MARK: - Initialization
 
     init(timerPosition: CGPoint = CGPoint(x: 0.85, y: 0.75), filterType: String = "minimal", timerScale: CGFloat = 1.0, orientation: VideoOrientation = .portrait) {
@@ -84,8 +119,99 @@ class TimelapseFrameOverlay {
 
         print("[TimelapseFrameOverlay] Initialized with orientation: \(orientation.rawValue), dimensions: \(frameWidth)x\(frameHeight)")
 
+        // Pre-compute fixed box dimensions for minimal filter
+        computeFixedBoxDimensions()
+
         // Pre-render static overlay parts
         renderStaticOverlay()
+    }
+
+    // MARK: - Fixed Box Dimension Computation
+
+    /// Pre-compute the fixed timer box dimensions by measuring each digit individually.
+    /// This ensures the box never resizes frame-to-frame despite proportional font widths.
+    private func computeFixedBoxDimensions() {
+        // Create and cache fonts
+        cachedTimerFont = UIFont(name: "Quicksand-SemiBold", size: timerFontSize)
+            ?? UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold)
+        cachedBrandFont = UIFont(name: "Quicksand-SemiBold", size: brandFontSize)
+            ?? UIFont.systemFont(ofSize: brandFontSize, weight: .semibold)
+
+        // Cache attribute dictionaries
+        cachedTimerAttributes = [
+            .font: cachedTimerFont!,
+            .foregroundColor: UIColor.white
+        ]
+        cachedLockinAttributes = [
+            .font: cachedBrandFont!,
+            .foregroundColor: UIColor.white
+        ]
+        cachedClubAttributes = [
+            .font: cachedBrandFont!,
+            .foregroundColor: brandRedColor
+        ]
+
+        // Measure each digit 0-9 to find the widest one
+        var maxDigitWidth: CGFloat = 0
+        for digit in 0...9 {
+            let digitStr = "\(digit)" as NSString
+            let digitWidth = digitStr.size(withAttributes: cachedTimerAttributes).width
+            maxDigitWidth = max(maxDigitWidth, digitWidth)
+        }
+
+        // Measure colon width
+        let colonWidth = (":" as NSString).size(withAttributes: cachedTimerAttributes).width
+
+        // Max timer width: 6 digits + 2 colons (HH:MM:SS)
+        let maxTimerWidth = 6 * maxDigitWidth + 2 * colonWidth
+
+        // Measure timer line height from a reference string
+        cachedTimerLineHeight = ("00:00:00" as NSString).size(withAttributes: cachedTimerAttributes).height
+
+        // Measure brand text (minimal filter)
+        let lockinSize = ("LOCKIN " as NSString).size(withAttributes: cachedLockinAttributes)
+        let clubSize = ("CLUB" as NSString).size(withAttributes: cachedClubAttributes)
+        cachedBrandTotalWidth = lockinSize.width + clubSize.width
+        cachedBrandHeight = max(lockinSize.height, clubSize.height)
+
+        // Content height: timer + spacing + brand (minimal filter)
+        cachedContentHeight = cachedTimerLineHeight + 8 + cachedBrandHeight
+
+        // Fixed box dimensions (minimal filter)
+        let contentWidth = max(maxTimerWidth, cachedBrandTotalWidth)
+        fixedBoxWidth = contentWidth + timerBoxPaddingH * 2
+        fixedBoxHeight = cachedContentHeight + timerBoxPaddingV * 2
+
+        // --- DateStamp filter fixed dimensions ---
+
+        // Cache date attributes (same font as brand)
+        cachedDateAttributes = [
+            .font: cachedBrandFont!,
+            .foregroundColor: UIColor.white
+        ]
+
+        // Measure date text (use a representative long date for max width)
+        // The actual date doesn't change during a recording, but measure a wide sample
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "d MMM, yyyy"
+        let currentDateString = dateFormatter.string(from: Date())
+        let dateSize = (currentDateString as NSString).size(withAttributes: cachedDateAttributes)
+
+        // Cache logo width
+        if let logo = logoImage {
+            cachedLogoWidth = (logo.size.width / logo.size.height) * logoHeight
+        } else {
+            cachedLogoWidth = logoHeight
+        }
+
+        // Fixed content width for dateStamp: use maxTimerWidth instead of per-frame timerSize.width
+        fixedDateStampContentWidth = max(maxTimerWidth, max(dateSize.width, cachedLogoWidth))
+
+        // Fixed content height for dateStamp
+        let spacing: CGFloat = 8
+        fixedDateStampContentHeight = cachedTimerLineHeight + spacing + dateSize.height + spacing + logoHeight
+
+        print("[TimelapseFrameOverlay] Fixed box dimensions: \(fixedBoxWidth) x \(fixedBoxHeight), dateStamp content: \(fixedDateStampContentWidth) x \(fixedDateStampContentHeight)")
     }
 
     // MARK: - Static Overlay Rendering
@@ -192,74 +318,41 @@ class TimelapseFrameOverlay {
         // Clear background
         context.clear(CGRect(origin: .zero, size: size))
 
-        // Configure timer text attributes
-        let timerFont = UIFont(name: "Quicksand-SemiBold", size: timerFontSize)
-            ?? UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold)
-
-        let timerAttributes: [NSAttributedString.Key: Any] = [
-            .font: timerFont,
-            .foregroundColor: UIColor.white
-        ]
-
-        // Configure brand text attributes
-        let brandFont = UIFont(name: "Quicksand-SemiBold", size: brandFontSize)
-            ?? UIFont.systemFont(ofSize: brandFontSize, weight: .semibold)
-
-        // Measure text sizes
-        let timerSize = (timerString as NSString).size(withAttributes: timerAttributes)
-
-        // "LOCKIN " in white + "CLUB" in red
-        let lockinText = "LOCKIN "
-        let clubText = "CLUB"
-
-        let lockinAttributes: [NSAttributedString.Key: Any] = [
-            .font: brandFont,
-            .foregroundColor: UIColor.white
-        ]
-        let clubAttributes: [NSAttributedString.Key: Any] = [
-            .font: brandFont,
-            .foregroundColor: brandRedColor
-        ]
-
-        let lockinSize = (lockinText as NSString).size(withAttributes: lockinAttributes)
-        let clubSize = (clubText as NSString).size(withAttributes: clubAttributes)
-        let brandTotalWidth = lockinSize.width + clubSize.width
-        let brandHeight = max(lockinSize.height, clubSize.height)
-
-        // Calculate box dimensions
-        let contentWidth = max(timerSize.width, brandTotalWidth)
-        let contentHeight = timerSize.height + 8 + brandHeight // 8pt spacing between timer and brand
-        let boxWidth = contentWidth + timerBoxPaddingH * 2
-        let boxHeight = contentHeight + timerBoxPaddingV * 2
-
-        // Get position for the timer box
-        let boxPosition = getTimerBoxPosition(boxWidth: boxWidth, boxHeight: boxHeight)
+        // Use pre-computed fixed box dimensions (constant every frame)
+        let boxPosition = getTimerBoxPosition(boxWidth: fixedBoxWidth, boxHeight: fixedBoxHeight)
 
         // Draw box background (semi-transparent black with 50% opacity) - NO border
-        let boxRect = CGRect(x: boxPosition.x, y: boxPosition.y, width: boxWidth, height: boxHeight)
+        let boxRect = CGRect(x: boxPosition.x, y: boxPosition.y, width: fixedBoxWidth, height: fixedBoxHeight)
         let boxPath = UIBezierPath(roundedRect: boxRect, cornerRadius: timerBoxCornerRadius)
 
         // Fill with semi-transparent black
         UIColor.black.withAlphaComponent(0.5).setFill()
         boxPath.fill()
 
-        // Draw timer text (centered horizontally in box)
-        let timerX = boxPosition.x + (boxWidth - timerSize.width) / 2
+        // Measure the actual timer string for centering (NOT for box sizing)
+        let timerSize = (timerString as NSString).size(withAttributes: cachedTimerAttributes)
+
+        // Draw timer text centered horizontally within the fixed box, using its natural size
+        let timerX = boxPosition.x + (fixedBoxWidth - timerSize.width) / 2
         let timerY = boxPosition.y + timerBoxPaddingV
         let timerRect = CGRect(x: timerX, y: timerY, width: timerSize.width, height: timerSize.height)
-        (timerString as NSString).draw(in: timerRect, withAttributes: timerAttributes)
+        (timerString as NSString).draw(in: timerRect, withAttributes: cachedTimerAttributes)
 
-        // Draw brand text (centered horizontally in box, below timer)
+        // Draw brand text centered horizontally within the fixed box, below timer
         let brandY = timerY + timerSize.height + 8
-        let brandX = boxPosition.x + (boxWidth - brandTotalWidth) / 2
+        let brandX = boxPosition.x + (fixedBoxWidth - cachedBrandTotalWidth) / 2
+
+        // Measure brand parts for drawing rects (use cached attributes)
+        let lockinSize = ("LOCKIN " as NSString).size(withAttributes: cachedLockinAttributes)
+        let clubSize = ("CLUB" as NSString).size(withAttributes: cachedClubAttributes)
 
         // Draw "LOCKIN " in white
         let lockinRect = CGRect(x: brandX, y: brandY, width: lockinSize.width, height: lockinSize.height)
-        (lockinText as NSString).draw(in: lockinRect, withAttributes: lockinAttributes)
+        ("LOCKIN " as NSString).draw(in: lockinRect, withAttributes: cachedLockinAttributes)
 
         // Draw "CLUB" in red
         let clubRect = CGRect(x: brandX + lockinSize.width, y: brandY, width: clubSize.width, height: clubSize.height)
-        (clubText as NSString).draw(in: clubRect, withAttributes: clubAttributes)
+        ("CLUB" as NSString).draw(in: clubRect, withAttributes: cachedClubAttributes)
 
         let image = UIGraphicsGetImageFromCurrentImageContext()?.cgImage
         UIGraphicsEndImageContext()
@@ -294,64 +387,42 @@ class TimelapseFrameOverlay {
         // Clear background
         context.clear(CGRect(origin: .zero, size: size))
 
-        // Configure timer text attributes (slightly larger for dateStamp)
-        let timerFont = UIFont(name: "Quicksand-SemiBold", size: timerFontSize)
-            ?? UIFont.monospacedDigitSystemFont(ofSize: timerFontSize, weight: .semibold)
-
-        let timerAttributes: [NSAttributedString.Key: Any] = [
-            .font: timerFont,
-            .foregroundColor: UIColor.white
-        ]
-
-        // Configure date text attributes
-        let dateFont = UIFont(name: "Quicksand-SemiBold", size: brandFontSize)
-            ?? UIFont.systemFont(ofSize: brandFontSize, weight: .semibold)
-
-        let dateAttributes: [NSAttributedString.Key: Any] = [
-            .font: dateFont,
-            .foregroundColor: UIColor.white
-        ]
-
-        // Measure text sizes
-        let timerSize = (timerString as NSString).size(withAttributes: timerAttributes)
-        let dateSize = (dateString as NSString).size(withAttributes: dateAttributes)
-
-        // Logo dimensions (scale to fit) - using computed logoHeight which includes timerScale
-        let logoWidth: CGFloat = logoImage != nil ? (logoImage!.size.width / logoImage!.size.height) * logoHeight : logoHeight
-
-        // Calculate total content dimensions
-        let contentWidth = max(timerSize.width, max(dateSize.width, logoWidth))
+        // Use pre-computed fixed content dimensions for stable positioning
+        let contentWidth = fixedDateStampContentWidth
+        let contentHeight = fixedDateStampContentHeight
         let spacing: CGFloat = 8
-        let contentHeight = timerSize.height + spacing + dateSize.height + spacing + logoHeight
 
-        // Calculate position - right-aligned based on timerPosition
-        // timerPosition.x represents center, but dateStamp is right-aligned
+        // Calculate position - right-aligned based on timerPosition (using fixed width)
         let rightEdge = timerPosition.x * frameWidth + contentWidth / 2
         let clampedRightEdge = min(rightEdge, frameWidth - horizontalPadding)
         let contentX = clampedRightEdge - contentWidth
 
-        // Vertical position centered on timerPosition.y
+        // Vertical position centered on timerPosition.y (using fixed height)
         let centerY = timerPosition.y * frameHeight
         let contentTopY = centerY - contentHeight / 2
         let clampedTopY = max(horizontalPadding, min(contentTopY, frameHeight - contentHeight - horizontalPadding))
 
-        // Draw timer text (right-aligned)
+        // Measure actual text sizes for right-aligned drawing within the fixed content area
+        let timerSize = (timerString as NSString).size(withAttributes: cachedTimerAttributes)
+        let dateSize = (dateString as NSString).size(withAttributes: cachedDateAttributes)
+
+        // Draw timer text (right-aligned within fixed content width)
         let timerX = contentX + (contentWidth - timerSize.width)
         let timerY = clampedTopY
         let timerRect = CGRect(x: timerX, y: timerY, width: timerSize.width, height: timerSize.height)
-        (timerString as NSString).draw(in: timerRect, withAttributes: timerAttributes)
+        (timerString as NSString).draw(in: timerRect, withAttributes: cachedTimerAttributes)
 
-        // Draw date text (right-aligned, below timer)
-        let dateY = timerY + timerSize.height + spacing
+        // Draw date text (right-aligned within fixed content width, below timer)
+        let dateY = timerY + cachedTimerLineHeight + spacing
         let dateX = contentX + (contentWidth - dateSize.width)
         let dateRect = CGRect(x: dateX, y: dateY, width: dateSize.width, height: dateSize.height)
-        (dateString as NSString).draw(in: dateRect, withAttributes: dateAttributes)
+        (dateString as NSString).draw(in: dateRect, withAttributes: cachedDateAttributes)
 
-        // Draw logo (right-aligned, below date)
+        // Draw logo (right-aligned within fixed content width, below date)
         if let logo = logoImage {
             let logoY = dateY + dateSize.height + spacing
-            let logoX = contentX + (contentWidth - logoWidth)
-            let logoRect = CGRect(x: logoX, y: logoY, width: logoWidth, height: logoHeight)
+            let logoX = contentX + (contentWidth - cachedLogoWidth)
+            let logoRect = CGRect(x: logoX, y: logoY, width: cachedLogoWidth, height: logoHeight)
             logo.draw(in: logoRect)
         }
 

@@ -49,9 +49,7 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera for timelapse recording</string>
-    <key>NSFamilyControlsUsageDescription</key>
-    <string>LockIn uses Screen Time to help you manage app usage and build better habits</string>
-    <key>NSMicrophoneUsageDescription</key>
+<key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSMotionUsageDescription</key>
     <string>Used to detect device orientation for timer display</string>
@@ -65,9 +63,7 @@
     </array>
     <key>RCTNewArchEnabled</key>
     <true/>
-    <key>REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP</key>
-    <string>$(REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP)</string>
-    <key>UIAppFonts</key>
+<key>UIAppFonts</key>
     <array>
       <string>Fonts/Quicksand-SemiBold.ttf</string>
     </array>

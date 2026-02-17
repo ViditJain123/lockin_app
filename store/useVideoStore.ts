@@ -16,10 +16,6 @@ import {
 import { create } from 'zustand';
 import { useHeatmapStore } from './useHeatmapStore';
 import { useNotificationStore } from './useNotificationStore';
-import {
-  cancelGrindReminderNotification,
-  scheduleGrindReminderNotification,
-} from '@/lib/notificationService';
 
 // Minimum video duration to save (1 minute)
 const MIN_VIDEO_DURATION_SECONDS = 60;
@@ -80,11 +76,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       useHeatmapStore.getState().addMinutes(minutes);
       console.log('[VideoStore] Added', minutes, 'minutes to heatmap');
 
-      // Update notification timestamp and reschedule reminder
-      useNotificationStore.getState().updateLastGrindTimestamp();
-      await cancelGrindReminderNotification();
-      await scheduleGrindReminderNotification();
-      console.log('[VideoStore] Notification reminder rescheduled for 6 hours');
+      // Mark that user has recorded (enables re-engagement notifications)
+      useNotificationStore.getState().setHasEverRecorded();
 
       return video;
     } catch (error) {

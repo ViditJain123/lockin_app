@@ -150,7 +150,7 @@ export default function CameraScreen() {
       const result = await stopRecording();
       if (result?.uri) {
         router.push({
-          pathname: '/preview' as const,
+          pathname: '/grind-complete' as const,
           params: {
             videoUri: result.uri,
             grindDurationSeconds: String(grindDuration),
