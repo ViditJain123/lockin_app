@@ -1,45 +1,87 @@
 /**
  * Notification Service
  *
- * Handles scheduling and managing local notifications for grind reminders.
- * In development mode, notifications fire 1 minute after launch/backgrounding.
- * In production, reminders fire if user hasn't recorded a grind in 6 hours.
+ * Handles scheduling and managing local notifications for the 24-hour
+ * re-engagement cycle. Sends daily notifications for up to 30 days
+ * after the user last opened the app, with context-aware messages
+ * based on day number and streak.
  */
 
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
-// Notification identifiers
-const GRIND_REMINDER_ID = 'grind-reminder';
-const DEV_TEST_ID = 'dev-test-notification';
+// Maximum number of re-engagement notifications in a cycle
+const MAX_REENGAGEMENT_DAYS = 30;
 
-// Time constants
-const SIX_HOURS_IN_SECONDS = 6 * 60 * 60; // 6 hours
-const DEV_TEST_SECONDS = 60; // 1 minute for dev testing
+// Dev mode: number of test notifications and interval
+const DEV_NOTIFICATION_COUNT = 5;
+const DEV_INTERVAL_SECONDS = 10;
 
-// Randomized notification messages
-const NOTIFICATION_MESSAGES = [
-  {
-    title: "Time to Lock In!",
-    body: "Hey, you haven't been locked in for a while. Time to get back to it!",
-  },
-  {
-    title: "You're Slacking Off!",
-    body: "Get locked in and make progress on your goals.",
-  },
-  {
-    title: "Break's Over!",
-    body: "6 hours without grinding? Let's change that.",
-  },
+// 24 hours in milliseconds
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
+// --- Message Catalog ---
+
+interface NotificationMessage {
+  title: string;
+  body: string;
+}
+
+// Category 1 — General (day 1, no streak)
+const GENERAL_MESSAGES: NotificationMessage[] = [
+  { title: 'Time to focus', body: 'One distraction-free grind can change the day' },
+  { title: 'Start a timelapse', body: "You don't need to feel ready. Just start." },
+  { title: 'Good morning!', body: 'Start your day with a work session' },
+];
+
+// Category 2 — Streak (day 1, streak > 0, dynamic values)
+const STREAK_MESSAGES: ((streak: number) => NotificationMessage)[] = [
+  (n) => ({ title: 'Streak active', body: `You've locked in ${n} days straight. Keep it alive.` }),
+  (_n) => ({ title: "Don't break it", body: 'One session protects your streak' }),
+  (n) => ({ title: 'Consistency wins', body: `Start your Day ${n} with this session` }),
+];
+
+// Category 3 — Re-engagement (days 2–6)
+const REENGAGEMENT_MESSAGES: NotificationMessage[] = [
+  { title: 'Yesterday slipped', body: 'Today is still yours. Lock in.' },
+  { title: 'No guilt, just action', body: 'Restart with one focused session.' },
+  { title: 'Get back on track', body: 'Progress is one lockin away.' },
+  { title: 'Pause is okay', body: "Quitting isn't. Start again." },
+];
+
+// Category 4 — Tough Love (days 7–30)
+const TOUGH_LOVE_MESSAGES: NotificationMessage[] = [
+  { title: 'Be honest', body: 'Were you about to procrastinate?' },
+  { title: 'This is the moment', body: 'Most people stop here.' },
+  { title: 'Decide now', body: 'Lock in or stay the same.' },
 ];
 
 /**
- * Get a random notification message
+ * Select a notification message based on day number and current streak.
+ * Day 1 with streak > 0 → streak messages
+ * Day 1 with no streak → general messages
+ * Days 2-6 → re-engagement messages
+ * Days 7-30 → tough love messages
  */
-function getRandomMessage() {
-  const index = Math.floor(Math.random() * NOTIFICATION_MESSAGES.length);
-  return NOTIFICATION_MESSAGES[index];
+export function selectMessageForDay(dayNumber: number, currentStreak: number): NotificationMessage {
+  if (dayNumber === 1) {
+    if (currentStreak > 0) {
+      const index = Math.floor(Math.random() * STREAK_MESSAGES.length);
+      return STREAK_MESSAGES[index](currentStreak);
+    }
+    const index = Math.floor(Math.random() * GENERAL_MESSAGES.length);
+    return GENERAL_MESSAGES[index];
+  }
+
+  if (dayNumber >= 2 && dayNumber <= 6) {
+    const index = Math.floor(Math.random() * REENGAGEMENT_MESSAGES.length);
+    return REENGAGEMENT_MESSAGES[index];
+  }
+
+  // Days 7-30
+  const index = Math.floor(Math.random() * TOUGH_LOVE_MESSAGES.length);
+  return TOUGH_LOVE_MESSAGES[index];
 }
 
 /**
@@ -57,10 +99,17 @@ export async function initializeNotifications(): Promise<void> {
     }),
   });
 
-  // Create Android notification channel
+  // Create Android notification channel (new name)
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('grind-reminders', {
-      name: 'Grind Reminders',
+    // Delete old channel if it exists
+    try {
+      await Notifications.deleteNotificationChannelAsync('grind-reminders');
+    } catch (_e) {
+      // Channel may not exist, that's fine
+    }
+
+    await Notifications.setNotificationChannelAsync('daily-reminders', {
+      name: 'Daily Reminders',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
@@ -71,7 +120,6 @@ export async function initializeNotifications(): Promise<void> {
   // Set up notification response handler (when user taps notification)
   Notifications.addNotificationResponseReceivedListener((response) => {
     console.log('[Notifications] User tapped notification:', response.notification.request.identifier);
-    // Deep link to camera screen (main tab)
     router.replace('/(tabs)');
   });
 
@@ -99,72 +147,96 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Schedule the grind reminder notification (6 hours - production)
+ * Schedule up to 30 re-engagement notifications using DATE triggers.
+ * Each notification fires exactly day * 24h from now.
+ * @param currentStreak - The user's current streak at scheduling time
  */
-export async function scheduleGrindReminderNotification(): Promise<void> {
-  // Cancel any existing reminder first
-  await cancelGrindReminderNotification();
+export async function scheduleReengagementNotifications(currentStreak: number): Promise<void> {
+  // Cancel any existing re-engagement notifications first
+  await cancelAllReengagementNotifications();
 
-  const message = getRandomMessage();
+  const now = Date.now();
 
-  await Notifications.scheduleNotificationAsync({
-    identifier: GRIND_REMINDER_ID,
-    content: {
-      title: message.title,
-      body: message.body,
-      sound: 'default',
-      ...(Platform.OS === 'android' && { channelId: 'grind-reminders' }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: SIX_HOURS_IN_SECONDS,
-    },
-  });
+  for (let day = 1; day <= MAX_REENGAGEMENT_DAYS; day++) {
+    const message = selectMessageForDay(day, currentStreak);
+    const fireDate = new Date(now + day * TWENTY_FOUR_HOURS_MS);
 
-  console.log('[Notifications] Scheduled grind reminder for 6 hours from now');
+    await Notifications.scheduleNotificationAsync({
+      identifier: `reengagement-${day}`,
+      content: {
+        title: message.title,
+        body: message.body,
+        sound: 'default',
+        ...(Platform.OS === 'android' && { channelId: 'daily-reminders' }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireDate,
+      },
+    });
+  }
+
+  console.log(`[Notifications] Scheduled ${MAX_REENGAGEMENT_DAYS} re-engagement notifications (streak: ${currentStreak})`);
 }
 
 /**
- * Cancel pending grind reminder notification
+ * Cancel all re-engagement notifications (identifiers reengagement-1 through reengagement-30)
  */
-export async function cancelGrindReminderNotification(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(GRIND_REMINDER_ID);
-  console.log('[Notifications] Cancelled grind reminder');
+export async function cancelAllReengagementNotifications(): Promise<void> {
+  const cancelPromises: Promise<void>[] = [];
+  for (let day = 1; day <= MAX_REENGAGEMENT_DAYS; day++) {
+    cancelPromises.push(
+      Notifications.cancelScheduledNotificationAsync(`reengagement-${day}`)
+    );
+  }
+  await Promise.all(cancelPromises);
+  console.log('[Notifications] Cancelled all re-engagement notifications');
 }
 
 /**
- * Schedule a dev test notification (for testing in development)
- * @param seconds - Number of seconds until notification fires (default: 60)
+ * Dev mode: schedule 5 notifications at 10-second intervals with varied category messages
  */
-export async function scheduleDevTestNotification(seconds: number = DEV_TEST_SECONDS): Promise<void> {
-  // Cancel any existing dev test notification first
-  await cancelDevTestNotification();
+export async function scheduleDevReengagementNotifications(): Promise<void> {
+  await cancelAllReengagementNotifications();
 
-  const message = getRandomMessage();
+  // Cancel dev-specific identifiers too
+  for (let i = 1; i <= DEV_NOTIFICATION_COUNT; i++) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(`reengagement-${i}`);
+    } catch (_e) {
+      // Ignore
+    }
+  }
 
-  await Notifications.scheduleNotificationAsync({
-    identifier: DEV_TEST_ID,
-    content: {
-      title: message.title,
-      body: message.body,
-      sound: 'default',
-      ...(Platform.OS === 'android' && { channelId: 'grind-reminders' }),
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds,
-    },
-  });
+  const now = Date.now();
 
-  console.log(`[Notifications] Scheduled dev test notification for ${seconds} seconds from now`);
-}
+  // Schedule 5 notifications showing different categories
+  const devDays = [1, 1, 3, 5, 10]; // Triggers different categories: general/streak, general/streak, reengagement, reengagement, tough love
+  const devStreak = 3; // Use a non-zero streak to show streak messages
 
-/**
- * Cancel pending dev test notification
- */
-export async function cancelDevTestNotification(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(DEV_TEST_ID);
-  console.log('[Notifications] Cancelled dev test notification');
+  for (let i = 0; i < DEV_NOTIFICATION_COUNT; i++) {
+    const dayNumber = devDays[i];
+    const message = selectMessageForDay(dayNumber, devStreak);
+    const fireDate = new Date(now + (i + 1) * DEV_INTERVAL_SECONDS * 1000);
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: `reengagement-${i + 1}`,
+      content: {
+        title: message.title,
+        body: message.body,
+        sound: 'default',
+        ...(Platform.OS === 'android' && { channelId: 'daily-reminders' }),
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: fireDate,
+      },
+    });
+
+    console.log(`[Notifications] DEV: Scheduled #${i + 1} (day ${dayNumber}) at +${(i + 1) * DEV_INTERVAL_SECONDS}s: "${message.title}"`);
+  }
+
+  console.log(`[Notifications] DEV: Scheduled ${DEV_NOTIFICATION_COUNT} test notifications at ${DEV_INTERVAL_SECONDS}s intervals`);
 }
 
 /**

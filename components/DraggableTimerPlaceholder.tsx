@@ -384,6 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
+    minWidth: 100,
   },
   timerText: {
     fontSize: 20,

@@ -1,53 +1,126 @@
 /**
  * Notification Store
  *
- * Zustand store for managing notification state with AsyncStorage persistence.
- * Tracks last grind timestamp and notification preferences.
+ * Zustand store for managing the 24-hour re-engagement notification cycle.
+ * Tracks whether the user has ever recorded, app open timestamps,
+ * cycle state, and permanent silence after 30 days of inactivity.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
-  cancelGrindReminderNotification,
-  scheduleGrindReminderNotification,
+  cancelAllReengagementNotifications,
+  scheduleReengagementNotifications,
 } from '../lib/notificationService';
+import { useProfileStore } from './useProfileStore';
 
-// Time constants
-const SIX_HOURS_IN_MS = 6 * 60 * 60 * 1000; // 6 hours
+// 30 days in milliseconds
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 interface NotificationState {
   // State
-  lastGrindTimestamp: number | null;
+  hasEverRecorded: boolean;
+  lastAppOpenTimestamp: number | null;
+  cycleStartTimestamp: number | null;
+  isPermanentlySilenced: boolean;
   hasNotificationPermission: boolean;
   isNotificationEnabled: boolean;
   _hasHydrated: boolean;
 
   // Actions
   setHasHydrated: (hydrated: boolean) => void;
-  updateLastGrindTimestamp: () => void;
+  setHasEverRecorded: () => void;
+  recordAppOpen: () => void;
+  scheduleReengagementCycle: () => Promise<void>;
+  cancelReengagementCycle: () => Promise<void>;
+  checkPermanentSilence: () => void;
   setHasNotificationPermission: (hasPermission: boolean) => void;
   setIsNotificationEnabled: (isEnabled: boolean) => void;
-  checkAndScheduleReminder: () => Promise<void>;
 }
 
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
       // Initial state
-      lastGrindTimestamp: null,
+      hasEverRecorded: false,
+      lastAppOpenTimestamp: null,
+      cycleStartTimestamp: null,
+      isPermanentlySilenced: false,
       hasNotificationPermission: false,
-      isNotificationEnabled: true, // Enabled by default
+      isNotificationEnabled: true,
       _hasHydrated: false,
 
       // Hydration tracker
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
 
-      // Update timestamp when user completes a grind
-      updateLastGrindTimestamp: () => {
+      // One-way flag: set when user saves their first video (never goes back to false)
+      setHasEverRecorded: () => {
+        if (!get().hasEverRecorded) {
+          set({ hasEverRecorded: true });
+          console.log('[NotificationStore] hasEverRecorded set to true');
+        }
+      },
+
+      // Record when user opens/foregrounds the app, reset cycle start
+      recordAppOpen: () => {
         const now = Date.now();
-        set({ lastGrindTimestamp: now });
-        console.log('[NotificationStore] Updated last grind timestamp:', new Date(now).toISOString());
+        set({
+          lastAppOpenTimestamp: now,
+          cycleStartTimestamp: now,
+        });
+        console.log('[NotificationStore] Recorded app open:', new Date(now).toISOString());
+      },
+
+      // Schedule the 30-day re-engagement notification cycle
+      scheduleReengagementCycle: async () => {
+        const state = get();
+
+        // Guard: user must have recorded at least once
+        if (!state.hasEverRecorded) {
+          console.log('[NotificationStore] Skipping cycle - user has never recorded');
+          return;
+        }
+
+        // Guard: notifications must be enabled and permitted
+        if (!state.isNotificationEnabled || !state.hasNotificationPermission) {
+          console.log('[NotificationStore] Skipping cycle - notifications disabled or no permission');
+          return;
+        }
+
+        // Guard: check permanent silence
+        if (state.isPermanentlySilenced) {
+          console.log('[NotificationStore] Skipping cycle - permanently silenced');
+          return;
+        }
+
+        // Check if we should be permanently silenced
+        if (state.cycleStartTimestamp && (Date.now() - state.cycleStartTimestamp) >= THIRTY_DAYS_MS) {
+          set({ isPermanentlySilenced: true });
+          console.log('[NotificationStore] Permanently silenced - 30 days exceeded');
+          return;
+        }
+
+        // Get current streak from profile store
+        const currentStreak = useProfileStore.getState().currentStreak;
+
+        await scheduleReengagementNotifications(currentStreak);
+        console.log('[NotificationStore] Re-engagement cycle scheduled (streak:', currentStreak, ')');
+      },
+
+      // Cancel all pending re-engagement notifications
+      cancelReengagementCycle: async () => {
+        await cancelAllReengagementNotifications();
+        console.log('[NotificationStore] Re-engagement cycle cancelled');
+      },
+
+      // Check if 30+ days have passed since cycle start → permanent silence
+      checkPermanentSilence: () => {
+        const state = get();
+        if (state.cycleStartTimestamp && (Date.now() - state.cycleStartTimestamp) >= THIRTY_DAYS_MS) {
+          set({ isPermanentlySilenced: true });
+          console.log('[NotificationStore] Permanent silence activated - 30+ days since cycle start');
+        }
       },
 
       // Set permission status
@@ -61,42 +134,8 @@ export const useNotificationStore = create<NotificationState>()(
         set({ isNotificationEnabled: isEnabled });
         console.log('[NotificationStore] Notifications enabled:', isEnabled);
 
-        // If disabling, cancel any pending reminders
         if (!isEnabled) {
-          cancelGrindReminderNotification();
-        }
-      },
-
-      // Check time since last grind and schedule reminder if needed
-      checkAndScheduleReminder: async () => {
-        const state = get();
-
-        // Don't schedule if notifications are disabled or no permission
-        if (!state.isNotificationEnabled || !state.hasNotificationPermission) {
-          console.log('[NotificationStore] Skipping reminder - notifications disabled or no permission');
-          return;
-        }
-
-        const now = Date.now();
-        const lastGrind = state.lastGrindTimestamp;
-
-        // If no previous grind recorded, schedule for 6 hours from now
-        if (lastGrind === null) {
-          console.log('[NotificationStore] No previous grind - scheduling reminder for 6 hours');
-          await scheduleGrindReminderNotification();
-          return;
-        }
-
-        const timeSinceLastGrind = now - lastGrind;
-
-        // If more than 6 hours since last grind, schedule reminder
-        if (timeSinceLastGrind >= SIX_HOURS_IN_MS) {
-          console.log('[NotificationStore] More than 6 hours since last grind - scheduling reminder');
-          await scheduleGrindReminderNotification();
-        } else {
-          console.log('[NotificationStore] Less than 6 hours since last grind - no reminder needed');
-          // Cancel any existing reminder since user recently grinded
-          await cancelGrindReminderNotification();
+          cancelAllReengagementNotifications();
         }
       },
     }),
@@ -104,7 +143,10 @@ export const useNotificationStore = create<NotificationState>()(
       name: 'notification-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        lastGrindTimestamp: state.lastGrindTimestamp,
+        hasEverRecorded: state.hasEverRecorded,
+        lastAppOpenTimestamp: state.lastAppOpenTimestamp,
+        cycleStartTimestamp: state.cycleStartTimestamp,
+        isPermanentlySilenced: state.isPermanentlySilenced,
         hasNotificationPermission: state.hasNotificationPermission,
         isNotificationEnabled: state.isNotificationEnabled,
       }),
@@ -117,6 +159,6 @@ export const useNotificationStore = create<NotificationState>()(
 );
 
 // Selector hooks
-export const useLastGrindTimestamp = () => useNotificationStore((s) => s.lastGrindTimestamp);
+export const useHasEverRecorded = () => useNotificationStore((s) => s.hasEverRecorded);
 export const useHasNotificationPermission = () => useNotificationStore((s) => s.hasNotificationPermission);
 export const useIsNotificationEnabled = () => useNotificationStore((s) => s.isNotificationEnabled);

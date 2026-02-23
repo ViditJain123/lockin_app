@@ -1,28 +1,33 @@
 import { Asset } from 'expo-asset';
 
-// Badge image mapping - same as BadgeImage.tsx
+// Badge image mapping - PNG assets in new folders
 const BADGE_ASSETS: Record<string, number> = {
   // Hours badges
-  'hours-1': require('../assets/images/lockinbadges/grindhour1.svg'),
-  'hours-5': require('../assets/images/lockinbadges/grindhours5.svg'),
-  'hours-10': require('../assets/images/lockinbadges/grindhours10.svg'),
-  'hours-25': require('../assets/images/lockinbadges/grindhours25.svg'),
-  'hours-50': require('../assets/images/lockinbadges/grindhours50.svg'),
-  'hours-100': require('../assets/images/lockinbadges/grindhours100.svg'),
+  'hours-3': require('../assets/images/grindhours/3 hours.png'),
+  'hours-5': require('../assets/images/grindhours/5 hours.png'),
+  'hours-10': require('../assets/images/grindhours/10 hours.png'),
+  'hours-25': require('../assets/images/grindhours/25 hours.png'),
+  'hours-40': require('../assets/images/grindhours/40 hours.png'),
+  'hours-50': require('../assets/images/grindhours/50 hours.png'),
+  'hours-75': require('../assets/images/grindhours/75 hours.png'),
+  'hours-100': require('../assets/images/grindhours/100 hours.png'),
   // Grinds badges
-  'grinds-1': require('../assets/images/lockinbadges/grinds1.svg'),
-  'grinds-5': require('../assets/images/lockinbadges/grinds5.svg'),
-  'grinds-10': require('../assets/images/lockinbadges/grinds10.svg'),
-  'grinds-20': require('../assets/images/lockinbadges/grinds20.svg'),
-  'grinds-50': require('../assets/images/lockinbadges/grinds50.svg'),
-  'grinds-75': require('../assets/images/lockinbadges/grinds75.svg'),
-  'grinds-100': require('../assets/images/lockinbadges/grinds100.svg'),
+  'grinds-1': require('../assets/images/number_0f_grinds/Grind 1.png'),
+  'grinds-5': require('../assets/images/number_0f_grinds/Grind 5.png'),
+  'grinds-10': require('../assets/images/number_0f_grinds/Grind 10.png'),
+  'grinds-20': require('../assets/images/number_0f_grinds/Grind 20.png'),
+  'grinds-30': require('../assets/images/number_0f_grinds/Grind 30.png'),
+  'grinds-50': require('../assets/images/number_0f_grinds/Grind 50.png'),
+  'grinds-75': require('../assets/images/number_0f_grinds/Grind 75.png'),
+  'grinds-100': require('../assets/images/number_0f_grinds/Grind 100.png'),
   // Streak badges
-  'streak-3': require('../assets/images/lockinbadges/streak3.svg'),
-  'streak-5': require('../assets/images/lockinbadges/streak5.svg'),
-  'streak-10': require('../assets/images/lockinbadges/streak10.svg'),
-  'streak-21': require('../assets/images/lockinbadges/streak21.svg'),
-  'streak-30': require('../assets/images/lockinbadges/streak30.svg'),
+  'streak-3': require('../assets/images/streak_badges/3 streak.png'),
+  'streak-5': require('../assets/images/streak_badges/5 streak.png'),
+  'streak-10': require('../assets/images/streak_badges/10 streak.png'),
+  'streak-21': require('../assets/images/streak_badges/21 streak.png'),
+  'streak-30': require('../assets/images/streak_badges/30 streak.png'),
+  'streak-40': require('../assets/images/streak_badges/40 streak.png'),
+  'streak-50': require('../assets/images/streak_badges/50 streak.png'),
 };
 
 // Singleton cache storing badgeId → localUri
@@ -31,7 +36,7 @@ const badgeUriCache = new Map<string, string>();
 let preloadPromise: Promise<void> | null = null;
 
 /**
- * Pre-downloads all badge SVG assets in parallel.
+ * Pre-downloads all badge image assets in parallel.
  * Call this at app startup (fire and forget - don't block splash).
  */
 export async function preloadAllBadges(): Promise<void> {

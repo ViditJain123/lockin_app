@@ -18,10 +18,6 @@ import { useHeatmapStore } from './useHeatmapStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useEarnedTimeStore } from './useEarnedTimeStore';
 import { useOnboardingStore } from './useOnboardingStore';
-import {
-  cancelGrindReminderNotification,
-  scheduleGrindReminderNotification,
-} from '@/lib/notificationService';
 import { unblockApps, isBlockingAvailable } from '@/lib/blockingService';
 
 // Minimum video duration to save (1 minute)
@@ -83,11 +79,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       useHeatmapStore.getState().addMinutes(minutes);
       console.log('[VideoStore] Added', minutes, 'minutes to heatmap');
 
-      // Update notification timestamp and reschedule reminder
-      useNotificationStore.getState().updateLastGrindTimestamp();
-      await cancelGrindReminderNotification();
-      await scheduleGrindReminderNotification();
-      console.log('[VideoStore] Notification reminder rescheduled for 6 hours');
+      // Mark that user has recorded (enables re-engagement notifications)
+      useNotificationStore.getState().setHasEverRecorded();
 
       // Add earned screen time based on conversion rate
       const { conversionRate, familyActivitySelection } = useOnboardingStore.getState().quizAnswers;

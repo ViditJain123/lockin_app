@@ -1,12 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Asset } from 'expo-asset';
 import { BlurView } from 'expo-blur';
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import { SvgUri } from 'react-native-svg';
 
 import { getBadgeById } from '@/constants/Badges';
-import { getBadgeAssetModule, getBadgeUri } from '@/lib/badgeAssetCache';
+import { getBadgeAssetModule } from '@/lib/badgeAssetCache';
 
 // Memoized BadgeImage component to prevent unnecessary re-renders
 
@@ -23,42 +21,8 @@ function BadgeImage({
   locked = false,
   showGlow = false,
 }: BadgeImageProps) {
-  // Try to get cached URI first (synchronous lookup)
-  const cachedUri = getBadgeUri(badgeId);
   const assetModule = getBadgeAssetModule(badgeId);
-
-  // State for fallback loading (only used if cache miss)
-  const [assetUri, setAssetUri] = useState<string | null>(cachedUri || null);
-  const [useFallback, setUseFallback] = useState(false);
   const badge = getBadgeById(badgeId);
-
-  // Only run async loading if cache miss (rare edge case during initial app load)
-  useEffect(() => {
-    // If already have a cached URI, use it
-    if (cachedUri) {
-      setAssetUri(cachedUri);
-      return;
-    }
-
-    if (!assetModule) return;
-
-    const loadAsset = async () => {
-      try {
-        const asset = Asset.fromModule(assetModule);
-        await asset.downloadAsync();
-        if (asset.localUri) {
-          setAssetUri(asset.localUri);
-        } else if (asset.uri) {
-          setAssetUri(asset.uri);
-        }
-      } catch (error) {
-        console.warn('[BadgeImage] Failed to load asset:', error);
-        setUseFallback(true);
-      }
-    };
-
-    loadAsset();
-  }, [assetModule, cachedUri]);
 
   if (!badge || !assetModule) {
     // Fallback placeholder
@@ -75,20 +39,6 @@ function BadgeImage({
   }
 
   const renderBadgeImage = () => {
-    // Try to use SvgUri if we have a valid URI
-    if (assetUri && !useFallback) {
-      return (
-        <SvgUri
-          uri={assetUri}
-          width={size}
-          height={size}
-          style={[locked && styles.lockedImage]}
-          onError={() => setUseFallback(true)}
-        />
-      );
-    }
-
-    // Fallback to Image component (works with embedded data URIs)
     return (
       <Image
         source={assetModule}

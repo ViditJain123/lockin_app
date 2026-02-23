@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
+
   Dimensions,
   ImageBackground,
   Pressable,
@@ -167,14 +167,11 @@ export default function ScreenTimePermissionScreen({
           ]}
         >
           <Button3D
-            title={isRequesting ? '' : 'Continue'}
+            title="Continue"
             onPress={handleContinue}
             disabled={isRequesting}
-          >
-            {isRequesting && (
-              <ActivityIndicator color="#FFFFFF" />
-            )}
-          </Button3D>
+            loading={isRequesting}
+          />
         </View>
       </View>
     </ImageBackground>

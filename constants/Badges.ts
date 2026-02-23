@@ -8,19 +8,19 @@ export interface BadgeDefinition {
   threshold: number;
   title: string;
   description: string;
-  svgFileName: string;
+  imageFileName: string;
 }
 
-// All 18 badge definitions
+// All 23 badge definitions (8 hours + 8 grinds + 7 streak)
 export const BADGES: BadgeDefinition[] = [
-  // Hours badges (6 total)
+  // Hours badges (8 total)
   {
-    id: 'hours-1',
+    id: 'hours-3',
     category: 'hours',
-    threshold: 1,
-    title: 'First Hour',
-    description: 'Record 1 hour total',
-    svgFileName: 'grindhour1.svg',
+    threshold: 3,
+    title: '3 Hours',
+    description: 'Record 3 hours total',
+    imageFileName: '3 hours.png',
   },
   {
     id: 'hours-5',
@@ -28,7 +28,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 5,
     title: '5 Hour Grinder',
     description: 'Record 5 hours total',
-    svgFileName: 'grindhours5.svg',
+    imageFileName: '5 hours.png',
   },
   {
     id: 'hours-10',
@@ -36,7 +36,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 10,
     title: 'Dedicated',
     description: 'Record 10 hours total',
-    svgFileName: 'grindhours10.svg',
+    imageFileName: '10 hours.png',
   },
   {
     id: 'hours-25',
@@ -44,7 +44,15 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 25,
     title: 'Committed',
     description: 'Record 25 hours total',
-    svgFileName: 'grindhours25.svg',
+    imageFileName: '25 hours.png',
+  },
+  {
+    id: 'hours-40',
+    category: 'hours',
+    threshold: 40,
+    title: 'Relentless',
+    description: 'Record 40 hours total',
+    imageFileName: '40 hours.png',
   },
   {
     id: 'hours-50',
@@ -52,7 +60,15 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 50,
     title: 'Powerhouse',
     description: 'Record 50 hours total',
-    svgFileName: 'grindhours50.svg',
+    imageFileName: '50 hours.png',
+  },
+  {
+    id: 'hours-75',
+    category: 'hours',
+    threshold: 75,
+    title: 'Elite',
+    description: 'Record 75 hours total',
+    imageFileName: '75 hours.png',
   },
   {
     id: 'hours-100',
@@ -60,17 +76,17 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 100,
     title: 'Centurion',
     description: 'Record 100 hours total',
-    svgFileName: 'grindhours100.svg',
+    imageFileName: '100 hours.png',
   },
 
-  // Grinds badges (7 total)
+  // Grinds badges (8 total)
   {
     id: 'grinds-1',
     category: 'grinds',
     threshold: 1,
     title: 'First Grind',
-    description: '  Complete 1 session',
-    svgFileName: 'grinds1.svg',
+    description: 'Complete 1 session',
+    imageFileName: 'Grind 1.png',
   },
   {
     id: 'grinds-5',
@@ -78,7 +94,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 5,
     title: 'Getting Started',
     description: 'Complete 5 sessions',
-    svgFileName: 'grinds5.svg',
+    imageFileName: 'Grind 5.png',
   },
   {
     id: 'grinds-10',
@@ -86,7 +102,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 10,
     title: 'Consistent',
     description: 'Complete 10 sessions',
-    svgFileName: 'grinds10.svg',
+    imageFileName: 'Grind 10.png',
   },
   {
     id: 'grinds-20',
@@ -94,7 +110,15 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 20,
     title: 'Focused',
     description: 'Complete 20 sessions',
-    svgFileName: 'grinds20.svg',
+    imageFileName: 'Grind 20.png',
+  },
+  {
+    id: 'grinds-30',
+    category: 'grinds',
+    threshold: 30,
+    title: 'Determined',
+    description: 'Complete 30 sessions',
+    imageFileName: 'Grind 30.png',
   },
   {
     id: 'grinds-50',
@@ -102,7 +126,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 50,
     title: 'Half Century',
     description: 'Complete 50 sessions',
-    svgFileName: 'grinds50.svg',
+    imageFileName: 'Grind 50.png',
   },
   {
     id: 'grinds-75',
@@ -110,7 +134,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 75,
     title: 'Unstoppable',
     description: 'Complete 75 sessions',
-    svgFileName: 'grinds75.svg',
+    imageFileName: 'Grind 75.png',
   },
   {
     id: 'grinds-100',
@@ -118,17 +142,17 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 100,
     title: 'Grind Master',
     description: 'Complete 100 sessions',
-    svgFileName: 'grinds100.svg',
+    imageFileName: 'Grind 100.png',
   },
 
-  // Streak badges (5 total)
+  // Streak badges (7 total)
   {
     id: 'streak-3',
     category: 'streak',
     threshold: 3,
     title: '3 Day Streak',
     description: 'Maintain a 3 day streak',
-    svgFileName: 'streak3.svg',
+    imageFileName: '3 streak.png',
   },
   {
     id: 'streak-5',
@@ -136,7 +160,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 5,
     title: '5 Day Streak',
     description: 'Maintain a 5 day streak',
-    svgFileName: 'streak5.svg',
+    imageFileName: '5 streak.png',
   },
   {
     id: 'streak-10',
@@ -144,7 +168,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 10,
     title: '10 Day Streak',
     description: 'Maintain a 10 day streak',
-    svgFileName: 'streak10.svg',
+    imageFileName: '10 streak.png',
   },
   {
     id: 'streak-21',
@@ -152,7 +176,7 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 21,
     title: 'Habit Formed',
     description: 'Maintain a 21 day streak',
-    svgFileName: 'streak21.svg',
+    imageFileName: '21 streak.png',
   },
   {
     id: 'streak-30',
@@ -160,7 +184,23 @@ export const BADGES: BadgeDefinition[] = [
     threshold: 30,
     title: 'Monthly Master',
     description: 'Maintain a 30 day streak',
-    svgFileName: 'streak30.svg',
+    imageFileName: '30 streak.png',
+  },
+  {
+    id: 'streak-40',
+    category: 'streak',
+    threshold: 40,
+    title: 'Iron Will',
+    description: 'Maintain a 40 day streak',
+    imageFileName: '40 streak.png',
+  },
+  {
+    id: 'streak-50',
+    category: 'streak',
+    threshold: 50,
+    title: 'Legendary',
+    description: 'Maintain a 50 day streak',
+    imageFileName: '50 streak.png',
   },
 ];
 
@@ -176,7 +216,14 @@ export const getBadgeById = (id: string): BadgeDefinition | undefined => {
   return BADGES.find((b) => b.id === id);
 };
 
-// Helper: Get badge SVG path
-export const getBadgeSvgPath = (svgFileName: string): string => {
-  return `assets/images/lockinbadges/${svgFileName}`;
+// Helper: Get badge image path
+export const getBadgeImagePath = (badge: BadgeDefinition): string => {
+  switch (badge.category) {
+    case 'hours':
+      return `assets/images/grindhours/${badge.imageFileName}`;
+    case 'grinds':
+      return `assets/images/number_0f_grinds/${badge.imageFileName}`;
+    case 'streak':
+      return `assets/images/streak_badges/${badge.imageFileName}`;
+  }
 };

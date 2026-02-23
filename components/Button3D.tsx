@@ -55,6 +55,16 @@ const ORANGE_COLORS = {
   text: '#FFFFFF',
 };
 
+// Purple variant colors
+const PURPLE_COLORS = {
+  gradientTop: '#9B8BFF',
+  gradientMid: '#7B68EE',
+  gradientBottom: '#6554C9',
+  highlight: 'rgba(255, 255, 255, 0.3)',
+  shadow: '#4B3DAA',
+  text: '#FFFFFF',
+};
+
 interface Button3DProps {
   title: string;
   onPress: () => void;
@@ -65,7 +75,7 @@ interface Button3DProps {
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   fullWidth?: boolean;
-  variant?: 'default' | 'blue' | 'orange';
+  variant?: 'default' | 'blue' | 'orange' | 'purple';
 }
 
 export default function Button3D({
@@ -87,6 +97,7 @@ export default function Button3D({
     switch (variant) {
       case 'blue': return BLUE_COLORS;
       case 'orange': return ORANGE_COLORS;
+      case 'purple': return PURPLE_COLORS;
       default: return COLORS;
     }
   };

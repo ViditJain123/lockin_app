@@ -14,7 +14,7 @@ export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'normal';
 
 // ============================================================
 // NOTIFICATION DEV MODE:
-// - true: Use short 1-minute test notifications (works in ALL builds including TestFlight)
-// - false: Use production 6-hour reminders
+// - true: Schedules 5 test notifications at 10-second intervals with varied message categories (works in ALL builds including TestFlight)
+// - false: Use production 24-hour re-engagement cycle (30 daily notifications)
 // ============================================================
 export const NOTIFICATION_DEV_MODE_ENABLED: boolean = true;

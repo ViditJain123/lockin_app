@@ -502,6 +502,16 @@ function RootLayoutNav() {
             }}
           />
           <Stack.Screen
+            name="grind-complete"
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+              gestureEnabled: false,
+              animation: 'slide_from_bottom',
+              contentStyle: { backgroundColor: 'black' },
+            }}
+          />
+          <Stack.Screen
             name="modal"
             options={{
               presentation: Platform.OS === 'ios'
