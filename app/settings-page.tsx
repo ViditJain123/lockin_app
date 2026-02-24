@@ -24,17 +24,10 @@ import { Fonts } from '../constants/Fonts';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { initializeDailyBlock } from '../lib/blockingService';
-import { ConversionRate, useOnboardingStore } from '../store/useOnboardingStore';
+import { useOnboardingStore } from '../store/useOnboardingStore';
 import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
 
 const SUPABASE_URL = 'https://tsojozycisspcfmabtku.supabase.co';
-
-// Conversion rate display labels
-const CONVERSION_LABELS: Record<ConversionRate, string> = {
-  '6:1': 'Focused (6:1)',
-  '4:1': 'Balanced (4:1)',
-  '3:1': 'Relaxed (3:1)',
-};
 
 export default function SettingsPageScreen() {
   const insets = useSafeAreaInsets();
@@ -43,14 +36,21 @@ export default function SettingsPageScreen() {
   const [isAppPickerVisible, setIsAppPickerVisible] = useState(false);
   const [tempSelection, setTempSelection] = useState<string | null>(null);
 
-  // Onboarding store for app selection and conversion rate
+  // Onboarding store for app selection
   const quizAnswers = useOnboardingStore((s) => s.quizAnswers);
   const setAnswer = useOnboardingStore((s) => s.setAnswer);
 
   // Earned time store
   const earnedTimeToday = useEarnedTimeStore((s) => s.earnedTimeToday);
   const usedTimeToday = useEarnedTimeStore((s) => s.usedTimeToday);
+  const totalGrindSecondsToday = useEarnedTimeStore((s) => s.totalGrindSecondsToday);
   const remainingMinutes = Math.floor(Math.max(0, earnedTimeToday - usedTimeToday) / 60);
+
+  // Daily target progress
+  const targetHours = quizAnswers.targetHours || 4;
+  const targetSeconds = targetHours * 3600;
+  const targetProgress = Math.min(1, totalGrindSecondsToday / targetSeconds);
+  const targetReached = totalGrindSecondsToday >= targetSeconds;
 
   // Format time for display
   const formatMinutes = (seconds: number) => {
@@ -148,21 +148,6 @@ export default function SettingsPageScreen() {
     setIsAppPickerVisible(false);
   };
 
-  const handleConversionRateChange = () => {
-    const options: ConversionRate[] = ['6:1', '4:1', '3:1'];
-    Alert.alert(
-      'Conversion Rate',
-      'Choose how much screen time you earn per minute of work',
-      [
-        ...options.map((rate) => ({
-          text: CONVERSION_LABELS[rate] + (rate === quizAnswers.conversionRate ? ' (Current)' : ''),
-          onPress: () => setAnswer('conversionRate', rate),
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
   const showDeviceActivitySettings = Platform.OS === 'ios' && isDeviceActivityAvailable();
 
   return (
@@ -217,19 +202,38 @@ export default function SettingsPageScreen() {
               <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.4)" />
             </TouchableOpacity>
 
-            {/* Conversion Rate */}
-            <TouchableOpacity onPress={handleConversionRateChange} style={[styles.settingsRow, styles.marginTop]}>
+            {/* Daily Target */}
+            <View style={[styles.settingsRow, styles.marginTop]}>
+              <View style={styles.settingsRowLeft}>
+                <View style={[styles.iconContainer, styles.greenIconContainer]}>
+                  <Ionicons name="flag-outline" size={22} color="#34C759" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsRowText}>Daily Target: {targetHours}hr</Text>
+                  <Text style={styles.settingsRowSubtext}>
+                    {targetReached
+                      ? 'Target reached! Phone unlocked'
+                      : `${formatMinutes(totalGrindSecondsToday)} / ${targetHours}hr grind today`}
+                  </Text>
+                  <View style={styles.progressBarContainer}>
+                    <View style={[styles.progressBarFill, { width: `${targetProgress * 100}%` }]} />
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Rate Info */}
+            <View style={[styles.settingsRow, styles.marginTop]}>
               <View style={styles.settingsRowLeft}>
                 <View style={[styles.iconContainer, styles.greenIconContainer]}>
                   <Ionicons name="time-outline" size={22} color="#34C759" />
                 </View>
                 <View>
-                  <Text style={styles.settingsRowText}>Conversion Rate</Text>
-                  <Text style={styles.settingsRowSubtext}>{CONVERSION_LABELS[quizAnswers.conversionRate]}</Text>
+                  <Text style={styles.settingsRowText}>Rate: 4:1</Text>
+                  <Text style={styles.settingsRowSubtext}>1hr work = 15min screen time</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.4)" />
-            </TouchableOpacity>
+            </View>
           </>
         )}
 
@@ -432,6 +436,19 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     color: 'rgba(255, 255, 255, 0.5)',
     marginTop: 2,
+  },
+  // Progress bar for daily target
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#34C759',
+    borderRadius: 3,
   },
   // Modal
   modalContainer: {

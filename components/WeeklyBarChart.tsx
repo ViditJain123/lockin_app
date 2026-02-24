@@ -3,11 +3,7 @@ import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Fonts } from '../constants/Fonts';
-import {
-  getLocalDateString,
-  getLocalDateStringDaysAgo,
-  parseLocalDateString,
-} from '../lib/dateUtils';
+import { getLocalDateString } from '../lib/dateUtils';
 
 const BRAND_PINK = '#FF3B5C';
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -20,6 +16,8 @@ interface DailyActivity {
 interface WeeklyBarChartProps {
   data: DailyActivity[];
   days?: number;
+  referenceDate?: Date;
+  title?: string;
 }
 
 interface DayData {
@@ -29,7 +27,7 @@ interface DayData {
   isToday: boolean;
 }
 
-export default function WeeklyBarChart({ data, days = 7 }: WeeklyBarChartProps) {
+export default function WeeklyBarChart({ data, days = 7, referenceDate, title }: WeeklyBarChartProps) {
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = screenWidth - 24 - 32; // Account for screen padding (12*2) and card padding (16*2)
 
@@ -47,7 +45,7 @@ export default function WeeklyBarChart({ data, days = 7 }: WeeklyBarChartProps) 
   const barWidth = slotWidth / 2; // Bars are half the slot width
   const maxBarHeight = CHART_HEIGHT - TOP_PADDING - BOTTOM_PADDING;
 
-  // Transform data for the past N days
+  // Transform data for the past N days (anchored to referenceDate if provided)
   const weekData = useMemo((): DayData[] => {
     const today = getLocalDateString();
 
@@ -60,10 +58,15 @@ export default function WeeklyBarChart({ data, days = 7 }: WeeklyBarChartProps) 
     // Generate array for past N days (oldest first)
     const result: DayData[] = [];
 
-    for (let i = days - 1; i >= 0; i--) {
-      const dateStr = getLocalDateStringDaysAgo(i);
-      const date = parseLocalDateString(dateStr);
-      const dayOfWeek = date.getDay();
+    // If referenceDate is provided, generate N days starting from it
+    // Otherwise, use the original behavior (past N days from today)
+    const anchor = referenceDate || new Date();
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(anchor);
+      d.setDate(d.getDate() + i);
+      const dateStr = getLocalDateString(d);
+      const dayOfWeek = d.getDay();
       const minutes = activityMap.get(dateStr) || 0;
 
       result.push({
@@ -75,7 +78,7 @@ export default function WeeklyBarChart({ data, days = 7 }: WeeklyBarChartProps) 
     }
 
     return result;
-  }, [data, days]);
+  }, [data, days, referenceDate]);
 
   // Calculate Y-axis scale
   const { maxHours, gridValues } = useMemo(() => {
@@ -141,7 +144,7 @@ export default function WeeklyBarChart({ data, days = 7 }: WeeklyBarChartProps) 
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>This Week</Text>
+      <Text style={styles.title}>{title || 'This Week'}</Text>
 
       <View style={styles.chartContainer}>
         <Svg width={chartWidth} height={CHART_HEIGHT}>

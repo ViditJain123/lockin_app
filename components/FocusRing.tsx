@@ -9,14 +9,15 @@ const BRAND_PINK = '#FF3B5C';
 interface FocusRingProps {
   currentHours: number;
   targetHours: number;
+  size?: number;
 }
 
-export default function FocusRing({ currentHours, targetHours }: FocusRingProps) {
+export default function FocusRing({ currentHours, targetHours, size: sizeProp }: FocusRingProps) {
   // Calculate progress (0 to 1)
   const progress = Math.min(currentHours / targetHours, 1);
 
   // Ring dimensions
-  const size = 100;
+  const size = sizeProp || 100;
   const strokeWidth = 24;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;

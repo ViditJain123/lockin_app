@@ -42,3 +42,67 @@ export function getLocalDateStringDaysAgo(daysAgo: number): string {
 export function getTimezoneName(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+/**
+ * Get the Monday of the week containing the given date (local timezone)
+ */
+export function getWeekStartDate(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  // day 0 = Sunday → go back 6 days; day 1 = Monday → 0; day 2 = Tue → 1, etc.
+  const diff = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diff);
+  return d;
+}
+
+/**
+ * Get the Sunday of the week containing the given date (local timezone)
+ */
+export function getWeekEndDate(date: Date): Date {
+  const start = getWeekStartDate(date);
+  start.setDate(start.getDate() + 6);
+  return start;
+}
+
+/**
+ * Get the first day of the month for the given date (local timezone)
+ */
+export function getMonthStartDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+}
+
+/**
+ * Get the last day of the month for the given date (local timezone)
+ */
+export function getMonthEndDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 0, 0, 0, 0);
+}
+
+/**
+ * Get an array of YYYY-MM-DD strings for every day between start and end (inclusive)
+ */
+export function getDateRange(start: Date, end: Date): string[] {
+  const dates: string[] = [];
+  const current = new Date(start);
+  current.setHours(0, 0, 0, 0);
+  const endNorm = new Date(end);
+  endNorm.setHours(0, 0, 0, 0);
+
+  while (current <= endNorm) {
+    dates.push(getLocalDateString(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+/**
+ * Format a date range for display: "Feb 17 - Feb 23"
+ */
+export function formatDateRange(start: Date, end: Date): string {
+  const formatShort = (d: Date) => {
+    const month = d.toLocaleDateString('en-US', { month: 'short' });
+    return `${month} ${d.getDate()}`;
+  };
+  return `${formatShort(start)} - ${formatShort(end)}`;
+}

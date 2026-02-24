@@ -12,6 +12,7 @@ import { useSubscriptionStore } from '../store/useSubscriptionStore';
 interface AuthContextType {
   session: Session | null;
   user: User | null;
+  isInitialized: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -23,6 +24,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Handle app state changes for token refresh
   useEffect(() => {
@@ -39,13 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Listen for auth state changes - the INITIAL_SESSION event fires
-  // synchronously with the cached session from AsyncStorage, avoiding
-  // any loading state on app startup
+  // asynchronously once the cached session is restored from AsyncStorage
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('[Auth] Auth state changed:', event);
         setSession(session);
+        if (!isInitialized) setIsInitialized(true);
 
         // Handle OAuth callback
         if (event === 'SIGNED_IN' && session) {
@@ -278,6 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextType = {
     session,
     user: session?.user ?? null,
+    isInitialized,
     signInWithGoogle,
     signInWithApple,
     signOut,

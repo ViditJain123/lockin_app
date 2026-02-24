@@ -143,10 +143,13 @@ class TimelapseSessionManager: NSObject {
                 if connection.isVideoRotationAngleSupported(angle) {
                     connection.videoRotationAngle = angle
                 } else {
-                    print("[TimelapseSessionManager] Warning: Rotation angle \(angle) not supported")
+                    // Fallback to legacy orientation if rotation angle not supported
+                    print("[TimelapseSessionManager] Warning: Rotation angle \(angle) not supported, using legacy videoOrientation")
+                    if connection.isVideoOrientationSupported {
+                        connection.videoOrientation = videoOrientation.avVideoOrientation
+                    }
                 }
             } else {
-                // Fallback for older iOS versions
                 if connection.isVideoOrientationSupported {
                     connection.videoOrientation = videoOrientation.avVideoOrientation
                 }
@@ -156,6 +159,11 @@ class TimelapseSessionManager: NSObject {
             if connection.isVideoStabilizationSupported {
                 connection.preferredVideoStabilizationMode = .auto
             }
+
+            // Mirror front camera so the output matches real-world orientation
+            if self.cameraPosition == .front && connection.isVideoMirroringSupported {
+                connection.isVideoMirrored = true
+            }
         }
         
         self.captureSession = session
@@ -164,19 +172,13 @@ class TimelapseSessionManager: NSObject {
     }
     
     private func getCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        // Prefer wide angle camera for timelapse
-        let deviceTypes: [AVCaptureDevice.DeviceType] = [
-            .builtInWideAngleCamera,
-            .builtInDualCamera,
-            .builtInTripleCamera
-        ]
-        
+        // Try multi-camera first for best quality, fall back to wide angle
         let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: deviceTypes,
+            deviceTypes: [.builtInTripleCamera, .builtInDualCamera, .builtInWideAngleCamera],
             mediaType: .video,
             position: position
         )
-        
+
         return discoverySession.devices.first
     }
     

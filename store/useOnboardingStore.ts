@@ -16,7 +16,7 @@ export interface SleepTime {
   period: 'AM' | 'PM';
 }
 
-// Conversion rate type for earned screen time
+// Conversion rate type — kept for backward compat with persisted data, no longer used in quiz flow
 export type ConversionRate = '6:1' | '4:1' | '3:1';
 
 // Interface for quiz answers
@@ -30,7 +30,6 @@ export interface QuizAnswers {
   sleepTime: SleepTime;
   familyActivitySelection: string | null;
   targetHours: number;
-  conversionRate: ConversionRate;
 }
 
 interface OnboardingState {
@@ -72,7 +71,6 @@ const initialQuizAnswers: QuizAnswers = {
   sleepTime: { hour: 10, minute: 0, period: 'PM' }, // Default to 10:00 PM
   familyActivitySelection: null,
   targetHours: 4, // Default to 4 hours of daily work target
-  conversionRate: '4:1', // Default to balanced conversion rate
 };
 
 export const useOnboardingStore = create<OnboardingState>()(

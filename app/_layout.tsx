@@ -50,7 +50,7 @@ import { useSubscriptionStore } from '../store/useSubscriptionStore';
 // Family Controls screens
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
-import ConversionRateQuestionScreen from '../components/quiz/questions/ConversionRateQuestionScreen';
+import HowItWorksScreen from '../components/quiz/questions/HowItWorksScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
@@ -58,9 +58,11 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { migrateHeatmapData } from '../lib/heatmapMigration';
-import { initializeDailyBlock, unblockApps, isBlockingAvailable } from '../lib/blockingService';
+import { getEvents, onDeviceActivityMonitorEvent } from 'react-native-device-activity';
+import { initializeDailyBlock, unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '../lib/blockingService';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
+import { useEmergencyAccessStore } from '../store/useEmergencyAccessStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -109,7 +111,6 @@ export default function RootLayout() {
       // Preload badge assets in background (fire and forget - don't block splash)
       preloadAllBadges();
 
-      SplashScreen.hideAsync();
       // Initialize subscription store (which initializes StoreKit)
       useSubscriptionStore.getState().initialize();
     }
@@ -129,7 +130,7 @@ export default function RootLayout() {
 function RootLayoutNav() {
   // Force dark mode throughout the app
   const colorScheme = 'dark' as const;
-  const { session } = useAuth();
+  const { session, isInitialized } = useAuth();
 
   // App update state
   const {
@@ -199,27 +200,80 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!_hasHydrated || !session) return;
 
-    const earnedTimeStore = useEarnedTimeStore.getState();
-    const { familyActivitySelection } = quizAnswers;
+    const { familyActivitySelection, targetHours } = quizAnswers;
+
+    // Check iOS monitor events to detect if earned time was used up
+    const checkIfTimeWasExhausted = (): boolean => {
+      try {
+        const earnedTimeStore = useEarnedTimeStore.getState();
+        const { lastMonitoringStartedAt } = earnedTimeStore;
+
+        const events = getEvents('earnedTimeMonitoring');
+        const thresholdEvent = events.find(
+          (e) =>
+            e.callbackName === 'eventDidReachThreshold' &&
+            e.eventName === 'timeExhausted' &&
+            (lastMonitoringStartedAt == null ||
+              new Date(e.lastCalledAt).getTime() > lastMonitoringStartedAt)
+        );
+
+        if (thresholdEvent) {
+          console.log('[Layout] Detected timeExhausted event from iOS monitor');
+          earnedTimeStore.markTimeExhausted();
+          return true;
+        }
+      } catch (error) {
+        console.log('[Layout] Error checking monitor events:', error);
+      }
+      return false;
+    };
 
     // Check for new day and handle blocking state
     const handleBlockingState = () => {
       if (!isBlockingAvailable() || !familyActivitySelection) return;
 
+      const earnedTimeStore = useEarnedTimeStore.getState();
+      const emergencyStore = useEmergencyAccessStore.getState();
+
+      // Reset passes for new day if needed
+      emergencyStore.checkAndResetForNewDay();
+
+      // Clean up expired emergency sessions → re-block if any expired
+      const hadExpiredSession = emergencyStore.cleanupExpiredSessions();
+
       const wasNewDay = earnedTimeStore.checkAndResetForNewDay();
-      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
 
       if (wasNewDay) {
         // New day: reset blocking state
         console.log('[Layout] New day detected, initializing daily block');
         initializeDailyBlock(familyActivitySelection);
-      } else if (remainingMinutes > 0) {
-        // Same day with remaining time: ensure apps are unblocked
+        return;
+      }
+
+      // If an active emergency session exists and hasn't expired, leave unblocked
+      if (emergencyStore.hasActiveSession()) {
+        console.log('[Layout] Active emergency session, leaving unblocked');
+        return;
+      }
+
+      // If daily target reached, fully unlock (no usage monitor)
+      if (earnedTimeStore.hasReachedDailyTarget(targetHours)) {
+        console.log('[Layout] Daily target reached, unlimited unlock');
+        unblockAppsUnlimited(familyActivitySelection);
+        return;
+      }
+
+      // Check if iOS monitor has fired a threshold event since last unblock
+      checkIfTimeWasExhausted();
+
+      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
+      if (remainingMinutes > 0) {
+        // Has remaining earned time: ensure apps are unblocked with monitor
         console.log('[Layout] Same day with', remainingMinutes, 'min remaining, ensuring unblock');
         unblockApps(familyActivitySelection, remainingMinutes);
+        earnedTimeStore.setMonitoringStartedAt(Date.now());
       } else {
-        // Same day, no remaining time — ensure apps are blocked
-        // (covers first launch after onboarding + time exhausted cases)
+        // No remaining time — ensure apps are blocked
         console.log('[Layout] No remaining time, ensuring apps are blocked');
         initializeDailyBlock(familyActivitySelection);
       }
@@ -229,22 +283,41 @@ function RootLayoutNav() {
     handleBlockingState();
 
     // Listen for app state changes
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         // App has come to the foreground - check blocking state
         handleBlockingState();
       }
     });
 
+    // Real-time listener for iOS monitor threshold events
+    const monitorSubscription = onDeviceActivityMonitorEvent((event) => {
+      if (event.callbackName === 'eventDidReachThreshold') {
+        console.log('[Layout] Real-time eventDidReachThreshold received');
+        const wasExhausted = checkIfTimeWasExhausted();
+        if (wasExhausted && familyActivitySelection) {
+          initializeDailyBlock(familyActivitySelection);
+        }
+      }
+    });
+
     return () => {
-      subscription.remove();
+      appStateSubscription.remove();
+      monitorSubscription.remove();
     };
   }, [_hasHydrated, session, quizAnswers.familyActivitySelection, hasCompletedOnboarding]);
 
+  // Hide splash screen once store hydration and auth initialization are both done
+  useEffect(() => {
+    if (_hasHydrated && isInitialized) {
+      SplashScreen.hideAsync();
+    }
+  }, [_hasHydrated, isInitialized]);
+
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
-  // Wait for store hydration before deciding what to show
-  if (!_hasHydrated) {
+  // Wait for store hydration and auth initialization before deciding what to show
+  if (!_hasHydrated || !isInitialized) {
     return null;
   }
 
@@ -428,13 +501,11 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 20: Conversion Rate */}
+          {/* Question 20: How It Works (replaced ConversionRate) */}
           {currentQuestionIndex === 18 && (
-            <ConversionRateQuestionScreen
-              currentStep={currentQuestionIndex + 1}
-              totalSteps={TOTAL_QUIZ_QUESTIONS}
-              conversionRate={quizAnswers.conversionRate}
-              onConversionRateChange={(rate) => setAnswer('conversionRate', rate)}
+            <HowItWorksScreen
+              userName={quizAnswers.name}
+              targetHours={quizAnswers.targetHours}
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
@@ -534,6 +605,16 @@ function RootLayoutNav() {
               contentStyle: {
                 backgroundColor: isLiquidGlassAvailable() ? 'transparent' : backgroundColor,
               },
+            }}
+          />
+          <Stack.Screen
+            name="emergency-access"
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+              gestureEnabled: false,
+              animation: 'slide_from_bottom',
+              contentStyle: { backgroundColor: 'black' },
             }}
           />
           <Stack.Screen

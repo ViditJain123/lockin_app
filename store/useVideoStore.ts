@@ -18,7 +18,7 @@ import { useHeatmapStore } from './useHeatmapStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useEarnedTimeStore } from './useEarnedTimeStore';
 import { useOnboardingStore } from './useOnboardingStore';
-import { unblockApps, isBlockingAvailable } from '@/lib/blockingService';
+import { unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '@/lib/blockingService';
 
 // Minimum video duration to save (1 minute)
 const MIN_VIDEO_DURATION_SECONDS = 60;
@@ -82,17 +82,28 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       // Mark that user has recorded (enables re-engagement notifications)
       useNotificationStore.getState().setHasEverRecorded();
 
-      // Add earned screen time based on conversion rate
-      const { conversionRate, familyActivitySelection } = useOnboardingStore.getState().quizAnswers;
+      // Add earned screen time + track grind toward daily target
+      const { familyActivitySelection, targetHours } = useOnboardingStore.getState().quizAnswers;
       const earnedTimeStore = useEarnedTimeStore.getState();
-      const earnedSeconds = earnedTimeStore.addEarnedTime(durationSeconds, conversionRate);
+
+      // Normal flow: earn screen time at 4:1
+      const earnedSeconds = earnedTimeStore.addEarnedTime(durationSeconds);
+      earnedTimeStore.addGrindSeconds(durationSeconds);
       console.log('[VideoStore] Earned', earnedSeconds, 'seconds of screen time');
 
-      // If user now has available time, unblock their apps
-      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
-      if (remainingMinutes > 0 && isBlockingAvailable() && familyActivitySelection) {
-        unblockApps(familyActivitySelection, remainingMinutes);
-        console.log('[VideoStore] Unblocked apps with', remainingMinutes, 'minutes remaining');
+      // Check if daily target reached → full unlock
+      if (isBlockingAvailable() && familyActivitySelection) {
+        if (earnedTimeStore.hasReachedDailyTarget(targetHours)) {
+          unblockAppsUnlimited(familyActivitySelection);
+          console.log('[VideoStore] Daily target reached! Apps fully unlocked');
+        } else {
+          const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
+          if (remainingMinutes > 0) {
+            unblockApps(familyActivitySelection, remainingMinutes);
+            earnedTimeStore.setMonitoringStartedAt(Date.now());
+            console.log('[VideoStore] Unblocked apps with', remainingMinutes, 'minutes remaining');
+          }
+        }
       }
 
       return video;

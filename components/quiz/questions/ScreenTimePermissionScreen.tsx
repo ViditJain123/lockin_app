@@ -39,6 +39,7 @@ export default function ScreenTimePermissionScreen({
 }: ScreenTimePermissionScreenProps) {
   const insets = useSafeAreaInsets();
   const [isRequesting, setIsRequesting] = useState(false);
+  const [showDeniedState, setShowDeniedState] = useState(false);
 
   const handleContinue = async () => {
     setIsRequesting(true);
@@ -56,18 +57,16 @@ export default function ScreenTimePermissionScreen({
         console.log('Authorization approved, proceeding');
         onContinue();
       } else if (status === ReactNativeDeviceActivity.AuthorizationStatus.denied) {
-        console.log('Authorization denied');
-        // Still allow continuing but user won't be able to select apps
-        onContinue();
+        console.log('Authorization denied, showing fallback');
+        setShowDeniedState(true);
       } else {
         // Still notDetermined after polling - user may have dismissed without choosing
-        console.log('Authorization still pending');
-        onContinue();
+        console.log('Authorization still pending, showing fallback');
+        setShowDeniedState(true);
       }
     } catch (error) {
       console.error('Authorization error:', error);
-      // Graceful fallback - still allow continuing
-      onContinue();
+      setShowDeniedState(true);
     } finally {
       setIsRequesting(false);
     }
@@ -106,50 +105,68 @@ export default function ScreenTimePermissionScreen({
 
         {/* Main content */}
         <View style={styles.mainContent}>
-          {/* Title */}
-          <Text style={styles.title}>
-            Connect LockIn to{'\n'}Screen Time, Securely.
-          </Text>
-
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>
-            To analyze your Screen Time on this iPhone,{'\n'}LockIn will need your permission
-          </Text>
-
-          {/* Permission Dialog Preview Card */}
-          <View style={styles.dialogCard}>
-            <BlurView intensity={40} tint="dark" style={styles.blurContainer}>
-              {/* Play button indicator */}
-              <View style={styles.playButtonContainer}>
-                <View style={styles.playButton}>
-                  <Ionicons name="play" size={24} color="#FFFFFF" />
+          {showDeniedState ? (
+            <>
+              <View style={styles.deniedContent}>
+                <View style={styles.deniedIconContainer}>
+                  <Ionicons name="shield-checkmark" size={64} color={BrandColors.accent} />
                 </View>
+                <Text style={styles.deniedTitle}>
+                  Screen Time Access{'\n'}Required
+                </Text>
+                <Text style={styles.deniedSubtitle}>
+                  LockIn needs Screen Time permission to block{'\n'}distracting apps and help you stay focused.{'\n'}Please tap Continue and allow access.
+                </Text>
               </View>
-
-              {/* Dialog content */}
-              <Text style={styles.dialogTitle}>
-                "LockIn" Would Like to{'\n'}Access Screen Time
-              </Text>
-              <Text style={styles.dialogBody}>
-                Providing "LockIn" access to Screen Time{'\n'}lets it see your activity data, app content,{'\n'}and limit the usage of apps and websites.
+            </>
+          ) : (
+            <>
+              {/* Title */}
+              <Text style={styles.title}>
+                Connect LockIn to{'\n'}Screen Time, Securely.
               </Text>
 
-              {/* Mock buttons */}
-              <View style={styles.dialogButtons}>
-                <View style={styles.dialogButton}>
-                  <Text style={styles.dialogButtonText}>Continue</Text>
-                </View>
-                <View style={[styles.dialogButton, styles.dialogButtonSecondary]}>
-                  <Text style={styles.dialogButtonTextSecondary}>Don't Allow</Text>
-                </View>
-              </View>
-            </BlurView>
-          </View>
+              {/* Subtitle */}
+              <Text style={styles.subtitle}>
+                To analyze your Screen Time on this iPhone,{'\n'}LockIn will need your permission
+              </Text>
 
-          {/* Upward arrow indicator */}
-          <View style={styles.arrowContainer}>
-            <Ionicons name="arrow-up" size={32} color={BrandColors.text.primary} />
-          </View>
+              {/* Permission Dialog Preview Card */}
+              <View style={styles.dialogCard}>
+                <BlurView intensity={40} tint="dark" style={styles.blurContainer}>
+                  {/* Play button indicator */}
+                  <View style={styles.playButtonContainer}>
+                    <View style={styles.playButton}>
+                      <Ionicons name="play" size={24} color="#FFFFFF" />
+                    </View>
+                  </View>
+
+                  {/* Dialog content */}
+                  <Text style={styles.dialogTitle}>
+                    "LockIn" Would Like to{'\n'}Access Screen Time
+                  </Text>
+                  <Text style={styles.dialogBody}>
+                    Providing "LockIn" access to Screen Time{'\n'}lets it see your activity data, app content,{'\n'}and limit the usage of apps and websites.
+                  </Text>
+
+                  {/* Mock buttons */}
+                  <View style={styles.dialogButtons}>
+                    <View style={styles.dialogButton}>
+                      <Text style={styles.dialogButtonText}>Continue</Text>
+                    </View>
+                    <View style={[styles.dialogButton, styles.dialogButtonSecondary]}>
+                      <Text style={styles.dialogButtonTextSecondary}>Don't Allow</Text>
+                    </View>
+                  </View>
+                </BlurView>
+              </View>
+
+              {/* Upward arrow indicator */}
+              <View style={styles.arrowContainer}>
+                <Ionicons name="arrow-up" size={32} color={BrandColors.text.primary} />
+              </View>
+            </>
+          )}
         </View>
 
         {/* Privacy footer */}
@@ -293,6 +310,35 @@ const styles = StyleSheet.create({
   },
   arrowContainer: {
     marginTop: 20,
+  },
+  deniedContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deniedIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 59, 92, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  deniedTitle: {
+    fontSize: 28,
+    fontFamily: Fonts.bold,
+    color: BrandColors.text.primary,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 36,
+  },
+  deniedSubtitle: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: BrandColors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   footerContainer: {
     paddingHorizontal: 24,

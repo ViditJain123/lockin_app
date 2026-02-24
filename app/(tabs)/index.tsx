@@ -203,7 +203,7 @@ export default function CameraScreen() {
   // Note: Don't hide countdown here - let it stay visible until recording actually starts
   const handleCountdownComplete = useCallback(async () => {
     await startRecording({
-      captureIntervalMs: 1000, // 1fps capture
+      captureIntervalMs: 6000, // 1 frame every 6s (1hr = 10s timelapse)
       outputFps: 60,           // 60fps output
       codec: 'h264',
       saveToGallery: false,  // Don't auto-save, user will save from preview

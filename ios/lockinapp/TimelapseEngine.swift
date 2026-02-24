@@ -58,15 +58,14 @@ class TimelapseEngine: RCTEventEmitter {
     // Frame buffering for first-frame removal
     private var frameBuffer: [(CVPixelBuffer, CMTime)] = []
     private var isBufferingPhase: Bool = true
-    private let bufferThreshold: Int = 5
+    private let bufferThreshold: Int = 2
     
     // Configuration
-    private var captureIntervalMs: Double = 500 // 1fps default
+    private var captureIntervalMs: Double = 6000 // 1 frame every 6s (360x speedup → 1hr = 10s)
     private var outputFps: Int = 60
     private var codec: AVVideoCodecType = .h264
     private var saveToGallery: Bool = true
     private var cameraPosition: AVCaptureDevice.Position = .back
-    private var targetVideoSeconds: Double = 30 // Target video duration for adaptive capture
 
     // Timer position (percentage 0-1)
     private var timerPositionX: CGFloat = 0.85
@@ -277,9 +276,6 @@ class TimelapseEngine: RCTEventEmitter {
         if let positionStr = options["cameraPosition"] as? String {
             cameraPosition = positionStr == "front" ? .front : .back
         }
-        if let target = options["targetVideoSeconds"] as? Double {
-            targetVideoSeconds = target
-        }
         if let posX = options["timerPositionX"] as? Double {
             timerPositionX = CGFloat(posX)
         }
@@ -356,8 +352,6 @@ class TimelapseEngine: RCTEventEmitter {
         print("[TimelapseEngine] Initializing frame processor...")
         frameProcessor = TimelapseFrameProcessor(
             captureIntervalMs: captureIntervalMs,
-            targetVideoSeconds: targetVideoSeconds,
-            outputFps: outputFps,
             timerPosition: CGPoint(x: timerPositionX, y: timerPositionY),
             timerFilter: timerFilter,
             timerScale: timerScale,
@@ -418,11 +412,11 @@ class TimelapseEngine: RCTEventEmitter {
                         frameBuffer.append((buffer, timestamp))
                     }
 
-                    // When we have 5 frames, encode frames 2-5 (skip first)
+                    // When we have enough frames, encode all except first (skip first)
                     if frameBuffer.count >= bufferThreshold {
                         isBufferingPhase = false
 
-                        // Encode frames at indices 1-4 (skip index 0)
+                        // Encode frames starting at index 1 (skip index 0)
                         for i in 1..<frameBuffer.count {
                             let (bufferedPixelBuffer, _) = frameBuffer[i]
                             let presentationTime = CMTime(
@@ -437,7 +431,7 @@ class TimelapseEngine: RCTEventEmitter {
                         frameBuffer.removeAll()
 
                         // Emit progress
-                        if frameCount % 10 == 0 || frameCount == bufferThreshold - 1 {
+                        if frameCount % 2 == 0 || frameCount == bufferThreshold - 1 {
                             emitProgressEvent()
                         }
                     }
@@ -450,7 +444,7 @@ class TimelapseEngine: RCTEventEmitter {
                     try encoder?.appendFrame(pixelBuffer, presentationTime: presentationTime)
                     frameCount += 1
 
-                    if frameCount % 10 == 0 {
+                    if frameCount % 2 == 0 {
                         emitProgressEvent()
                     }
                 }

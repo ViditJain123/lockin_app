@@ -39,9 +39,9 @@ enum VideoOrientation: String {
         case .portrait:
             return 90
         case .landscapeLeft:
-            return 0
-        case .landscapeRight:
             return 180
+        case .landscapeRight:
+            return 0
         }
     }
 
@@ -51,9 +51,9 @@ enum VideoOrientation: String {
         case .portrait:
             return .portrait
         case .landscapeLeft:
-            return .landscapeRight // Note: AVCaptureVideoOrientation is device-relative
-        case .landscapeRight:
             return .landscapeLeft
+        case .landscapeRight:
+            return .landscapeRight
         }
     }
 

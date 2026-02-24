@@ -1,6 +1,7 @@
 import Button3D from '@/components/Button3D';
 import { Fonts } from '@/constants/Fonts';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
+import { useEarnedTimeStore } from '@/store/useEarnedTimeStore';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo } from 'react';
 import {
@@ -46,12 +47,19 @@ export default function GrindCompleteScreen() {
 
   const insets = useSafeAreaInsets();
   const userName = useOnboardingStore((s) => s.quizAnswers.name) || 'champ';
+  const targetHours = useOnboardingStore((s) => s.quizAnswers.targetHours) || 4;
   const grindDuration = grindDurationSeconds ? parseInt(grindDurationSeconds, 10) : 0;
 
+  const totalGrindToday = useEarnedTimeStore((s) => s.totalGrindSecondsToday);
+  const targetReached = totalGrindToday >= targetHours * 3600;
+
   const motivationalMessage = useMemo(() => {
+    if (targetReached) {
+      return `Target hit!\nPhone unlocked for today`;
+    }
     const idx = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
     return MOTIVATIONAL_MESSAGES[idx].replace('{name}', userName);
-  }, [userName]);
+  }, [userName, targetReached]);
 
   const durationText = `You locked in for ${formatCompactDuration(grindDuration)}`;
 
@@ -107,6 +115,16 @@ export default function GrindCompleteScreen() {
             >
               {motivationalMessage}
             </Animated.Text>
+
+            {/* Target progress */}
+            {!targetReached && (
+              <Animated.Text
+                entering={FadeInUp.duration(600).delay(1100)}
+                style={styles.targetProgressText}
+              >
+                {formatCompactDuration(totalGrindToday)} / {targetHours}hr daily target
+              </Animated.Text>
+            )}
           </View>
         </View>
 
@@ -166,6 +184,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     lineHeight: 36,
+  },
+  targetProgressText: {
+    fontSize: 14,
+    fontFamily: Fonts.medium,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
+    marginTop: 16,
   },
   buttonContainer: {
     paddingHorizontal: 32,

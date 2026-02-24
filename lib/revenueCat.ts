@@ -2,6 +2,7 @@ import Purchases, {
   type CustomerInfo,
   type PurchasesOfferings,
   type PurchasesPackage,
+  type PurchasesStoreProduct,
   LOG_LEVEL,
 } from 'react-native-purchases';
 import { Platform } from 'react-native';
@@ -19,6 +20,9 @@ export const PRODUCT_IDS = {
 } as const;
 
 export type ProductId = (typeof PRODUCT_IDS)[keyof typeof PRODUCT_IDS];
+
+// Consumable product ID for emergency break passes
+export const EMERGENCY_BREAK_PRODUCT_ID = 'emergency_break_10min';
 
 // Track initialization state
 let isInitialized = false;
@@ -212,6 +216,63 @@ export function addCustomerInfoUpdateListener(
   return () => {
     subscription.remove();
   };
+}
+
+/**
+ * Purchase a consumable product (e.g. emergency break pass).
+ * Returns the purchased product on success, null if user cancels.
+ * Throws on other errors.
+ */
+export async function purchaseConsumable(
+  productId: string
+): Promise<PurchasesStoreProduct | null> {
+  try {
+    console.log('[RevenueCat] Fetching consumable product:', productId);
+    const products = await Purchases.getProducts(
+      [productId],
+      Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION
+    );
+
+    if (products.length === 0) {
+      throw new Error('Product not found: ' + productId);
+    }
+
+    const product = products[0];
+    console.log('[RevenueCat] Purchasing consumable:', product.identifier);
+    await Purchases.purchaseStoreProduct(product);
+    console.log('[RevenueCat] Consumable purchase successful:', product.identifier);
+    return product;
+  } catch (error: any) {
+    if (error.userCancelled) {
+      console.log('[RevenueCat] User cancelled consumable purchase');
+      return null;
+    }
+    console.error('[RevenueCat] Consumable purchase error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the display price for the emergency break consumable.
+ * Returns the localized price string (e.g. "$0.99") or null if unavailable.
+ */
+export async function getEmergencyBreakPrice(): Promise<string | null> {
+  try {
+    const products = await Purchases.getProducts(
+      [EMERGENCY_BREAK_PRODUCT_ID],
+      Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION
+    );
+
+    if (products.length === 0) {
+      console.log('[RevenueCat] Emergency break product not found');
+      return null;
+    }
+
+    return products[0].priceString;
+  } catch (error) {
+    console.error('[RevenueCat] Error fetching emergency break price:', error);
+    return null;
+  }
 }
 
 /**

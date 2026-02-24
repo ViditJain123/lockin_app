@@ -26,8 +26,9 @@ import {
 } from 'react-native-device-activity';
 import { Platform } from 'react-native';
 
-// Activity name for earned time monitoring
+// Activity names
 const EARNED_TIME_ACTIVITY = 'earnedTimeMonitoring';
+const EMERGENCY_PASS_ACTIVITY = 'emergencyPassMonitoring';
 
 // Family activity selection ID for storing the user's blocked apps
 const BLOCKED_APPS_SELECTION_ID = 'blockedAppsSelection';
@@ -103,7 +104,7 @@ export function initializeDailyBlock(familyActivitySelection: string | null): vo
       familyActivitySelection,
     });
 
-    // Configure the shield appearance
+    // Configure the shield appearance with "Need a Break?" secondary button
     updateShield(
       {
         backgroundColor: { red: 0, green: 0, blue: 0, alpha: 0.95 },
@@ -116,11 +117,16 @@ export function initializeDailyBlock(familyActivitySelection: string | null): vo
         primaryButtonLabel: 'Open LockIn',
         primaryButtonLabelColor: { red: 255, green: 255, blue: 255 },
         primaryButtonBackgroundColor: { red: 255, green: 59, blue: 92 },
+        secondaryButtonLabel: 'Need a Break?',
       },
       {
         primary: {
           behavior: 'close',
           actions: [{ type: 'openApp' }],
+        },
+        secondary: {
+          behavior: 'close',
+          actions: [{ type: 'openUrl' as any, url: 'lockinapp://emergency-access' }],
         },
       }
     );
@@ -246,6 +252,123 @@ export function startUsageMonitoring(
 }
 
 /**
+ * Unblock apps without starting a usage monitor (unlimited time).
+ * Used when the user has reached their daily grind target.
+ *
+ * @param familyActivitySelection - The user's saved app selection string
+ */
+export function unblockAppsUnlimited(
+  familyActivitySelection: string | null,
+): void {
+  if (!isBlockingAvailable() || !familyActivitySelection) {
+    console.log('[BlockingService] Skipping unlimited unblock - not available or no selection');
+    return;
+  }
+
+  try {
+    // Stop any existing monitoring
+    stopMonitoring([EARNED_TIME_ACTIVITY, EMERGENCY_PASS_ACTIVITY]);
+
+    // Add the selection to whitelist (this unblocks the apps)
+    addSelectionToWhitelistAndUpdateBlock(
+      { activitySelectionToken: familyActivitySelection },
+      'dailyTargetUnlock'
+    );
+
+    console.log('[BlockingService] Apps fully unlocked (daily target reached)');
+  } catch (error) {
+    console.error('[BlockingService] Error in unlimited unblock:', error);
+  }
+}
+
+/**
+ * Unblock apps for emergency access (pass or borrow) with a time limit.
+ *
+ * @param familyActivitySelection - The user's saved app selection string
+ * @param durationMinutes - Minutes of emergency access
+ */
+export function unblockAppsForEmergency(
+  familyActivitySelection: string | null,
+  durationMinutes: number,
+): void {
+  if (!isBlockingAvailable() || !familyActivitySelection) {
+    console.log('[BlockingService] Skipping emergency unblock - not available or no selection');
+    return;
+  }
+
+  if (durationMinutes <= 0) {
+    console.log('[BlockingService] Invalid emergency duration');
+    return;
+  }
+
+  try {
+    // Add the selection to whitelist (unblocks the apps)
+    addSelectionToWhitelistAndUpdateBlock(
+      { activitySelectionToken: familyActivitySelection },
+      'emergencyUnblock'
+    );
+
+    // Start monitoring with the emergency duration as threshold
+    const activityName = EMERGENCY_PASS_ACTIVITY;
+
+    // Stop any existing monitoring first
+    stopMonitoring([EARNED_TIME_ACTIVITY, EMERGENCY_PASS_ACTIVITY]);
+
+    // Configure actions for when threshold is reached
+    configureActions({
+      activityName,
+      callbackName: 'eventDidReachThreshold',
+      eventName: 'emergencyTimeExhausted',
+      actions: [
+        {
+          type: 'clearWhitelistAndUpdateBlock',
+        },
+        {
+          type: 'sendNotification',
+          payload: {
+            title: 'Break Time Over',
+            body: 'Your emergency access has ended.',
+            sound: 'default',
+          },
+        },
+      ],
+    });
+
+    const now = new Date();
+    const schedule = {
+      intervalStart: {
+        hour: now.getHours(),
+        minute: now.getMinutes(),
+        second: now.getSeconds(),
+      },
+      intervalEnd: {
+        hour: 23,
+        minute: 59,
+        second: 59,
+      },
+      repeats: false,
+    };
+
+    const events = [
+      {
+        familyActivitySelection,
+        eventName: 'emergencyTimeExhausted',
+        threshold: {
+          minute: durationMinutes,
+        },
+        includesPastActivity: false,
+      },
+    ];
+
+    startMonitoring(activityName, schedule, events);
+
+    console.log(`[BlockingService] Emergency unblock with ${durationMinutes} min`);
+  } catch (error) {
+    console.error('[BlockingService] Error in emergency unblock:', error);
+  }
+}
+
+/**
  * Re-block apps when time is exhausted
  * Called manually or triggered by eventDidReachThreshold
  *
@@ -288,5 +411,5 @@ export function disableBlocking(): void {
   }
 }
 
-// Export the activity name for external use
-export { EARNED_TIME_ACTIVITY, BLOCKED_APPS_SELECTION_ID };
+// Export the activity names for external use
+export { EARNED_TIME_ACTIVITY, EMERGENCY_PASS_ACTIVITY, BLOCKED_APPS_SELECTION_ID };

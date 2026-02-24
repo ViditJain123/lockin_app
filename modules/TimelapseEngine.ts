@@ -32,7 +32,7 @@ export type TimerFilterType = 'minimal' | 'dateStamp';
 export interface TimelapseOptions {
   /**
    * Capture interval in milliseconds
-   * Default: 1000 (1 frame per second)
+   * Default: 6000 (1 frame every 6 seconds → 1hr = 10s timelapse)
    */
   captureIntervalMs?: number;
 
@@ -59,14 +59,6 @@ export interface TimelapseOptions {
    * Default: 'back'
    */
   cameraPosition?: 'front' | 'back';
-
-  /**
-   * Target maximum video duration in seconds for adaptive capture.
-   * The capture interval will dynamically increase for longer recordings
-   * to keep the output video approximately this length.
-   * Default: 30
-   */
-  targetVideoSeconds?: number;
 
   /**
    * Timer position as percentage (0-1) of the frame.
@@ -202,12 +194,11 @@ export async function startTimelapse(options: TimelapseOptions = {}): Promise<vo
   const timerPos = options.timerPosition ?? { x: 0.85, y: 0.75 };
 
   const fullOptions = {
-    captureIntervalMs: options.captureIntervalMs ?? 1000,
+    captureIntervalMs: options.captureIntervalMs ?? 6000,
     outputFps: options.outputFps ?? 60,
     codec: options.codec ?? 'h264',
     saveToGallery: options.saveToGallery ?? true,
     cameraPosition: options.cameraPosition ?? 'back',
-    targetVideoSeconds: options.targetVideoSeconds ?? 30,
     timerPositionX: timerPos.x,
     timerPositionY: timerPos.y,
     orientation: options.orientation ?? 'portrait',
@@ -412,7 +403,7 @@ export function calculateSpeedup(captureIntervalMs: number, outputFps: number): 
  */
 export function estimateOutputDuration(
   recordingDurationSeconds: number,
-  captureIntervalMs: number = 1000,
+  captureIntervalMs: number = 6000,
   outputFps: number = 60
 ): number {
   const speedup = calculateSpeedup(captureIntervalMs, outputFps);
