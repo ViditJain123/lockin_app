@@ -45,25 +45,25 @@ serve(async (req) => {
       )
     }
 
-    // Delete user data from tables
-    // Delete from grinds table
-    const { error: grindsError } = await supabaseAdmin
-      .from('grinds')
-      .delete()
-      .eq('user_id', user.id)
+    // Delete user data from all tables
+    const tablesToClean = [
+      'grinds',
+      'user_stats',
+      'user_profiles',
+      'user_tasks',
+      'user_badges',
+      'subscriptions',
+    ]
 
-    if (grindsError) {
-      console.error('Error deleting grinds:', grindsError)
-    }
+    for (const table of tablesToClean) {
+      const { error: tableError } = await supabaseAdmin
+        .from(table)
+        .delete()
+        .eq('user_id', user.id)
 
-    // Delete from user_stats table
-    const { error: statsError } = await supabaseAdmin
-      .from('user_stats')
-      .delete()
-      .eq('user_id', user.id)
-
-    if (statsError) {
-      console.error('Error deleting user_stats:', statsError)
+      if (tableError) {
+        console.error(`Error deleting from ${table}:`, tableError)
+      }
     }
 
     // Delete the auth user

@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ONBOARDING_DEV_MODE } from '../lib/config';
+import { pushUserProfile, pullUserProfile } from '../lib/syncService';
+import { supabase } from '../lib/supabase';
 
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
@@ -59,6 +61,10 @@ interface OnboardingState {
   setAnswer: <K extends keyof QuizAnswers>(key: K, value: QuizAnswers[K]) => void;
   completeQuizFunnel: () => void;
   exitQuizFunnel: () => void;
+
+  // Sync actions
+  syncProfileToSupabase: () => Promise<void>;
+  loadProfileFromSupabase: () => Promise<boolean>;
 }
 
 const initialQuizAnswers: QuizAnswers = {
@@ -179,15 +185,51 @@ export const useOnboardingStore = create<OnboardingState>()(
           currentQuestionIndex: 0,
           showOnboardingAlways: false, // Ensure debug flag is off
         });
+
+        // Fire-and-forget sync to Supabase
+        get().syncProfileToSupabase();
       },
 
       // Exit quiz funnel without completing
       exitQuizFunnel: () => {
-        set({ 
+        set({
           isInQuizFunnel: false,
           currentQuestionIndex: 0,
           quizAnswers: initialQuizAnswers,
         });
+      },
+
+      // Push current profile to Supabase
+      syncProfileToSupabase: async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.user?.id) return;
+          const { quizAnswers } = get();
+          await pushUserProfile(session.user.id, quizAnswers);
+        } catch (err) {
+          console.error('[OnboardingStore] syncProfileToSupabase error:', err);
+        }
+      },
+
+      // Pull profile from Supabase (for new-device login)
+      // Returns true if a remote profile was found and loaded
+      loadProfileFromSupabase: async (): Promise<boolean> => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.user?.id) return false;
+          const profile = await pullUserProfile(session.user.id);
+          if (profile) {
+            set({
+              quizAnswers: profile,
+              hasCompletedOnboarding: true,
+            });
+            return true;
+          }
+          return false;
+        } catch (err) {
+          console.error('[OnboardingStore] loadProfileFromSupabase error:', err);
+          return false;
+        }
       },
     }),
     {

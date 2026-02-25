@@ -57,7 +57,10 @@ import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
-import { migrateHeatmapData } from '../lib/heatmapMigration';
+import { refreshHeatmapFromSupabase } from '../lib/heatmapMigration';
+import { migrateLocalDataToSupabase } from '../lib/dataMigration';
+import { useTaskStore } from '../store/useTaskStore';
+import { useBadgeStore } from '../store/useBadgeStore';
 import { getEvents, onDeviceActivityMonitorEvent } from 'react-native-device-activity';
 import { initializeDailyBlock, unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '../lib/blockingService';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
@@ -168,11 +171,33 @@ function RootLayoutNav() {
     setBackgroundColorAsync('#000000');
   }, [colorScheme]);
 
-  // Run one-time heatmap migration when user is authenticated
+  // Sync user data from Supabase on app launch (after auth)
   useEffect(() => {
-    if (session?.user?.id) {
-      migrateHeatmapData(session.user.id);
-    }
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
+
+    const runSync = async () => {
+      try {
+        // 1. One-time migration of existing local data to Supabase
+        await migrateLocalDataToSupabase(userId);
+
+        // 2. Pull profile (if exists remotely but not locally, load it)
+        if (!hasCompletedOnboarding) {
+          await useOnboardingStore.getState().loadProfileFromSupabase();
+        }
+
+        // 3-5 run in parallel (independent)
+        await Promise.all([
+          useTaskStore.getState().syncTasksFromSupabase(),
+          useBadgeStore.getState().loadBadgesFromSupabase(),
+          refreshHeatmapFromSupabase(userId),
+        ]);
+      } catch (err) {
+        console.error('[Layout] Sync error:', err);
+      }
+    };
+
+    runSync();
   }, [session?.user?.id]);
 
   // Check for app updates on launch and when app comes to foreground

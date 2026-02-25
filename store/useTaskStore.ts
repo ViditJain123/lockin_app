@@ -10,6 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { getLocalDateString } from '../lib/dateUtils';
+import { pushTaskUpsert, pushTaskDelete, pushTasksResetForNewDay, pullUserTasks } from '../lib/syncService';
+import { supabase } from '../lib/supabase';
 
 const TASK_STORAGE_KEY = 'lockin-tasks-storage';
 
@@ -34,6 +36,15 @@ interface TaskState {
   deleteTask: (id: string) => void;
   getTaskById: (id: string) => Task | undefined;
   resetForNewDay: () => void;
+
+  // Sync actions
+  syncTasksFromSupabase: () => Promise<void>;
+}
+
+// Helper to get current user ID (returns null if not authenticated)
+async function getCurrentUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user?.id ?? null;
 }
 
 export const useTaskStore = create<TaskState>()(
@@ -58,6 +69,11 @@ export const useTaskStore = create<TaskState>()(
           completedAt: null,
         };
         set((state) => ({ tasks: [...state.tasks, newTask] }));
+
+        // Fire-and-forget sync
+        getCurrentUserId().then((uid) => {
+          if (uid) pushTaskUpsert(uid, newTask);
+        });
       },
 
       toggleTask: (id: string) => {
@@ -72,10 +88,23 @@ export const useTaskStore = create<TaskState>()(
               : task
           ),
         }));
+
+        // Fire-and-forget sync
+        const updatedTask = get().tasks.find((t) => t.id === id);
+        if (updatedTask) {
+          getCurrentUserId().then((uid) => {
+            if (uid) pushTaskUpsert(uid, updatedTask);
+          });
+        }
       },
 
       deleteTask: (id: string) => {
         set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));
+
+        // Fire-and-forget sync
+        getCurrentUserId().then((uid) => {
+          if (uid) pushTaskDelete(uid, id);
+        });
       },
 
       getTaskById: (id: string) => {
@@ -84,19 +113,44 @@ export const useTaskStore = create<TaskState>()(
 
       resetForNewDay: () => {
         const today = getLocalDateString();
-        const { lastResetDate } = get();
+        const { lastResetDate, tasks } = get();
 
         if (today !== lastResetDate) {
+          // Identify tasks to sync before mutating state
+          const completedOneTimeIds = tasks
+            .filter((t) => t.isCompleted && !t.isDaily)
+            .map((t) => t.id);
+          const dailyTaskIds = tasks
+            .filter((t) => t.isDaily)
+            .map((t) => t.id);
+
           set((state) => ({
             lastResetDate: today,
             tasks: state.tasks
-              // Remove completed one-time tasks
               .filter((t) => !(t.isCompleted && !t.isDaily))
-              // Reset daily tasks
               .map((t) =>
                 t.isDaily ? { ...t, isCompleted: false, completedAt: null } : t
               ),
           }));
+
+          // Fire-and-forget sync
+          getCurrentUserId().then((uid) => {
+            if (uid) pushTasksResetForNewDay(uid, completedOneTimeIds, dailyTaskIds);
+          });
+        }
+      },
+
+      // Pull tasks from Supabase and merge (Supabase wins)
+      syncTasksFromSupabase: async () => {
+        try {
+          const uid = await getCurrentUserId();
+          if (!uid) return;
+          const remoteTasks = await pullUserTasks(uid);
+          if (remoteTasks.length > 0) {
+            set({ tasks: remoteTasks });
+          }
+        } catch (err) {
+          console.error('[TaskStore] syncTasksFromSupabase error:', err);
         }
       },
     }),

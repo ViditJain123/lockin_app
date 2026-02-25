@@ -265,7 +265,7 @@ export async function fetchDailyActivity(
 
   data.forEach((grind) => {
     // Extract just the date part (YYYY-MM-DD)
-    const date = new Date(grind.created_at).toISOString().split('T')[0];
+    const date = getLocalDateString(new Date(grind.created_at));
     const durationMinutes = (grind.duration_ms || 0) / (1000 * 60);
 
     const existing = activityMap.get(date) || 0;
