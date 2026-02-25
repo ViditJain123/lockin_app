@@ -2,13 +2,16 @@ import Button3D from '@/components/Button3D';
 import { Fonts } from '@/constants/Fonts';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
 import { useEarnedTimeStore } from '@/store/useEarnedTimeStore';
+import { useRecordingStore } from '@/store/useRecordingStore';
+import { useTaskStore } from '@/store/useTaskStore';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   Dimensions,
   ImageBackground,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -40,15 +43,34 @@ function formatCompactDuration(totalSeconds: number): string {
 }
 
 export default function GrindCompleteScreen() {
-  const { videoUri, grindDurationSeconds } = useLocalSearchParams<{
+  const { videoUri, grindDurationSeconds, activeTaskId } = useLocalSearchParams<{
     videoUri: string;
     grindDurationSeconds: string;
+    activeTaskId?: string;
   }>();
 
   const insets = useSafeAreaInsets();
   const userName = useOnboardingStore((s) => s.quizAnswers.name) || 'champ';
   const targetHours = useOnboardingStore((s) => s.quizAnswers.targetHours) || 4;
   const grindDuration = grindDurationSeconds ? parseInt(grindDurationSeconds, 10) : 0;
+
+  // Task completion
+  const toggleTask = useTaskStore((s) => s.toggleTask);
+  const clearActiveTaskId = useRecordingStore((s) => s.clearActiveTaskId);
+  const activeTask = useTaskStore((s) =>
+    activeTaskId ? s.tasks.find((t) => t.id === activeTaskId) : undefined
+  );
+
+  const handleTaskComplete = useCallback(() => {
+    if (activeTaskId) {
+      toggleTask(activeTaskId);
+      clearActiveTaskId();
+    }
+  }, [activeTaskId, toggleTask, clearActiveTaskId]);
+
+  const handleTaskNotYet = useCallback(() => {
+    clearActiveTaskId();
+  }, [clearActiveTaskId]);
 
   const totalGrindToday = useEarnedTimeStore((s) => s.totalGrindSecondsToday);
   const targetReached = totalGrindToday >= targetHours * 3600;
@@ -125,6 +147,30 @@ export default function GrindCompleteScreen() {
                 {formatCompactDuration(totalGrindToday)} / {targetHours}hr daily target
               </Animated.Text>
             )}
+
+            {/* Task completion prompt */}
+            {activeTask && !activeTask.isCompleted && (
+              <Animated.View
+                entering={FadeInUp.duration(600).delay(1300)}
+                style={styles.taskPromptContainer}
+              >
+                <Text style={styles.taskPromptText}>
+                  Did you complete <Text style={styles.taskPromptBold}>{activeTask.title}</Text>?
+                </Text>
+                <View style={styles.taskPromptButtons}>
+                  <View style={styles.taskCompleteButton}>
+                    <Button3D title="Yes, completed" onPress={handleTaskComplete} />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.taskNotYetButton}
+                    onPress={handleTaskNotYet}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.taskNotYetText}>Not yet</Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            )}
           </View>
         </View>
 
@@ -194,5 +240,38 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     paddingHorizontal: 32,
+  },
+  taskPromptContainer: {
+    marginTop: 28,
+    alignItems: 'center',
+    width: '100%',
+  },
+  taskPromptText: {
+    fontSize: 16,
+    fontFamily: Fonts.medium,
+    color: 'rgba(255, 255, 255, 0.85)',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  taskPromptBold: {
+    fontFamily: Fonts.interBold,
+    color: '#FFFFFF',
+  },
+  taskPromptButtons: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  taskCompleteButton: {
+    width: '100%',
+  },
+  taskNotYetButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  taskNotYetText: {
+    fontSize: 15,
+    fontFamily: Fonts.medium,
+    color: 'rgba(255, 255, 255, 0.5)',
   },
 });

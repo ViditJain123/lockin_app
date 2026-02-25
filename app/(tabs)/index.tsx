@@ -7,8 +7,9 @@ import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { setTorch, turnOffTorch } from '@/modules/TorchController';
-import { TimerFilterType, useRecordingError, useRecordingStore, useTimerFilter, useTimerPosition, useTimerScale } from '@/store/useRecordingStore';
+import { TimerFilterType, useRecordingError, useRecordingStore, useTimerFilter, useTimerPosition, useTimerScale, useActiveTaskId } from '@/store/useRecordingStore';
 import { useRemainingTimeMinutes } from '@/store/useEarnedTimeStore';
+import { useTaskStore } from '@/store/useTaskStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -68,6 +69,12 @@ export default function CameraScreen() {
 
   // Earned screen time
   const remainingTimeMinutes = useRemainingTimeMinutes();
+
+  // Active task from Tasks tab
+  const activeTaskId = useActiveTaskId();
+  const activeTask = useTaskStore((s) =>
+    s.tasks.find((t) => t.id === activeTaskId)
+  );
 
   // Keep screen awake and dim brightness during recording
   useScreenWakeLock(isRecording);
@@ -160,6 +167,7 @@ export default function CameraScreen() {
           params: {
             videoUri: result.uri,
             grindDurationSeconds: String(grindDuration),
+            ...(activeTaskId ? { activeTaskId } : {}),
           },
         } as any);
       } else {
@@ -366,6 +374,14 @@ export default function CameraScreen() {
               {formatDuration(durationSeconds)}
             </Text>
           </View>
+          {activeTask && (
+            <View style={styles.activeTaskPill}>
+              <Ionicons name="checkbox-outline" size={13} color="#FF3B5C" />
+              <Text style={styles.activeTaskText} numberOfLines={1}>
+                {activeTask.title}
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -501,5 +517,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Fonts.medium,
     marginLeft: 4,
+  },
+  activeTaskPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginTop: 6,
+    gap: 6,
+    maxWidth: 220,
+  },
+  activeTaskText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontFamily: Fonts.medium,
+    flexShrink: 1,
   },
 });

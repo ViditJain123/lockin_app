@@ -43,6 +43,9 @@ interface RecordingState {
   // Device orientation
   deviceOrientation: DeviceOrientation;
 
+  // Active task (linked from Tasks tab)
+  activeTaskId: string | null;
+
   // Result
   lastResult: TimelapseResult | null;
   lastError: TimelapseError | null;
@@ -56,6 +59,8 @@ interface RecordingState {
   setTimerFilter: (filter: TimerFilterType) => void;
   setTimerScale: (scale: number) => void;
   setDeviceOrientation: (orientation: DeviceOrientation) => void;
+  setActiveTaskId: (id: string) => void;
+  clearActiveTaskId: () => void;
 
   // Internal actions
   _setRecordingState: (state: Partial<RecordingState>) => void;
@@ -135,6 +140,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
     timerFilter: 'minimal', // Default filter type
     timerScale: 1.0, // Default scale (min 1.0, max 2.5)
     deviceOrientation: 'portrait',
+    activeTaskId: null,
     lastResult: null,
     lastError: null,
 
@@ -268,6 +274,16 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
       set({ deviceOrientation: orientation });
     },
 
+    // Set active task for the current recording session
+    setActiveTaskId: (id: string) => {
+      set({ activeTaskId: id });
+    },
+
+    // Clear active task
+    clearActiveTaskId: () => {
+      set({ activeTaskId: null });
+    },
+
     // Internal: Update state
     _setRecordingState: (newState) => {
       set(newState);
@@ -309,3 +325,4 @@ export const useTimerPosition = () => useRecordingStore((s) => s.timerPosition);
 export const useTimerFilter = () => useRecordingStore((s) => s.timerFilter);
 export const useTimerScale = () => useRecordingStore((s) => s.timerScale);
 export const useDeviceOrientation = () => useRecordingStore((s) => s.deviceOrientation);
+export const useActiveTaskId = () => useRecordingStore((s) => s.activeTaskId);

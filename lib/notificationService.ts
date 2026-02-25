@@ -240,6 +240,36 @@ export async function scheduleDevReengagementNotifications(): Promise<void> {
 }
 
 /**
+ * Schedule a daily 6am reminder to plan tasks
+ */
+export async function scheduleDailyTaskReminder(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('daily-tasks-reminder');
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'daily-tasks-reminder',
+    content: {
+      title: 'Plan your day',
+      body: 'Set your tasks and lock in',
+      sound: 'default',
+      ...(Platform.OS === 'android' && { channelId: 'daily-reminders' }),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: 6,
+      minute: 0,
+    },
+  });
+  console.log('[Notifications] Scheduled daily 6am task reminder');
+}
+
+/**
+ * Cancel the daily task reminder
+ */
+export async function cancelDailyTaskReminder(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('daily-tasks-reminder');
+  console.log('[Notifications] Cancelled daily task reminder');
+}
+
+/**
  * Get all scheduled notifications (for debugging)
  */
 export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {

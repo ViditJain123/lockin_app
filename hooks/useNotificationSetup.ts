@@ -15,6 +15,7 @@ import { NOTIFICATION_DEV_MODE_ENABLED } from '../lib/config';
 import {
   initializeNotifications,
   requestNotificationPermission,
+  scheduleDailyTaskReminder,
   scheduleDevReengagementNotifications,
 } from '../lib/notificationService';
 import { useNotificationStore } from '../store/useNotificationStore';
@@ -48,6 +49,9 @@ export function useNotificationSetup() {
         console.log('[NotificationSetup] Permission not granted - notifications disabled');
         return;
       }
+
+      // Schedule daily 6am task planning reminder
+      await scheduleDailyTaskReminder();
 
       if (NOTIFICATION_DEV_MODE_ENABLED) {
         // Dev mode: schedule test notifications on launch
