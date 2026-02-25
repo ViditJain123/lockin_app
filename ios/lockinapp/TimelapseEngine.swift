@@ -161,67 +161,79 @@ class TimelapseEngine: RCTEventEmitter {
 
             self.state = .finalizing
 
-            // Stop capture
-            self.sessionManager?.stopCapture()
-
-            // Check for nil encoder - reject promise if encoder doesn't exist
-            guard let encoder = self.encoder else {
-                print("[TimelapseEngine] Encoder is nil, cannot finalize")
-                self.state = .error
-                self.isFinalizationInProgress = false
-                rejecter("ENCODER_NIL", "Encoder was not initialized", nil)
-                self.cleanup()
-                return
-            }
-
-            // Finalize encoder
-            encoder.finalize { [weak self] result in
+            // Stop capture first, then finalize inside the completion handler
+            // This guarantees no more frames arrive after stopRunning() returns
+            self.sessionManager?.stopCapture { [weak self] in
                 guard let self = self else { return }
 
-                // Reset finalization flag
-                self.stateQueue.async {
-                    self.isFinalizationInProgress = false
+                // Check for nil encoder - reject promise if encoder doesn't exist
+                guard let encoder = self.encoder else {
+                    print("[TimelapseEngine] Encoder is nil, cannot finalize")
+                    self.stateQueue.async {
+                        self.state = .error
+                        self.isFinalizationInProgress = false
+                    }
+                    rejecter("ENCODER_NIL", "Encoder was not initialized", nil)
+                    self.cleanup()
+                    return
                 }
 
-                switch result {
-                case .success(let outputURL):
-                    if self.saveToGallery {
-                        self.photoLibraryManager?.saveToGallery(outputURL) { saveResult in
-                            switch saveResult {
-                            case .success(let assetId):
-                                self.state = .idle
-                                let response: [String: Any] = [
-                                    "uri": outputURL.absoluteString,
-                                    "assetId": assetId,
-                                    "frameCount": self.frameCount,
-                                    "durationSeconds": self.getRecordingDuration()
-                                ]
-                                self.sendEvent(withName: "onTimelapseComplete", body: response)
-                                resolver(response)
-                                self.cleanup()
+                // Finalize encoder — safe now that capture has stopped
+                encoder.finalize { [weak self] result in
+                    guard let self = self else { return }
 
-                            case .failure(let error):
-                                self.state = .error
-                                rejecter("GALLERY_SAVE_FAILED", error.localizedDescription, error)
-                                self.cleanup()
+                    switch result {
+                    case .success(let outputURL):
+                        if self.saveToGallery {
+                            self.photoLibraryManager?.saveToGallery(outputURL) { saveResult in
+                                switch saveResult {
+                                case .success(let assetId):
+                                    self.stateQueue.async {
+                                        self.state = .idle
+                                        self.isFinalizationInProgress = false
+                                    }
+                                    let response: [String: Any] = [
+                                        "uri": outputURL.absoluteString,
+                                        "assetId": assetId,
+                                        "frameCount": self.frameCount,
+                                        "durationSeconds": self.getRecordingDuration()
+                                    ]
+                                    self.sendEvent(withName: "onTimelapseComplete", body: response)
+                                    resolver(response)
+                                    self.cleanup()
+
+                                case .failure(let error):
+                                    self.stateQueue.async {
+                                        self.state = .error
+                                        self.isFinalizationInProgress = false
+                                    }
+                                    rejecter("GALLERY_SAVE_FAILED", error.localizedDescription, error)
+                                    self.cleanup()
+                                }
                             }
+                        } else {
+                            self.stateQueue.async {
+                                self.state = .idle
+                                self.isFinalizationInProgress = false
+                            }
+                            let response: [String: Any] = [
+                                "uri": outputURL.absoluteString,
+                                "frameCount": self.frameCount,
+                                "durationSeconds": self.getRecordingDuration()
+                            ]
+                            self.sendEvent(withName: "onTimelapseComplete", body: response)
+                            resolver(response)
+                            self.cleanup()
                         }
-                    } else {
-                        self.state = .idle
-                        let response: [String: Any] = [
-                            "uri": outputURL.absoluteString,
-                            "frameCount": self.frameCount,
-                            "durationSeconds": self.getRecordingDuration()
-                        ]
-                        self.sendEvent(withName: "onTimelapseComplete", body: response)
-                        resolver(response)
+
+                    case .failure(let error):
+                        self.stateQueue.async {
+                            self.state = .error
+                            self.isFinalizationInProgress = false
+                        }
+                        rejecter("FINALIZE_FAILED", error.localizedDescription, error)
                         self.cleanup()
                     }
-
-                case .failure(let error):
-                    self.state = .error
-                    rejecter("FINALIZE_FAILED", error.localizedDescription, error)
-                    self.cleanup()
                 }
             }
         }
@@ -508,9 +520,6 @@ class TimelapseEngine: RCTEventEmitter {
         // Reset frame buffer
         frameBuffer.removeAll()
         isBufferingPhase = true
-
-        // Reset finalization flag
-        isFinalizationInProgress = false
     }
 }
 
@@ -531,13 +540,28 @@ extension TimelapseEngine: TimelapseStabilityManagerDelegate {
     func stabilityManager(_ manager: TimelapseStabilityManager, shouldStopDueToError error: Error) {
         stateQueue.async { [weak self] in
             guard let self = self, self.state == .recording else { return }
-            
-            self.state = .error
+
+            // Prevent race with user-initiated stop or background handler
+            guard !self.isFinalizationInProgress else {
+                print("[TimelapseEngine] Stability stop but finalization already in progress")
+                return
+            }
+            self.isFinalizationInProgress = true
+
+            self.state = .finalizing
             self.emitError("Recording stopped due to system error: \(error.localizedDescription)")
-            
-            // Attempt to save partial recording
-            self.encoder?.finalize { _ in
-                self.cleanup()
+
+            // Stop capture first, then attempt to save partial recording
+            self.sessionManager?.stopCapture { [weak self] in
+                guard let self = self else { return }
+
+                self.encoder?.finalize { [weak self] _ in
+                    guard let self = self else { return }
+                    self.stateQueue.async {
+                        self.isFinalizationInProgress = false
+                    }
+                    self.cleanup()
+                }
             }
         }
     }
@@ -561,27 +585,33 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
 
             // Force finalize
             self.state = .finalizing
-            self.sessionManager?.stopCapture()
 
-            // Check for nil encoder
-            guard let encoder = self.encoder else {
-                print("[TimelapseEngine] Encoder is nil during background expiry")
-                self.isFinalizationInProgress = false
-                self.cleanup()
-                return
-            }
+            self.sessionManager?.stopCapture { [weak self] in
+                guard let self = self else { return }
 
-            encoder.finalize { [weak self] result in
-                self?.stateQueue.async {
-                    self?.isFinalizationInProgress = false
-                }
-                switch result {
-                case .success(let url):
-                    self?.photoLibraryManager?.saveToGallery(url) { _ in
-                        self?.cleanup()
+                // Check for nil encoder
+                guard let encoder = self.encoder else {
+                    print("[TimelapseEngine] Encoder is nil during background expiry")
+                    self.stateQueue.async {
+                        self.isFinalizationInProgress = false
                     }
-                case .failure:
-                    self?.cleanup()
+                    self.cleanup()
+                    return
+                }
+
+                encoder.finalize { [weak self] result in
+                    guard let self = self else { return }
+                    self.stateQueue.async {
+                        self.isFinalizationInProgress = false
+                    }
+                    switch result {
+                    case .success(let url):
+                        self.photoLibraryManager?.saveToGallery(url) { _ in
+                            self.cleanup()
+                        }
+                    case .failure:
+                        self.cleanup()
+                    }
                 }
             }
         }

@@ -14,8 +14,8 @@ import { useBadgeStore } from '@/store/useBadgeStore';
 import { useEarnedTimeStore } from '@/store/useEarnedTimeStore';
 import { useHeatmapStore } from '@/store/useHeatmapStore';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
+import { useGrindsStore } from '@/store/useGrindsStore';
 import { useProfileStore } from '@/store/useProfileStore';
-import { useVideoStore } from '@/store/useVideoStore';
 
 export type AnalyticsTab = 'daily' | 'weekly' | 'monthly';
 
@@ -98,7 +98,7 @@ function formatHoursDecimal(hours: number): string {
 
 export function useAnalyticsData(tab: AnalyticsTab, selectedDate: Date): AnalyticsData {
   const activityByDate = useHeatmapStore((s) => s.activityByDate);
-  const videos = useVideoStore((s) => s.videos);
+  const grinds = useGrindsStore((s) => s.grinds);
   const { currentStreak } = useProfileStore();
   const { earnedTimeToday, totalGrindSecondsToday } = useEarnedTimeStore();
   const { quizAnswers } = useOnboardingStore();
@@ -159,18 +159,18 @@ export function useAnalyticsData(tab: AnalyticsTab, selectedDate: Date): Analyti
       totalMinutes += activityByDate[ds] || 0;
     }
 
-    // Filter videos in this period
-    const periodVideos = videos.filter((v) => {
-      const videoDate = getLocalDateString(new Date(v.createdAt));
-      return dateStrings.includes(videoDate);
+    // Filter grinds in this period
+    const periodGrinds = grinds.filter((g) => {
+      const grindDate = getLocalDateString(new Date(g.createdAt));
+      return dateStrings.includes(grindDate);
     });
 
-    const sessionCount = periodVideos.length;
-    const longestSessionMinutes = periodVideos.length > 0
-      ? Math.max(...periodVideos.map((v) => v.durationSeconds / 60))
+    const sessionCount = periodGrinds.length;
+    const longestSessionMinutes = periodGrinds.length > 0
+      ? Math.max(...periodGrinds.map((g) => g.durationSeconds / 60))
       : 0;
     const avgSessionMinutes = sessionCount > 0
-      ? periodVideos.reduce((sum, v) => sum + v.durationSeconds / 60, 0) / sessionCount
+      ? periodGrinds.reduce((sum, g) => sum + g.durationSeconds / 60, 0) / sessionCount
       : 0;
 
     // Earned screen time
@@ -189,11 +189,10 @@ export function useAnalyticsData(tab: AnalyticsTab, selectedDate: Date): Analyti
     }));
 
     if (tab === 'daily') {
-      const dayVideos = periodVideos;
-      for (const v of dayVideos) {
-        const createdDate = new Date(v.createdAt);
+      for (const g of periodGrinds) {
+        const createdDate = new Date(g.createdAt);
         const hour = createdDate.getHours();
-        hourlyData[hour].minutes += v.durationSeconds / 60;
+        hourlyData[hour].minutes += g.durationSeconds / 60;
       }
     }
 
@@ -469,7 +468,7 @@ export function useAnalyticsData(tab: AnalyticsTab, selectedDate: Date): Analyti
     tab,
     selectedDate,
     activityByDate,
-    videos,
+    grinds,
     currentStreak,
     earnedTimeToday,
     totalGrindSecondsToday,

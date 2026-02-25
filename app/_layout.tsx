@@ -61,6 +61,8 @@ import { refreshHeatmapFromSupabase } from '../lib/heatmapMigration';
 import { migrateLocalDataToSupabase } from '../lib/dataMigration';
 import { useTaskStore } from '../store/useTaskStore';
 import { useBadgeStore } from '../store/useBadgeStore';
+import { useGrindsStore } from '../store/useGrindsStore';
+import { useVideoStore } from '../store/useVideoStore';
 import { getEvents, onDeviceActivityMonitorEvent } from 'react-native-device-activity';
 import { initializeDailyBlock, unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '../lib/blockingService';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
@@ -178,6 +180,9 @@ function RootLayoutNav() {
 
     const runSync = async () => {
       try {
+        // 0. Load videos from disk first (needed by migration + stats)
+        await useVideoStore.getState().loadVideos();
+
         // 1. One-time migration of existing local data to Supabase
         await migrateLocalDataToSupabase(userId);
 
@@ -186,11 +191,12 @@ function RootLayoutNav() {
           await useOnboardingStore.getState().loadProfileFromSupabase();
         }
 
-        // 3-5 run in parallel (independent)
+        // 3-6 run in parallel (independent)
         await Promise.all([
           useTaskStore.getState().syncTasksFromSupabase(),
           useBadgeStore.getState().loadBadgesFromSupabase(),
           refreshHeatmapFromSupabase(userId),
+          useGrindsStore.getState().syncFromSupabase(userId),
         ]);
       } catch (err) {
         console.error('[Layout] Sync error:', err);

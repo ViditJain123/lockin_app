@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { getLocalDateString, getLocalDateStringDaysAgo } from '../lib/dateUtils';
-import { DailyActivity } from '../lib/statsService';
+import { DailyActivity, fetchUserStats } from '../lib/statsService';
 import { useHeatmapStore } from './useHeatmapStore';
 import { useVideoStore } from './useVideoStore';
 
@@ -179,8 +179,23 @@ export const useProfileStore = create<ProfileState>()(
       fetchStats: async (userId: string) => {
         set({ isLoading: true, error: null });
 
-        // Compute stats from local data instead of Supabase
-        get().computeStatsFromLocalData();
+        try {
+          // Try fetching from Supabase user_stats table
+          const stats = await fetchUserStats(userId);
+          if (stats && (stats.totalHours > 0 || stats.totalGrinds > 0 || stats.currentStreak > 0)) {
+            set({
+              totalHours: stats.totalHours,
+              totalGrinds: stats.totalGrinds,
+              currentStreak: stats.currentStreak,
+            });
+          } else {
+            // Fallback: compute from local data
+            get().computeStatsFromLocalData();
+          }
+        } catch (error) {
+          console.warn('[ProfileStore] Supabase fetch failed, falling back to local:', error);
+          get().computeStatsFromLocalData();
+        }
 
         set({
           isLoading: false,

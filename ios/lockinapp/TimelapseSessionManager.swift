@@ -265,12 +265,13 @@ class TimelapseSessionManager: NSObject {
         }
     }
     
-    func stopCapture() {
+    func stopCapture(completion: (() -> Void)? = nil) {
         print("[TimelapseSessionManager] stopCapture() called")
         captureQueue.async { [weak self] in
             print("[TimelapseSessionManager] Stopping capture session...")
             self?.captureSession?.stopRunning()
             print("[TimelapseSessionManager] Capture session stopped")
+            completion?()
         }
     }
     

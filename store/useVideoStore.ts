@@ -3,7 +3,7 @@
  *
  * Zustand store for managing local video state.
  * Syncs with videoStorageService for persistence.
- * All data is stored locally - no Supabase sync.
+ * Also records sessions to Supabase (fire-and-forget).
  */
 
 import {
@@ -13,6 +13,8 @@ import {
     markVideoSavedToGallery,
     saveVideoToPrivateStorage,
 } from '@/lib/videoStorageService';
+import { recordSession } from '@/lib/sessionService';
+import { updateStatsAfterSave } from '@/lib/statsService';
 import { create } from 'zustand';
 import { useHeatmapStore } from './useHeatmapStore';
 import { useNotificationStore } from './useNotificationStore';
@@ -58,8 +60,8 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     }
   },
 
-  // Add a new video to local storage (no Supabase sync)
-  addVideo: async (sourceUri: string, durationSeconds: number, _userId?: string) => {
+  // Add a new video to local storage and sync to Supabase
+  addVideo: async (sourceUri: string, durationSeconds: number, userId?: string) => {
     // Don't save videos under 1 minute
     if (durationSeconds < MIN_VIDEO_DURATION_SECONDS) {
       console.log('[VideoStore] Video too short, not saving:', durationSeconds, 'seconds');
@@ -105,6 +107,24 @@ export const useVideoStore = create<VideoState>((set, get) => ({
           }
         }
       }
+
+      // Fire-and-forget: record session to Supabase + update local grinds cache
+      if (userId) {
+        recordSession(userId, durationSeconds * 1000).catch((e) =>
+          console.warn('[VideoStore] recordSession failed:', e)
+        );
+        updateStatsAfterSave(userId, durationSeconds).catch((e) =>
+          console.warn('[VideoStore] updateStatsAfterSave failed:', e)
+        );
+      }
+
+      // Update local grinds cache immediately (so analytics update without waiting for sync)
+      const { useGrindsStore } = require('./useGrindsStore');
+      useGrindsStore.getState().addGrindLocally({
+        id: video.id,
+        createdAt: video.createdAt,
+        durationSeconds,
+      });
 
       return video;
     } catch (error) {
