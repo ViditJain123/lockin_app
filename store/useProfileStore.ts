@@ -3,7 +3,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { getLocalDateString, getLocalDateStringDaysAgo } from '../lib/dateUtils';
-import { DailyActivity, fetchUserStats } from '../lib/statsService';
+import { DailyActivity } from '../lib/statsService';
+import { performFullPull } from '../lib/syncEngine';
 import { useHeatmapStore } from './useHeatmapStore';
 import { useVideoStore } from './useVideoStore';
 
@@ -89,6 +90,9 @@ interface ProfileState {
   addActivityLocally: (minutes: number) => void;
   resetStats: () => void;
   updateStatsLocally: (hours: number, grinds: number, streak: number) => void;
+
+  // Called by sync engine after conflict resolution (higher-value-wins)
+  updateFromRemote: (stats: { totalHours: number; totalGrinds: number; currentStreak: number }) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -158,9 +162,9 @@ export const useProfileStore = create<ProfileState>()(
         return age > STALE_THRESHOLD_MS;
       },
 
-      // Fetch only if data is stale or forceRefresh is true
+      // Fetch only if data is stale or forceRefresh is true — delegates to sync engine
       fetchIfStale: async (userId: string, forceRefresh = false) => {
-        const { isDataStale, fetchStats, fetchActivity, isLoading } = get();
+        const { isDataStale, isLoading } = get();
 
         // Don't fetch if already loading
         if (isLoading) {
@@ -169,39 +173,18 @@ export const useProfileStore = create<ProfileState>()(
 
         // Only fetch if stale or forced
         if (forceRefresh || isDataStale(userId)) {
-          await Promise.all([
-            fetchStats(userId),
-            fetchActivity(userId),
-          ]);
+          set({ isLoading: true });
+          try {
+            await performFullPull(userId);
+          } finally {
+            set({ isLoading: false });
+          }
         }
       },
 
       fetchStats: async (userId: string) => {
-        set({ isLoading: true, error: null });
-
-        try {
-          // Try fetching from Supabase user_stats table
-          const stats = await fetchUserStats(userId);
-          if (stats && (stats.totalHours > 0 || stats.totalGrinds > 0 || stats.currentStreak > 0)) {
-            set({
-              totalHours: stats.totalHours,
-              totalGrinds: stats.totalGrinds,
-              currentStreak: stats.currentStreak,
-            });
-          } else {
-            // Fallback: compute from local data
-            get().computeStatsFromLocalData();
-          }
-        } catch (error) {
-          console.warn('[ProfileStore] Supabase fetch failed, falling back to local:', error);
-          get().computeStatsFromLocalData();
-        }
-
-        set({
-          isLoading: false,
-          lastFetchedAt: Date.now(),
-          lastFetchedUserId: userId,
-        });
+        // Delegate to sync engine via fetchIfStale
+        await get().fetchIfStale(userId, true);
       },
 
       fetchActivity: async (_userId: string) => {
@@ -218,11 +201,15 @@ export const useProfileStore = create<ProfileState>()(
 
       // Refresh all profile data (stats and activity) - used for pull-to-refresh
       refreshAll: async (userId: string) => {
-        const { fetchStats, fetchActivity } = get();
-        await Promise.all([
-          fetchStats(userId),
-          fetchActivity(userId),
-        ]);
+        set({ isLoading: true });
+        try {
+          await performFullPull(userId);
+          // Also refresh activity from local heatmap after pull
+          const activity = useHeatmapStore.getState().getDailyActivity();
+          set({ dailyActivity: activity });
+        } finally {
+          set({ isLoading: false });
+        }
       },
 
       resetStats: () => {
@@ -276,6 +263,16 @@ export const useProfileStore = create<ProfileState>()(
             dailyActivity: [...state.dailyActivity, { date: today, totalMinutes: minutes }],
             lastFetchedAt: Date.now(), // Mark as fresh since we just updated
           };
+        });
+      },
+
+      // Called by sync engine with resolved (higher-value-wins) stats
+      updateFromRemote: (stats) => {
+        set({
+          totalHours: stats.totalHours,
+          totalGrinds: stats.totalGrinds,
+          currentStreak: stats.currentStreak,
+          lastFetchedAt: Date.now(),
         });
       },
     }),

@@ -13,8 +13,7 @@ import {
     markVideoSavedToGallery,
     saveVideoToPrivateStorage,
 } from '@/lib/videoStorageService';
-import { recordSession } from '@/lib/sessionService';
-import { updateStatsAfterSave } from '@/lib/statsService';
+import { enqueueChange } from '@/lib/syncEngine';
 import { create } from 'zustand';
 import { useHeatmapStore } from './useHeatmapStore';
 import { useNotificationStore } from './useNotificationStore';
@@ -108,14 +107,11 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         }
       }
 
-      // Fire-and-forget: record session to Supabase + update local grinds cache
+      // Enqueue grind record via sync engine (handles both recordSession + updateStats)
       if (userId) {
-        recordSession(userId, durationSeconds * 1000).catch((e) =>
-          console.warn('[VideoStore] recordSession failed:', e)
-        );
-        updateStatsAfterSave(userId, durationSeconds).catch((e) =>
-          console.warn('[VideoStore] updateStatsAfterSave failed:', e)
-        );
+        enqueueChange('GRIND_RECORD', video.id, {
+          durationMs: durationSeconds * 1000,
+        });
       }
 
       // Update local grinds cache immediately (so analytics update without waiting for sync)

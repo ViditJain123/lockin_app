@@ -2,14 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ONBOARDING_DEV_MODE } from '../lib/config';
-import { pushUserProfile, pullUserProfile } from '../lib/syncService';
-import { supabase } from '../lib/supabase';
+import { enqueueChange } from '../lib/syncEngine';
 
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
-export const TOTAL_QUIZ_QUESTIONS = 22;
+export const TOTAL_QUIZ_QUESTIONS = 23;
 
 // Interface for sleep time
 export interface SleepTime {
@@ -47,6 +46,9 @@ interface OnboardingState {
   currentQuestionIndex: number;
   quizAnswers: QuizAnswers;
 
+  // Timestamp for conflict resolution
+  localUpdatedAt: number;
+
   // Actions
   setHasHydrated: (state: boolean) => void;
   shouldShowOnboarding: () => boolean;
@@ -62,9 +64,8 @@ interface OnboardingState {
   completeQuizFunnel: () => void;
   exitQuizFunnel: () => void;
 
-  // Sync actions
-  syncProfileToSupabase: () => Promise<void>;
-  loadProfileFromSupabase: () => Promise<boolean>;
+  // Called by sync engine after conflict resolution
+  updateFromRemote: (profile: QuizAnswers, hasCompleted: boolean) => void;
 }
 
 const initialQuizAnswers: QuizAnswers = {
@@ -92,6 +93,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       currentQuestionIndex: 0,
       quizAnswers: initialQuizAnswers,
 
+      // Conflict resolution timestamp
+      localUpdatedAt: 0,
+
       setHasHydrated: (state: boolean) => {
         set({ _hasHydrated: state });
       },
@@ -117,7 +121,7 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       // Mark onboarding as completed
       completeOnboarding: () => {
-        set({ 
+        set({
           hasCompletedOnboarding: true,
           isInQuizFunnel: false,
           currentQuestionIndex: 0,
@@ -131,17 +135,18 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       // Reset for testing/debugging
       resetOnboarding: () => {
-        set({ 
+        set({
           hasCompletedOnboarding: false,
           isInQuizFunnel: false,
           currentQuestionIndex: 0,
           quizAnswers: initialQuizAnswers,
+          localUpdatedAt: 0,
         });
       },
 
       // Start the quiz funnel
       startQuizFunnel: () => {
-        set({ 
+        set({
           isInQuizFunnel: true,
           currentQuestionIndex: 0,
           quizAnswers: initialQuizAnswers,
@@ -179,15 +184,17 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       // Complete the quiz funnel
       completeQuizFunnel: () => {
+        const now = Date.now();
         set({
           hasCompletedOnboarding: true,
           isInQuizFunnel: false,
           currentQuestionIndex: 0,
           showOnboardingAlways: false, // Ensure debug flag is off
+          localUpdatedAt: now,
         });
 
-        // Fire-and-forget sync to Supabase
-        get().syncProfileToSupabase();
+        // Enqueue profile push via sync engine
+        enqueueChange('PROFILE_UPDATE', 'profile', get().quizAnswers);
       },
 
       // Exit quiz funnel without completing
@@ -199,37 +206,12 @@ export const useOnboardingStore = create<OnboardingState>()(
         });
       },
 
-      // Push current profile to Supabase
-      syncProfileToSupabase: async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.user?.id) return;
-          const { quizAnswers } = get();
-          await pushUserProfile(session.user.id, quizAnswers);
-        } catch (err) {
-          console.error('[OnboardingStore] syncProfileToSupabase error:', err);
-        }
-      },
-
-      // Pull profile from Supabase (for new-device login)
-      // Returns true if a remote profile was found and loaded
-      loadProfileFromSupabase: async (): Promise<boolean> => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.user?.id) return false;
-          const profile = await pullUserProfile(session.user.id);
-          if (profile) {
-            set({
-              quizAnswers: profile,
-              hasCompletedOnboarding: true,
-            });
-            return true;
-          }
-          return false;
-        } catch (err) {
-          console.error('[OnboardingStore] loadProfileFromSupabase error:', err);
-          return false;
-        }
+      // Called by sync engine — sets resolved profile data
+      updateFromRemote: (profile: QuizAnswers, hasCompleted: boolean) => {
+        set({
+          quizAnswers: profile,
+          hasCompletedOnboarding: hasCompleted,
+        });
       },
     }),
     {
@@ -239,6 +221,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         showOnboardingAlways: state.showOnboardingAlways,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         quizAnswers: state.quizAnswers,
+        localUpdatedAt: state.localUpdatedAt,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

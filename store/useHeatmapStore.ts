@@ -23,8 +23,10 @@ interface HeatmapState {
   setHasHydrated: (state: boolean) => void;
   addMinutes: (minutes: number, date?: Date) => void;
   getDailyActivity: () => DailyActivity[];
-  importFromSupabase: (data: DailyActivity[]) => void;
   clearActivity: () => void;
+
+  // Called by sync engine after conflict resolution (max-per-date merge)
+  updateFromRemote: (activityByDate: Record<string, number>) => void;
 }
 
 export const useHeatmapStore = create<HeatmapState>()(
@@ -63,13 +65,9 @@ export const useHeatmapStore = create<HeatmapState>()(
       },
 
       /**
-       * Import existing data from Supabase (one-time migration)
+       * Called by sync engine with resolved (max-per-date) heatmap data
        */
-      importFromSupabase: (data: DailyActivity[]) => {
-        const activityByDate: Record<string, number> = {};
-        data.forEach((item) => {
-          activityByDate[item.date] = item.totalMinutes;
-        });
+      updateFromRemote: (activityByDate: Record<string, number>) => {
         set({ activityByDate });
       },
 

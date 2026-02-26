@@ -16,7 +16,8 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
@@ -51,17 +52,15 @@ import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
 import HowItWorksScreen from '../components/quiz/questions/HowItWorksScreen';
+import NotificationPermissionScreen from '../components/quiz/questions/NotificationPermissionScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
-import { refreshHeatmapFromSupabase } from '../lib/heatmapMigration';
 import { migrateLocalDataToSupabase } from '../lib/dataMigration';
-import { useTaskStore } from '../store/useTaskStore';
-import { useBadgeStore } from '../store/useBadgeStore';
-import { useGrindsStore } from '../store/useGrindsStore';
+import { initializeSyncEngine, teardownSyncEngine, performFullPull, flushPendingQueue } from '../lib/syncEngine';
 import { useVideoStore } from '../store/useVideoStore';
 import { getEvents, onDeviceActivityMonitorEvent } from 'react-native-device-activity';
 import { initializeDailyBlock, unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '../lib/blockingService';
@@ -166,6 +165,29 @@ function RootLayoutNav() {
   // Initialize notification system
   useNotificationSetup();
 
+  // Handle emergency-access notifications when app is in foreground
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
+      const userInfo = notification.request.content.data;
+      if (userInfo?.screen === 'emergency-access') {
+        router.push('/emergency-access');
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // Handle emergency-access notification tap on cold start
+  useEffect(() => {
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        const userInfo = response.notification.request.content.data;
+        if (userInfo?.screen === 'emergency-access') {
+          router.push('/emergency-access');
+        }
+      }
+    });
+  }, []);
+
   // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {
     // Force dark mode at the React Native level
@@ -173,37 +195,38 @@ function RootLayoutNav() {
     setBackgroundColorAsync('#000000');
   }, [colorScheme]);
 
-  // Sync user data from Supabase on app launch (after auth)
+  // Sync user data via sync engine on app launch (after auth)
   useEffect(() => {
     if (!session?.user?.id) return;
     const userId = session.user.id;
 
     const runSync = async () => {
       try {
-        // 0. Load videos from disk first (needed by migration + stats)
+        // 1. Load videos from disk first (local files, unchanged)
         await useVideoStore.getState().loadVideos();
 
-        // 1. One-time migration of existing local data to Supabase
+        // 2. One-time migration of existing local data to Supabase (idempotent)
         await migrateLocalDataToSupabase(userId);
 
-        // 2. Pull profile (if exists remotely but not locally, load it)
-        if (!hasCompletedOnboarding) {
-          await useOnboardingStore.getState().loadProfileFromSupabase();
-        }
+        // 3. Initialize sync engine (NetInfo + AppState listeners)
+        initializeSyncEngine();
 
-        // 3-6 run in parallel (independent)
-        await Promise.all([
-          useTaskStore.getState().syncTasksFromSupabase(),
-          useBadgeStore.getState().loadBadgesFromSupabase(),
-          refreshHeatmapFromSupabase(userId),
-          useGrindsStore.getState().syncFromSupabase(userId),
-        ]);
+        // 4. Full pull from Supabase with conflict resolution
+        await performFullPull(userId);
+
+        // 5. Flush any pending offline changes
+        await flushPendingQueue(userId);
       } catch (err) {
         console.error('[Layout] Sync error:', err);
       }
     };
 
     runSync();
+
+    // Cleanup sync engine on unmount
+    return () => {
+      teardownSyncEngine();
+    };
   }, [session?.user?.id]);
 
   // Check for app updates on launch and when app comes to foreground
@@ -541,22 +564,29 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 21: Login Screen */}
+          {/* Question 21: Notification Permission */}
           {currentQuestionIndex === 19 && (
+            <NotificationPermissionScreen
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 22: Login Screen */}
+          {currentQuestionIndex === 20 && (
             <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 22: Payment Screen */}
-          {currentQuestionIndex === 20 && (
+          {/* Question 23: Payment Screen */}
+          {currentQuestionIndex === 21 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 23: Payment Success Screen */}
-          {currentQuestionIndex === 21 && (
+          {/* Question 24: Payment Success Screen */}
+          {currentQuestionIndex === 22 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
               onContinue={completeQuizFunnel}

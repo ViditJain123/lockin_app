@@ -58,21 +58,19 @@ class TimelapsePreviewView: UIView {
     func updateSession() {
         // Get the shared session from TimelapseSessionManager
         if let session = TimelapseSessionManager.sharedSession {
-            let orientation = TimelapseSessionManager.currentOrientation
-            print("[TimelapsePreviewView] Connecting to shared capture session with orientation: \(orientation.rawValue)")
+            print("[TimelapsePreviewView] Connecting to shared capture session")
             previewLayer?.session = session
 
-            // Configure the connection to match the recording orientation
+            // Always use portrait orientation for preview since the app UI is portrait-locked.
+            // The recording orientation is handled separately by the video data output connection.
             if let connection = previewLayer?.connection {
-                let angle = orientation.videoRotationAngle
                 if #available(iOS 17.0, *) {
-                    if connection.isVideoRotationAngleSupported(angle) {
-                        connection.videoRotationAngle = angle
-                        print("[TimelapsePreviewView] Set preview rotation angle to \(angle)")
+                    if connection.isVideoRotationAngleSupported(90) {
+                        connection.videoRotationAngle = 90
                     }
                 } else {
                     if connection.isVideoOrientationSupported {
-                        connection.videoOrientation = orientation.avVideoOrientation
+                        connection.videoOrientation = .portrait
                     }
                 }
             }

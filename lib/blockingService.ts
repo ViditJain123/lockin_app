@@ -23,7 +23,10 @@ import {
   isAvailable,
   getAuthorizationStatus,
   AuthorizationStatus,
+  copyFile,
+  getAppGroupFileDirectory,
 } from 'react-native-device-activity';
+import { Asset } from 'expo-asset';
 import { Platform } from 'react-native';
 
 // Activity names
@@ -75,17 +78,41 @@ function safeExecute(operation: () => void, operationName: string): boolean {
 }
 
 /**
+ * Copy the LockIn logo to the shared app group directory so the shield
+ * extension (separate process) can display it.
+ */
+async function ensureLogoInAppGroup(): Promise<void> {
+  try {
+    const asset = Asset.fromModule(require('../assets/images/logo-no-bg-cropped.png'));
+    await asset.downloadAsync();
+    const localUri = asset.localUri;
+    if (!localUri) {
+      console.warn('[BlockingService] Could not resolve logo local URI');
+      return;
+    }
+    const dest = getAppGroupFileDirectory() + '/shield-logo.png';
+    copyFile(localUri, dest, true);
+    console.log('[BlockingService] Logo copied to app group');
+  } catch (error) {
+    console.warn('[BlockingService] Failed to copy logo to app group:', error);
+  }
+}
+
+/**
  * Initialize daily blocking - block all selected apps at start of day
  *
  * @param familyActivitySelection - The user's saved app selection string
  */
-export function initializeDailyBlock(familyActivitySelection: string | null): void {
+export async function initializeDailyBlock(familyActivitySelection: string | null): Promise<void> {
   if (!isBlockingAvailable() || !familyActivitySelection) {
     console.log('[BlockingService] Skipping daily block - not available or no selection');
     return;
   }
 
   try {
+    // Copy logo to app group so the shield extension can display it
+    await ensureLogoInAppGroup();
+
     // Stop any existing monitoring
     stopMonitoring([EARNED_TIME_ACTIVITY]);
 
@@ -108,12 +135,11 @@ export function initializeDailyBlock(familyActivitySelection: string | null): vo
     updateShield(
       {
         backgroundColor: { red: 0, green: 0, blue: 0, alpha: 0.95 },
-        title: 'Time to Grind',
+        title: '{applicationOrDomainDisplayName} is Locked',
         titleColor: { red: 255, green: 255, blue: 255 },
-        subtitle: 'Record a timelapse to earn screen time',
+        subtitle: 'Record a timelapse to unlock\nOr tap "Need a Break?" to use an emergency pass',
         subtitleColor: { red: 180, green: 180, blue: 180 },
-        iconSystemName: 'hourglass',
-        iconTint: { red: 255, green: 59, blue: 92 },
+        iconAppGroupRelativePath: 'shield-logo.png',
         primaryButtonLabel: 'Open LockIn',
         primaryButtonLabelColor: { red: 255, green: 255, blue: 255 },
         primaryButtonBackgroundColor: { red: 255, green: 59, blue: 92 },
@@ -126,7 +152,20 @@ export function initializeDailyBlock(familyActivitySelection: string | null): vo
         },
         secondary: {
           behavior: 'close',
-          actions: [{ type: 'openUrl' as any, url: 'lockinapp://emergency-access' }],
+          actions: [
+            {
+              type: 'sendNotification',
+              payload: {
+                title: 'Need a Break?',
+                body: 'Tap here to use your emergency pass',
+                sound: 'default',
+                interruptionLevel: 'active',
+                userInfo: { screen: 'emergency-access' },
+                identifier: 'emergency-access-prompt',
+              },
+            },
+            { type: 'openApp' },
+          ],
         },
       }
     );

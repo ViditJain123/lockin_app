@@ -74,7 +74,7 @@ export default function ShortTimelapseWarningModal({ visible, onClose }: ShortTi
 
           {/* Message */}
           <Text style={styles.message}>
-            This will not be considered as a grind. Shoot timelapse longer than 1 hour.
+            Timelapse must be at least 1 minute long. This recording was not saved.
           </Text>
 
           {/* Checkbox row */}

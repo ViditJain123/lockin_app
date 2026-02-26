@@ -3,8 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { BADGES, BadgeDefinition, getBadgeById } from '@/constants/Badges';
-import { pushNewBadges, pullUserBadges } from '../lib/syncService';
-import { supabase } from '../lib/supabase';
+import { enqueueChange } from '../lib/syncEngine';
 
 // Storage key
 const BADGE_STORAGE_KEY = 'lockin-badge-state';
@@ -41,9 +40,8 @@ interface BadgeState {
   getRecentlyEarnedBadges: (count: number) => BadgeDefinition[];
   resetBadges: () => void;
 
-  // Sync actions
-  syncBadgesToSupabase: (newBadges: EarnedBadge[]) => Promise<void>;
-  loadBadgesFromSupabase: () => Promise<void>;
+  // Called by sync engine after conflict resolution
+  updateFromRemote: (badges: EarnedBadge[]) => void;
 }
 
 export const useBadgeStore = create<BadgeState>()(
@@ -100,8 +98,8 @@ export const useBadgeStore = create<BadgeState>()(
             pendingNewBadges: [...state.pendingNewBadges, ...newlyEarned],
           }));
 
-          // Fire-and-forget sync to Supabase
-          get().syncBadgesToSupabase(newEarnedBadges);
+          // Enqueue badge push via sync engine
+          enqueueChange('BADGE_PUSH', `badges-${now}`, newEarnedBadges);
         }
 
         return newlyEarned;
@@ -161,38 +159,9 @@ export const useBadgeStore = create<BadgeState>()(
         });
       },
 
-      // Push newly earned badges to Supabase
-      syncBadgesToSupabase: async (newBadges: EarnedBadge[]) => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.user?.id) return;
-          await pushNewBadges(session.user.id, newBadges);
-        } catch (err) {
-          console.error('[BadgeStore] syncBadgesToSupabase error:', err);
-        }
-      },
-
-      // Pull badges from Supabase and merge (union of local + remote)
-      loadBadgesFromSupabase: async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.user?.id) return;
-          const remoteBadges = await pullUserBadges(session.user.id);
-          if (remoteBadges.length === 0) return;
-
-          const { earnedBadges } = get();
-          const localIds = new Set(earnedBadges.map((b) => b.badgeId));
-
-          // Add any remote badges we don't have locally
-          const newFromRemote = remoteBadges.filter((rb) => !localIds.has(rb.badgeId));
-          if (newFromRemote.length > 0) {
-            set((state) => ({
-              earnedBadges: [...state.earnedBadges, ...newFromRemote],
-            }));
-          }
-        } catch (err) {
-          console.error('[BadgeStore] loadBadgesFromSupabase error:', err);
-        }
+      // Called by sync engine — union merge result
+      updateFromRemote: (badges: EarnedBadge[]) => {
+        set({ earnedBadges: badges });
       },
     }),
     {

@@ -2,6 +2,7 @@ import CountdownOverlay from '@/components/CountdownOverlay';
 import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholder';
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
+import ShortTimelapseWarningModal from '@/components/ShortTimelapseWarningModal';
 import { TimelapsePreview } from '@/components/TimelapsePreview';
 import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
@@ -42,6 +43,7 @@ export default function CameraScreen() {
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
   const [previewLayout, setPreviewLayout] = useState({ width: 0, height: 0, top: 0, left: 0 });
+  const [showShortWarning, setShowShortWarning] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Timer position state
@@ -162,6 +164,12 @@ export default function CameraScreen() {
       // Stop recording and navigate to preview
       const result = await stopRecording();
       if (result?.uri) {
+        // If recording is too short (< 1 minute), show warning instead of navigating
+        if (grindDuration < 60) {
+          setShowShortWarning(true);
+          return;
+        }
+
         router.push({
           pathname: '/grind-complete' as const,
           params: {
@@ -245,7 +253,8 @@ export default function CameraScreen() {
     const targetAspect = 9 / 16;
     const previewWidth = width;
     const previewHeight = width / targetAspect;
-    const top = (height - previewHeight) / 2;
+    const tabBarOffset = 49 + insets.bottom; // standard tab bar height + safe area
+    const top = (height - previewHeight - tabBarOffset) / 2;
 
     setPreviewLayout({
       width: previewWidth,
@@ -253,7 +262,7 @@ export default function CameraScreen() {
       top: Math.max(0, top),
       left: 0
     });
-  }, []);
+  }, [insets.bottom]);
 
 
 
@@ -407,6 +416,12 @@ export default function CameraScreen() {
           disabled={isPreparing || isFinishing || isCountingDown}
         />
       </View>
+
+      {/* Short Timelapse Warning Modal */}
+      <ShortTimelapseWarningModal
+        visible={showShortWarning}
+        onClose={() => setShowShortWarning(false)}
+      />
     </View>
   );
 }

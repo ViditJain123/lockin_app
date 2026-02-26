@@ -17,7 +17,12 @@ export async function refreshHeatmapFromSupabase(userId: string): Promise<void> 
     const supabaseActivity = await fetchDailyActivity(userId, 12);
 
     if (supabaseActivity.length > 0) {
-      useHeatmapStore.getState().importFromSupabase(supabaseActivity);
+      // Convert DailyActivity[] to Record<string, number>
+      const activityByDate: Record<string, number> = {};
+      supabaseActivity.forEach((item) => {
+        activityByDate[item.date] = item.totalMinutes;
+      });
+      useHeatmapStore.getState().updateFromRemote(activityByDate);
     }
   } catch (error) {
     console.error('[HeatmapRefresh] Failed to refresh heatmap:', error);

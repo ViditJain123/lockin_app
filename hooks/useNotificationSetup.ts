@@ -12,9 +12,9 @@
 import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { NOTIFICATION_DEV_MODE_ENABLED } from '../lib/config';
+import * as Notifications from 'expo-notifications';
 import {
   initializeNotifications,
-  requestNotificationPermission,
   scheduleDailyTaskReminder,
   scheduleDevReengagementNotifications,
 } from '../lib/notificationService';
@@ -41,8 +41,9 @@ export function useNotificationSetup() {
       // Initialize notification handlers and channels
       await initializeNotifications();
 
-      // Request permission
-      const granted = await requestNotificationPermission();
+      // Check existing permission status (permission is requested during onboarding)
+      const { status } = await Notifications.getPermissionsAsync();
+      const granted = status === 'granted';
       setHasNotificationPermission(granted);
 
       if (!granted) {

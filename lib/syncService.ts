@@ -69,7 +69,7 @@ export async function pushUserProfile(userId: string, profile: QuizAnswers): Pro
 export async function pullUserTasks(userId: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from('user_tasks')
-    .select('*')
+    .select('*, updated_at')
     .eq('user_id', userId);
 
   if (error) {
@@ -85,6 +85,7 @@ export async function pullUserTasks(userId: string): Promise<Task[]> {
     isCompleted: row.is_completed ?? false,
     createdAt: row.created_at,
     completedAt: row.completed_at ?? null,
+    updatedAt: row.updated_at ?? row.created_at,
   }));
 }
 
@@ -100,6 +101,7 @@ export async function pushTaskUpsert(userId: string, task: Task): Promise<boolea
       is_completed: task.isCompleted,
       created_at: task.createdAt,
       completed_at: task.completedAt,
+      updated_at: (task as any).updatedAt || new Date().toISOString(),
     }, { onConflict: 'user_id,id' });
 
   if (error) {
