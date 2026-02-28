@@ -8,9 +8,7 @@
 import { Task } from '../store/useTaskStore';
 import { EarnedBadge } from '../store/useBadgeStore';
 import { GrindSession } from '../store/useGrindsStore';
-import { DailyActivity } from './statsService';
-
-// ─── Stats: Higher-value-wins ────────────────────────────
+// ─── Stats: DB-authoritative ─────────────────────────────
 
 export interface StatValues {
   totalHours: number;
@@ -18,12 +16,9 @@ export interface StatValues {
   currentStreak: number;
 }
 
-export function resolveStats(local: StatValues, remote: StatValues): StatValues {
-  return {
-    totalHours: Math.max(local.totalHours, remote.totalHours),
-    totalGrinds: Math.max(local.totalGrinds, remote.totalGrinds),
-    currentStreak: Math.max(local.currentStreak, remote.currentStreak),
-  };
+export function resolveStats(_local: StatValues, remote: StatValues): StatValues {
+  // DB is authoritative — stats are derived from grinds table
+  return { ...remote };
 }
 
 // ─── Tasks: Last-write-wins + union ─────────────────────
@@ -98,22 +93,6 @@ export function resolveProfile<T>(
   remote: ProfileWithTimestamp<T>
 ): ProfileWithTimestamp<T> {
   return local.updatedAt > remote.updatedAt ? local : remote;
-}
-
-// ─── Heatmap: Max-per-date ──────────────────────────────
-
-export function resolveHeatmap(
-  local: Record<string, number>,
-  remote: DailyActivity[]
-): Record<string, number> {
-  const merged: Record<string, number> = { ...local };
-
-  for (const entry of remote) {
-    const existing = merged[entry.date] || 0;
-    merged[entry.date] = Math.max(existing, entry.totalMinutes);
-  }
-
-  return merged;
 }
 
 // ─── Grinds: Union by ID ────────────────────────────────

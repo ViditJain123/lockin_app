@@ -278,6 +278,47 @@ export async function cancelDailyTaskReminder(): Promise<void> {
 }
 
 /**
+ * Schedule a notification 24 hours before trial expiration
+ * @param expirationDateISO - ISO string of the trial expiration date
+ */
+export async function scheduleTrialEndNotification(expirationDateISO: string): Promise<void> {
+  await cancelTrialEndNotification();
+
+  const expirationDate = new Date(expirationDateISO);
+  const fireDate = new Date(expirationDate.getTime() - TWENTY_FOUR_HOURS_MS);
+
+  // Only schedule if the fire date is in the future
+  if (fireDate.getTime() <= Date.now()) {
+    console.log('[Notifications] Trial end notification fire date is in the past, skipping');
+    return;
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'trial-ending-soon',
+    content: {
+      title: 'Your free trial ends tomorrow',
+      body: 'Subscribe to keep using LockIn.',
+      sound: 'default',
+      ...(Platform.OS === 'android' && { channelId: 'daily-reminders' }),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: fireDate,
+    },
+  });
+
+  console.log('[Notifications] Scheduled trial-ending-soon notification for', fireDate.toISOString());
+}
+
+/**
+ * Cancel any pending trial end notification
+ */
+export async function cancelTrialEndNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('trial-ending-soon');
+  console.log('[Notifications] Cancelled trial-ending-soon notification');
+}
+
+/**
  * Get all scheduled notifications (for debugging)
  */
 export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {

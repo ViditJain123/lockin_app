@@ -127,9 +127,11 @@ export default function PreviewScreen() {
       // Do NOT add activity here to avoid double-counting
 
       // Check for new badges after saving
+      // Only count as a grind if duration >= 1 hour (3600 seconds)
+      const MIN_GRIND_DURATION_SECONDS = 3600;
       const updatedStats = {
         totalHours: totalHours + (grindDuration / 3600),
-        totalGrinds: totalGrinds + 1,
+        totalGrinds: totalGrinds + (grindDuration >= MIN_GRIND_DURATION_SECONDS ? 1 : 0),
         currentStreak: currentStreak, // Streak is calculated server-side
       };
       const newBadges = checkAndAwardBadges(updatedStats);

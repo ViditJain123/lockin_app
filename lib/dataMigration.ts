@@ -13,7 +13,7 @@ import { useBadgeStore } from '../store/useBadgeStore';
 import { useVideoStore } from '../store/useVideoStore';
 import { pushUserProfile, pushTaskUpsert, pushNewBadges } from './syncService';
 import { recordSession } from './sessionService';
-import { updateStatsAfterSave } from './statsService';
+import { recalculateStatsFromGrinds } from './statsService';
 import { getAllVideos } from './videoStorageService';
 
 const MIGRATION_KEY = 'lockin-supabase-data-migration-v1';
@@ -82,14 +82,13 @@ export async function backfillGrindsFromVideos(userId: string): Promise<void> {
   console.log('[DataMigration] Backfilling', videos.length, 'videos to grinds table');
 
   try {
-    // Insert each video as a grind session
+    // Insert each video as a grind session (using video ID as grind ID for idempotency)
     for (const video of videos) {
-      await recordSession(userId, video.durationSeconds * 1000);
+      await recordSession(userId, video.durationSeconds * 1000, video.id);
     }
 
-    // Compute aggregate stats and write to user_stats
-    const totalSeconds = videos.reduce((sum, v) => sum + v.durationSeconds, 0);
-    await updateStatsAfterSave(userId, totalSeconds);
+    // Recalculate stats from all grinds (idempotent)
+    await recalculateStatsFromGrinds(userId);
 
     await AsyncStorage.setItem(GRINDS_MIGRATION_KEY, 'true');
     console.log('[DataMigration] Grinds backfill complete');

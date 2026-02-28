@@ -29,6 +29,7 @@ interface ThumbnailItemProps {
   videoUrl: string;
   size: number;
   onPress: () => void;
+  onLongPress?: () => void;
   marginLeft?: number;
   marginRight?: number;
   durationSeconds?: number;
@@ -39,6 +40,7 @@ export default function ThumbnailItem({
   videoUrl,
   size,
   onPress,
+  onLongPress,
   marginLeft = 0,
   marginRight = 0,
   durationSeconds,
@@ -80,6 +82,8 @@ export default function ThumbnailItem({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       style={[
         styles.container,
         {

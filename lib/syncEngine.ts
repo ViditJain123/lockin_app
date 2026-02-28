@@ -3,6 +3,12 @@
  *
  * Central coordinator for database-first sync.
  * Replaces all scattered sync logic with a single pull/push flow.
+ *
+ * Key principles:
+ * - The `grinds` table is the single source of truth for session data
+ * - Stats are derived from grinds (never independently incremented)
+ * - Heatmap is derived from resolved grinds (no independent merge)
+ * - Grind IDs are UUIDs shared between local storage and Supabase
  */
 
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
@@ -19,14 +25,12 @@ import {
   pushTasksResetForNewDay,
   pushNewBadges,
 } from './syncService';
-import { fetchUserStats, fetchDailyActivity, updateStatsAfterSave } from './statsService';
+import { fetchUserStats, recalculateStatsFromGrinds } from './statsService';
 import { recordSession } from './sessionService';
 import {
-  resolveStats,
   resolveTasks,
   resolveBadges,
   resolveProfile,
-  resolveHeatmap,
   resolveGrinds,
   TaskWithTimestamp,
 } from './conflictResolver';
@@ -37,6 +41,7 @@ import {
   markChangeFailed,
   PendingChangeType,
 } from './pendingChangesQueue';
+import { getLocalDateString } from './dateUtils';
 
 import { useTaskStore } from '../store/useTaskStore';
 import { useBadgeStore } from '../store/useBadgeStore';
@@ -58,6 +63,9 @@ let appStateSubscription: { remove: () => void } | null = null;
 
 // Staleness threshold (30 seconds)
 const STALE_THRESHOLD_MS = 30 * 1000;
+
+// UUID v4 regex for filtering old-format grind IDs
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Change listeners for React hook
 type SyncStateListener = () => void;
@@ -135,13 +143,13 @@ export async function performFullPull(userId: string): Promise<void> {
 
   try {
     // Parallel fetch all data from Supabase
-    const [remoteProfile, remoteTasks, remoteBadges, remoteStats, remoteActivity, remoteGrinds] =
+    // Note: heatmap is derived from grinds, no separate fetch needed
+    const [remoteProfile, remoteTasks, remoteBadges, remoteStats, remoteGrinds] =
       await Promise.all([
         pullUserProfile(userId),
         pullUserTasks(userId),
         pullUserBadges(userId),
         fetchUserStats(userId),
-        fetchDailyActivity(userId, 12),
         fetchRemoteGrinds(userId),
       ]);
 
@@ -178,33 +186,47 @@ export async function performFullPull(userId: string): Promise<void> {
     const resolvedBadges = resolveBadges(localBadges, remoteBadges);
     useBadgeStore.getState().updateFromRemote(resolvedBadges);
 
-    // ── Resolve Stats ──
+    // ── Resolve Stats (trust remote — DB is authoritative) ──
     if (remoteStats) {
-      const localProfileStore = useProfileStore.getState();
-      const resolvedStats = resolveStats(
-        {
-          totalHours: localProfileStore.totalHours,
-          totalGrinds: localProfileStore.totalGrinds,
-          currentStreak: localProfileStore.currentStreak,
-        },
-        {
-          totalHours: remoteStats.totalHours,
-          totalGrinds: remoteStats.totalGrinds,
-          currentStreak: remoteStats.currentStreak,
-        }
-      );
-      localProfileStore.updateFromRemote(resolvedStats);
+      useProfileStore.getState().updateFromRemote({
+        totalHours: remoteStats.totalHours,
+        totalGrinds: remoteStats.totalGrinds,
+        currentStreak: remoteStats.currentStreak,
+      }, userId);
     }
-
-    // ── Resolve Heatmap ──
-    const localHeatmap = useHeatmapStore.getState().activityByDate;
-    const resolvedHeatmap = resolveHeatmap(localHeatmap, remoteActivity);
-    useHeatmapStore.getState().updateFromRemote(resolvedHeatmap);
 
     // ── Resolve Grinds ──
     const localGrinds = useGrindsStore.getState().grinds;
     const resolvedGrinds = resolveGrinds(localGrinds, remoteGrinds);
-    useGrindsStore.getState().updateFromRemote(resolvedGrinds);
+
+    // Filter out old-format (non-UUID) local-only orphans that already exist in DB
+    // under a different server-generated UUID
+    const cleanedGrinds = resolvedGrinds.filter((g) => {
+      if (UUID_REGEX.test(g.id)) return true;
+      // Old format ID — keep only if it exists in remote (somehow matched)
+      const existsInRemote = remoteGrinds.some((r) => r.id === g.id);
+      if (!existsInRemote) {
+        console.log('[SyncEngine] Filtering orphaned old-format grind:', g.id);
+      }
+      return existsInRemote;
+    });
+
+    useGrindsStore.getState().updateFromRemote(cleanedGrinds);
+
+    // ── Derive Heatmap from resolved grinds (single source of truth) ──
+    const derivedHeatmap: Record<string, number> = {};
+    for (const grind of cleanedGrinds) {
+      const dateStr = getLocalDateString(new Date(grind.createdAt));
+      derivedHeatmap[dateStr] = (derivedHeatmap[dateStr] || 0) + grind.durationSeconds / 60;
+    }
+    useHeatmapStore.getState().updateFromRemote(derivedHeatmap);
+
+    // ── Update profile dailyActivity from derived heatmap (Bug #8) ──
+    const derivedDailyActivity = Object.entries(derivedHeatmap).map(([date, totalMinutes]) => ({
+      date,
+      totalMinutes,
+    }));
+    useProfileStore.getState().updateDailyActivityFromHeatmap(derivedDailyActivity);
 
     lastSyncAt = Date.now();
     console.log('[SyncEngine] Full pull complete');
@@ -258,17 +280,27 @@ export async function flushPendingQueue(userId: string): Promise<void> {
 
         case 'GRIND_RECORD': {
           const { durationMs } = change.payload;
-          const [sessionOk, statsOk] = await Promise.all([
-            recordSession(userId, durationMs),
-            updateStatsAfterSave(userId, durationMs / 1000),
-          ]);
-          success = sessionOk && statsOk;
+          const grindId = change.key; // video.id was passed as the key
+
+          // Sequential: record session first, then recalculate stats
+          const sessionOk = await recordSession(userId, durationMs, grindId);
+          if (sessionOk) {
+            // Recalculate stats from all grinds (idempotent)
+            await recalculateStatsFromGrinds(userId);
+
+            // Refresh local stores immediately (eliminates 30s stale window)
+            const freshStats = await fetchUserStats(userId);
+            if (freshStats) {
+              useProfileStore.getState().updateFromRemote({
+                totalHours: freshStats.totalHours,
+                totalGrinds: freshStats.totalGrinds,
+                currentStreak: freshStats.currentStreak,
+              }, userId);
+            }
+          }
+          success = sessionOk;
           break;
         }
-
-        case 'STATS_UPDATE':
-          success = await updateStatsAfterSave(userId, change.payload.durationSeconds);
-          break;
       }
 
       if (success) {

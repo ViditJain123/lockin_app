@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -25,7 +24,6 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface PaymentScreenProps {
   onContinue: () => void;
-  onBack: () => void;
 }
 
 /**
@@ -34,10 +32,10 @@ interface PaymentScreenProps {
  * This component is part of the onboarding quiz funnel. It presents
  * the RevenueCat paywall modal automatically when shown.
  */
-export default function PaymentScreen({ onContinue, onBack }: PaymentScreenProps) {
+export default function PaymentScreen({ onContinue }: PaymentScreenProps) {
   const insets = useSafeAreaInsets();
   const isSubscribed = useIsSubscribed();
-  const { presentPaywall, isPurchasing, error, clearError } = useSubscriptionStore();
+  const { presentPaywall, restorePurchases, isPurchasing, isRestoring, error, clearError } = useSubscriptionStore();
   const hasShownPaywall = useRef(false);
 
   // If already subscribed, continue immediately
@@ -82,6 +80,17 @@ export default function PaymentScreen({ onContinue, onBack }: PaymentScreenProps
     }
   };
 
+  const handleRestore = async () => {
+    const restored = await restorePurchases();
+    if (restored) {
+      onContinue();
+    } else {
+      Alert.alert('No Subscription Found', 'We couldn\'t find an active subscription for your account.');
+    }
+  };
+
+  const isLoading = isPurchasing || isRestoring;
+
   return (
     <ImageBackground source={nightSkyBackground} style={styles.container} resizeMode="cover">
       {/* Dark overlay for better readability */}
@@ -91,24 +100,14 @@ export default function PaymentScreen({ onContinue, onBack }: PaymentScreenProps
       <CloudBackground height={280} />
 
       <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            disabled={isPurchasing}
-          >
-            <Ionicons name="chevron-back" size={28} color={BrandColors.text.primary} />
-          </Pressable>
-        </View>
-
         {/* Main Content */}
         <View style={styles.mainContent}>
-          {isPurchasing ? (
+          {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={BrandColors.primary.main} />
-              <Text style={styles.loadingText}>Loading...</Text>
+              <Text style={styles.loadingText}>
+                {isRestoring ? 'Restoring...' : 'Loading...'}
+              </Text>
             </View>
           ) : (
             <View style={styles.messageContainer}>
@@ -117,7 +116,7 @@ export default function PaymentScreen({ onContinue, onBack }: PaymentScreenProps
                 Take control of your screen time and build lasting habits
               </Text>
 
-              {/* Retry Button */}
+              {/* View Plans Button */}
               <Pressable
                 onPress={handleRetry}
                 style={({ pressed }) => [
@@ -126,6 +125,17 @@ export default function PaymentScreen({ onContinue, onBack }: PaymentScreenProps
                 ]}
               >
                 <Text style={styles.retryButtonText}>View Plans</Text>
+              </Pressable>
+
+              {/* Restore Purchases */}
+              <Pressable
+                onPress={handleRestore}
+                style={({ pressed }) => [
+                  styles.restoreButton,
+                  pressed && styles.restoreButtonPressed,
+                ]}
+              >
+                <Text style={styles.restoreButtonText}>Restore Purchases</Text>
               </Pressable>
             </View>
           )}
@@ -151,21 +161,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   mainContent: {
     flex: 1,
@@ -215,5 +210,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Fonts.semiBold,
     color: '#FFFFFF',
+  },
+  restoreButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 8,
+  },
+  restoreButtonPressed: {
+    opacity: 0.7,
+  },
+  restoreButtonText: {
+    fontSize: 14,
+    fontFamily: Fonts.medium,
+    color: BrandColors.text.secondary,
+    textDecorationLine: 'underline',
   },
 });

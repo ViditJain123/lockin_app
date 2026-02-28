@@ -145,6 +145,31 @@ export interface TimelapseError {
   message: string;
 }
 
+export interface RecoverableSession {
+  /** Unique session identifier */
+  sessionId: string;
+
+  /** ISO 8601 timestamp when the session started */
+  startedAt: string;
+
+  /** Number of recoverable segments */
+  segmentCount: number;
+
+  /** Estimated total frames recovered */
+  estimatedFrames: number;
+
+  /** Estimated output video duration in seconds */
+  estimatedDurationSeconds: number;
+}
+
+export interface RecoveredVideo {
+  /** File URI of the recovered video */
+  uri: string;
+
+  /** Session ID that was recovered */
+  sessionId: string;
+}
+
 // ============================================================================
 // Type Guards
 // ============================================================================
@@ -284,6 +309,50 @@ export async function isCallInProgress(): Promise<boolean> {
 }
 
 // ============================================================================
+// Crash Recovery API
+// ============================================================================
+
+/**
+ * Check for recoverable recordings from previous crashes/force-quits.
+ *
+ * @returns Promise with array of recoverable sessions (empty if none found)
+ */
+export async function checkForRecoverableRecordings(): Promise<RecoverableSession[]> {
+  if (!isTimelapseAvailable()) {
+    return [];
+  }
+
+  return NativeTimelapseEngine.checkForRecoverableRecordings();
+}
+
+/**
+ * Recover a recording by concatenating its saved segments.
+ *
+ * @param sessionId - The session ID to recover
+ * @returns Promise with the recovered video info
+ */
+export async function recoverRecording(sessionId: string): Promise<RecoveredVideo> {
+  if (!isTimelapseAvailable()) {
+    throw new Error('Timelapse is only available on iOS');
+  }
+
+  return NativeTimelapseEngine.recoverRecording(sessionId);
+}
+
+/**
+ * Dismiss a recoverable session (deletes its data permanently).
+ *
+ * @param sessionId - The session ID to dismiss
+ */
+export async function dismissRecovery(sessionId: string): Promise<void> {
+  if (!isTimelapseAvailable()) {
+    return;
+  }
+
+  await NativeTimelapseEngine.dismissRecovery(sessionId);
+}
+
+// ============================================================================
 // Event Subscriptions
 // ============================================================================
 
@@ -420,6 +489,9 @@ export default {
   stopTimelapse,
   getRecordingState,
   isCallInProgress,
+  checkForRecoverableRecordings,
+  recoverRecording,
+  dismissRecovery,
   onTimelapseProgress,
   onTimelapseError,
   onTimelapseComplete,

@@ -18,8 +18,7 @@ export type PendingChangeType =
   | 'TASK_DELETE'
   | 'TASK_RESET'
   | 'BADGE_PUSH'
-  | 'GRIND_RECORD'
-  | 'STATS_UPDATE';
+  | 'GRIND_RECORD';
 
 export interface PendingChange {
   id: string;

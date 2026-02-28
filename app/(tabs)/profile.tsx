@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -18,8 +19,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import FeaturedBadges from '../../components/FeaturedBadges';
 import ThumbnailItem from '../../components/ThumbnailItem';
+import VideoContextMenu from '../../components/VideoContextMenu';
 import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
+import { animationReveal } from '../../lib/haptics';
+import { saveToGallery, shareVideo } from '../../lib/mediaUtils';
 import { LocalVideo } from '../../lib/videoStorageService';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useVideoStore } from '../../store/useVideoStore';
@@ -89,9 +93,12 @@ export default function ProfileScreen() {
     isInitialized,
     loadVideos,
     refreshVideos,
+    deleteVideo,
   } = useVideoStore();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [contextMenuVideo, setContextMenuVideo] = useState<LocalVideo | null>(null);
+  const [isContextMenuVisible, setIsContextMenuVisible] = useState(false);
 
   // Compute whether to show placeholder grid (needed before shimmer effect)
   const showPlaceholderGrid = !isInitialized || (isLoadingVideos && videos.length === 0);
@@ -166,6 +173,51 @@ export default function ProfileScreen() {
     });
   };
 
+  const handleThumbnailLongPress = useCallback((item: LocalVideo) => {
+    animationReveal();
+    setContextMenuVideo(item);
+    setIsContextMenuVisible(true);
+  }, []);
+
+  const handleContextMenuClose = useCallback(() => {
+    setIsContextMenuVisible(false);
+    setContextMenuVideo(null);
+  }, []);
+
+  const handleContextMenuShare = useCallback(async () => {
+    if (!contextMenuVideo) return;
+    handleContextMenuClose();
+    const success = await shareVideo(contextMenuVideo.videoPath);
+    if (!success) {
+      Alert.alert('Sharing Unavailable', 'Sharing is not available on this device.');
+    }
+  }, [contextMenuVideo, handleContextMenuClose]);
+
+  const handleContextMenuSave = useCallback(async () => {
+    if (!contextMenuVideo) return;
+    handleContextMenuClose();
+    try {
+      await saveToGallery(contextMenuVideo.videoPath);
+      Alert.alert('Saved', 'Video saved to your photo library.');
+    } catch {
+      Alert.alert('Error', 'Failed to save video to your photo library.');
+    }
+  }, [contextMenuVideo, handleContextMenuClose]);
+
+  const handleContextMenuDelete = useCallback(() => {
+    if (!contextMenuVideo) return;
+    const videoId = contextMenuVideo.id;
+    handleContextMenuClose();
+    Alert.alert('Delete Grind', 'Are you sure you want to delete this grind? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => deleteVideo(videoId),
+      },
+    ]);
+  }, [contextMenuVideo, handleContextMenuClose, deleteVideo]);
+
   const renderThumbnail = ({ item, index }: { item: LocalVideo; index: number }) => {
     const isLeftColumn = index % NUM_COLUMNS === 0;
     const isRightColumn = index % NUM_COLUMNS === NUM_COLUMNS - 1;
@@ -176,6 +228,7 @@ export default function ProfileScreen() {
         videoUrl={item.videoPath}
         size={ITEM_SIZE}
         onPress={() => handleThumbnailPress(item)}
+        onLongPress={() => handleThumbnailLongPress(item)}
         marginLeft={isLeftColumn ? 0 : GRID_GAP / 2}
         marginRight={isRightColumn ? 0 : GRID_GAP / 2}
         durationSeconds={item.durationSeconds}
@@ -335,6 +388,16 @@ export default function ProfileScreen() {
         <View style={styles.galleryContainer}>
           {renderPlaceholderGrid()}
         </View>
+        <VideoContextMenu
+          visible={isContextMenuVisible}
+          thumbnailUrl={contextMenuVideo?.thumbnailPath ?? null}
+          videoUrl={contextMenuVideo?.videoPath ?? ''}
+          durationSeconds={contextMenuVideo?.durationSeconds}
+          onClose={handleContextMenuClose}
+          onShare={handleContextMenuShare}
+          onSave={handleContextMenuSave}
+          onDelete={handleContextMenuDelete}
+        />
       </View>
     );
   }
@@ -360,6 +423,16 @@ export default function ProfileScreen() {
             colors={['#FF3B5C']}
           />
         }
+      />
+      <VideoContextMenu
+        visible={isContextMenuVisible}
+        thumbnailUrl={contextMenuVideo?.thumbnailPath ?? null}
+        videoUrl={contextMenuVideo?.videoPath ?? ''}
+        durationSeconds={contextMenuVideo?.durationSeconds}
+        onClose={handleContextMenuClose}
+        onShare={handleContextMenuShare}
+        onSave={handleContextMenuSave}
+        onDelete={handleContextMenuDelete}
       />
     </View>
   );

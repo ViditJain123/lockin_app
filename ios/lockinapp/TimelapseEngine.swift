@@ -45,7 +45,7 @@ class TimelapseEngine: RCTEventEmitter {
     
     private(set) var state: State = .idle
     internal var sessionManager: TimelapseSessionManager?
-    private var encoder: TimelapseEncoder?
+    private var segmentManager: TimelapseSegmentManager?
     private var frameProcessor: TimelapseFrameProcessor?
     private var stabilityManager: TimelapseStabilityManager?
     private var backgroundHandler: TimelapseBackgroundHandler?
@@ -91,6 +91,26 @@ class TimelapseEngine: RCTEventEmitter {
     override init() {
         super.init()
         TimelapseEngine._shared = self
+
+        // Listen for background-triggered segment rotation
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleForceSegmentRotation),
+            name: .timelapseForceSegmentRotation,
+            object: nil
+        )
+    }
+
+    @objc private func handleForceSegmentRotation() {
+        stateQueue.async { [weak self] in
+            guard let self = self, self.state == .recording else { return }
+            self.segmentManager?.rotateSegmentNow()
+            print("[TimelapseEngine] Forced segment rotation for background entry")
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     @objc override static func requiresMainQueueSetup() -> Bool {
@@ -166,20 +186,20 @@ class TimelapseEngine: RCTEventEmitter {
             self.sessionManager?.stopCapture { [weak self] in
                 guard let self = self else { return }
 
-                // Check for nil encoder - reject promise if encoder doesn't exist
-                guard let encoder = self.encoder else {
-                    print("[TimelapseEngine] Encoder is nil, cannot finalize")
+                // Check for nil segment manager - reject promise if it doesn't exist
+                guard let segmentManager = self.segmentManager else {
+                    print("[TimelapseEngine] Segment manager is nil, cannot finalize")
                     self.stateQueue.async {
                         self.state = .error
                         self.isFinalizationInProgress = false
                     }
-                    rejecter("ENCODER_NIL", "Encoder was not initialized", nil)
+                    rejecter("ENCODER_NIL", "Segment manager was not initialized", nil)
                     self.cleanup()
                     return
                 }
 
-                // Finalize encoder — safe now that capture has stopped
-                encoder.finalize { [weak self] result in
+                // Finalize segments and concatenate — safe now that capture has stopped
+                segmentManager.finalize { [weak self] result in
                     guard let self = self else { return }
 
                     switch result {
@@ -345,20 +365,16 @@ class TimelapseEngine: RCTEventEmitter {
         photoLibraryManager = TimelapsePhotoLibraryManager()
         print("[TimelapseEngine] Photo library manager initialized")
         
-        // Create output URL
-        let outputURL = generateOutputURL()
-        print("[TimelapseEngine] Output URL: \(outputURL.absoluteString)")
-        
-        // Initialize encoder
-        print("[TimelapseEngine] Initializing encoder with orientation: \(videoOrientation.rawValue)")
-        encoder = try TimelapseEncoder(
-            outputURL: outputURL,
+        // Initialize segment manager (crash-resilient segmented recording)
+        print("[TimelapseEngine] Initializing segment manager with orientation: \(videoOrientation.rawValue)")
+        segmentManager = try TimelapseSegmentManager(
             width: videoOrientation.outputWidth,
             height: videoOrientation.outputHeight,
             fps: outputFps,
             codec: codec
         )
-        print("[TimelapseEngine] Encoder initialized successfully")
+        segmentManager?.delegate = self
+        print("[TimelapseEngine] Segment manager initialized successfully")
         
         // Initialize frame processor with encoder callback
         print("[TimelapseEngine] Initializing frame processor...")
@@ -435,7 +451,7 @@ class TimelapseEngine: RCTEventEmitter {
                                 value: frameCount * Int64(600 / outputFps),
                                 timescale: 600
                             )
-                            try encoder?.appendFrame(bufferedPixelBuffer, presentationTime: presentationTime)
+                            try segmentManager?.appendFrame(bufferedPixelBuffer, presentationTime: presentationTime)
                             frameCount += 1
                         }
 
@@ -453,7 +469,7 @@ class TimelapseEngine: RCTEventEmitter {
                         value: frameCount * Int64(600 / outputFps),
                         timescale: 600
                     )
-                    try encoder?.appendFrame(pixelBuffer, presentationTime: presentationTime)
+                    try segmentManager?.appendFrame(pixelBuffer, presentationTime: presentationTime)
                     frameCount += 1
 
                     if frameCount % 2 == 0 {
@@ -496,12 +512,46 @@ class TimelapseEngine: RCTEventEmitter {
         return Double(frameCount) / Double(outputFps)
     }
     
-    private func generateOutputURL() -> URL {
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "timelapse_\(Int(Date().timeIntervalSince1970)).mp4"
-        return tempDir.appendingPathComponent(fileName)
+    // MARK: - Crash Recovery API
+
+    @objc func checkForRecoverableRecordings(_ resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Also clean up stale sessions (> 7 days)
+            TimelapseCrashRecoveryManager.cleanupStaleSessionsIfNeeded()
+
+            let sessions = TimelapseCrashRecoveryManager.findRecoverableSessions()
+            let result = sessions.map { session -> [String: Any] in
+                return [
+                    "sessionId": session.sessionId,
+                    "startedAt": session.startedAt,
+                    "segmentCount": session.segmentCount,
+                    "estimatedFrames": session.estimatedFrames,
+                    "estimatedDurationSeconds": session.estimatedDurationSeconds,
+                ]
+            }
+            resolver(result)
+        }
     }
-    
+
+    @objc func recoverRecording(_ sessionId: String, resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+        TimelapseCrashRecoveryManager.recover(sessionId: sessionId) { result in
+            switch result {
+            case .success(let url):
+                resolver([
+                    "uri": url.absoluteString,
+                    "sessionId": sessionId,
+                ])
+            case .failure(let error):
+                rejecter("RECOVERY_FAILED", error.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc func dismissRecovery(_ sessionId: String, resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
+        TimelapseCrashRecoveryManager.dismiss(sessionId: sessionId)
+        resolver(["success": true])
+    }
+
     private func cleanup() {
         stabilityManager?.stopMonitoring()
         stabilityManager = nil
@@ -510,7 +560,7 @@ class TimelapseEngine: RCTEventEmitter {
         backgroundHandler = nil
 
         sessionManager = nil
-        encoder = nil
+        segmentManager = nil
         frameProcessor = nil
         photoLibraryManager = nil
 
@@ -555,7 +605,7 @@ extension TimelapseEngine: TimelapseStabilityManagerDelegate {
             self.sessionManager?.stopCapture { [weak self] in
                 guard let self = self else { return }
 
-                self.encoder?.finalize { [weak self] _ in
+                self.segmentManager?.finalize { [weak self] _ in
                     guard let self = self else { return }
                     self.stateQueue.async {
                         self.isFinalizationInProgress = false
@@ -589,9 +639,9 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
             self.sessionManager?.stopCapture { [weak self] in
                 guard let self = self else { return }
 
-                // Check for nil encoder
-                guard let encoder = self.encoder else {
-                    print("[TimelapseEngine] Encoder is nil during background expiry")
+                // Check for nil segment manager
+                guard let segmentManager = self.segmentManager else {
+                    print("[TimelapseEngine] Segment manager is nil during background expiry")
                     self.stateQueue.async {
                         self.isFinalizationInProgress = false
                     }
@@ -599,7 +649,7 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
                     return
                 }
 
-                encoder.finalize { [weak self] result in
+                segmentManager.finalize { [weak self] result in
                     guard let self = self else { return }
                     self.stateQueue.async {
                         self.isFinalizationInProgress = false
@@ -615,5 +665,17 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
                 }
             }
         }
+    }
+}
+
+// MARK: - Segment Manager Delegate
+
+extension TimelapseEngine: TimelapseSegmentManagerDelegate {
+    func segmentManager(_ manager: TimelapseSegmentManager, didCompleteSegment index: Int) {
+        print("[TimelapseEngine] Segment \(index) completed successfully")
+    }
+
+    func segmentManager(_ manager: TimelapseSegmentManager, didFailWithError error: Error) {
+        emitError("Segment error: \(error.localizedDescription)")
     }
 }

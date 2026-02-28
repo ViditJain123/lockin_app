@@ -282,6 +282,122 @@ export async function fetchDailyActivity(
 }
 
 /**
+ * Recalculate all user stats from the grinds table.
+ * This is fully idempotent — calling it twice produces the same result.
+ * Replaces the old incremental updateStatsAfterSave approach.
+ */
+export async function recalculateStatsFromGrinds(userId: string): Promise<boolean> {
+  try {
+    // Fetch ALL grinds for this user
+    const { data: grinds, error: fetchError } = await supabase
+      .from('grinds')
+      .select('duration_ms, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (fetchError) {
+      console.error('[StatsService] Error fetching grinds for recalculation:', fetchError);
+      return false;
+    }
+
+    const allGrinds = grinds || [];
+
+    // totalHours = sum of all duration_ms converted to hours
+    const totalMs = allGrinds.reduce((sum, g) => sum + (g.duration_ms || 0), 0);
+    const totalHours = totalMs / (1000 * 3600);
+
+    // totalGrinds = count of grinds where duration_ms >= 1 hour
+    const totalGrinds = allGrinds.filter((g) => (g.duration_ms || 0) >= 3600000).length;
+
+    // Calculate streak: consecutive days with >= 60 min total grind time
+    // Group grinds by local date
+    const minutesByDate = new Map<string, number>();
+    for (const g of allGrinds) {
+      const dateStr = getLocalDateString(new Date(g.created_at));
+      const minutes = (g.duration_ms || 0) / (1000 * 60);
+      minutesByDate.set(dateStr, (minutesByDate.get(dateStr) || 0) + minutes);
+    }
+
+    // Walk backwards from today counting consecutive qualifying days
+    let currentStreak = 0;
+    let daysBack = 0;
+    const today = getLocalDateString();
+    const todayMinutes = minutesByDate.get(today) || 0;
+
+    if (todayMinutes >= 60) {
+      currentStreak = 1;
+      daysBack = 1;
+    } else {
+      // Today doesn't qualify yet, start checking from yesterday
+      daysBack = 1;
+    }
+
+    while (true) {
+      const dateStr = getLocalDateStringDaysAgo(daysBack);
+      const minutes = minutesByDate.get(dateStr) || 0;
+      if (minutes >= 60) {
+        if (currentStreak === 0) {
+          currentStreak = 1;
+        } else {
+          currentStreak++;
+        }
+        daysBack++;
+      } else {
+        break;
+      }
+    }
+
+    // Calculate today's accumulated hours and streak earned date
+    const todayHours = todayMinutes / 60;
+    const streakEarnedDate = todayMinutes >= 60 ? today : (
+      // Find the most recent day that qualified
+      (() => {
+        for (let i = 1; i <= 365; i++) {
+          const d = getLocalDateStringDaysAgo(i);
+          if ((minutesByDate.get(d) || 0) >= 60) return d;
+        }
+        return null;
+      })()
+    );
+
+    // Find last grind timestamp
+    const lastGrind = allGrinds.length > 0 ? allGrinds[allGrinds.length - 1] : null;
+
+    // Upsert into user_stats
+    const { error: upsertError } = await supabase
+      .from('user_stats')
+      .upsert(
+        {
+          user_id: userId,
+          total_hours: totalHours,
+          total_grinds: totalGrinds,
+          current_streak: currentStreak,
+          last_grind_at: lastGrind?.created_at || null,
+          streak_earned_date: streakEarnedDate,
+          today_accumulated_hours: todayHours,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+
+    if (upsertError) {
+      console.error('[StatsService] Error upserting recalculated stats:', upsertError);
+      return false;
+    }
+
+    console.log('[StatsService] Stats recalculated from grinds:', {
+      totalHours: totalHours.toFixed(2),
+      totalGrinds,
+      currentStreak,
+    });
+    return true;
+  } catch (error) {
+    console.error('[StatsService] Error in recalculateStatsFromGrinds:', error);
+    return false;
+  }
+}
+
+/**
  * Record watch time incrementally when video is paused.
  * Updates total_hours in user_stats (does NOT increment grind count).
  */

@@ -28,6 +28,9 @@
 		TL0001001000000009 /* TimelapsePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000009 /* TimelapsePreviewView.swift */; };
 		TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000010 /* TimelapsePreviewViewManager.m */; };
 		TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000011 /* TimelapseFrameOverlay.swift */; };
+		TL0001001000000012 /* TimelapseSegmentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000012 /* TimelapseSegmentManager.swift */; };
+		TL0001001000000013 /* TimelapseSegmentConcatenator.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000013 /* TimelapseSegmentConcatenator.swift */; };
+		TL0001001000000014 /* TimelapseCrashRecoveryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000014 /* TimelapseCrashRecoveryManager.swift */; };
 		XX103037AC5A7B821341EBXX /* ShieldConfiguration.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XXEC8F4A23169846583657XX /* ShieldConfiguration.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		XX44FC18D28196FBCB6075XX /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXB6D82409997898620841XX /* ManagedSettingsUI.framework */; };
 		XXBEFFB36AB412820C306DXX /* ShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XX05E83E103BF49F57A457XX /* ShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -103,6 +106,9 @@
 		TL0002001000000009 /* TimelapsePreviewView.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapsePreviewView.swift; path = lockinapp/TimelapsePreviewView.swift; sourceTree = "<group>"; };
 		TL0002001000000010 /* TimelapsePreviewViewManager.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapsePreviewViewManager.m; path = lockinapp/TimelapsePreviewViewManager.m; sourceTree = "<group>"; };
 		TL0002001000000011 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = lockinapp/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
+		TL0002001000000012 /* TimelapseSegmentManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseSegmentManager.swift; path = lockinapp/TimelapseSegmentManager.swift; sourceTree = "<group>"; };
+		TL0002001000000013 /* TimelapseSegmentConcatenator.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseSegmentConcatenator.swift; path = lockinapp/TimelapseSegmentConcatenator.swift; sourceTree = "<group>"; };
+		TL0002001000000014 /* TimelapseCrashRecoveryManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseCrashRecoveryManager.swift; path = lockinapp/TimelapseCrashRecoveryManager.swift; sourceTree = "<group>"; };
 		XX05E83E103BF49F57A457XX /* ShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = ShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		XX7DDE620121E0E26B18E0XX /* ActivityMonitorExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = ActivityMonitorExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		XXB6D82409997898620841XX /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
@@ -228,6 +234,9 @@
 				TL0002001000000009 /* TimelapsePreviewView.swift */,
 				TL0002001000000010 /* TimelapsePreviewViewManager.m */,
 				TL0002001000000011 /* TimelapseFrameOverlay.swift */,
+				TL0002001000000012 /* TimelapseSegmentManager.swift */,
+				TL0002001000000013 /* TimelapseSegmentConcatenator.swift */,
+				TL0002001000000014 /* TimelapseCrashRecoveryManager.swift */,
 				FONTGRP0001 /* Fonts */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -661,6 +670,9 @@
 				TL0001001000000009 /* TimelapsePreviewView.swift in Sources */,
 				TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */,
 				TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */,
+				TL0001001000000012 /* TimelapseSegmentManager.swift in Sources */,
+				TL0001001000000013 /* TimelapseSegmentConcatenator.swift in Sources */,
+				TL0001001000000014 /* TimelapseCrashRecoveryManager.swift in Sources */,
 				9649CE0BEF0A475400D3123E /* VideoOrientation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

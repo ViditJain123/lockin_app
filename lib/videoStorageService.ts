@@ -11,6 +11,7 @@
  * to survive app updates where the documentDirectory UUID changes.
  */
 
+import * as Crypto from 'expo-crypto';
 import {
   copyAsync,
   deleteAsync,
@@ -130,12 +131,11 @@ async function ensureDirectories(): Promise<void> {
 }
 
 /**
- * Generate a unique ID for a video
+ * Generate a unique UUID v4 for a video.
+ * UUIDs are used as the canonical grind ID across local storage and Supabase.
  */
 function generateVideoId(): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
-  return `${timestamp}_${random}`;
+  return Crypto.randomUUID();
 }
 
 // ============================================================================

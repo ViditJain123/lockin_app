@@ -254,7 +254,8 @@ export default function CameraScreen() {
     const previewWidth = width;
     const previewHeight = width / targetAspect;
     const tabBarOffset = 49 + insets.bottom; // standard tab bar height + safe area
-    const top = (height - previewHeight - tabBarOffset) / 2;
+    const previewBottomFromScreenBottom = (BUTTON_DEFAULT_BOTTOM + tabBarOffset) / 2;
+    const top = height - previewHeight - previewBottomFromScreenBottom;
 
     setPreviewLayout({
       width: previewWidth,
@@ -325,6 +326,7 @@ export default function CameraScreen() {
             style={StyleSheet.absoluteFillObject}
             facing={facing}
             enableTorch={flashEnabled && facing === 'back'}
+            zoom={0}
           />
         )}
       </View>

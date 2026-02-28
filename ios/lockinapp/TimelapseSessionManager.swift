@@ -172,9 +172,10 @@ class TimelapseSessionManager: NSObject {
     }
     
     private func getCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        // Try multi-camera first for best quality, fall back to wide angle
+        // Use only the physical 1x wide-angle camera to avoid virtual multi-camera
+        // devices where zoomFactor=1.0 maps to the ultra-wide (0.5x) lens
         let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInTripleCamera, .builtInDualCamera, .builtInWideAngleCamera],
+            deviceTypes: [.builtInWideAngleCamera],
             mediaType: .video,
             position: position
         )

@@ -91,7 +91,11 @@ class TimelapseBackgroundHandler {
     
     @objc private func appDidEnterBackground() {
         guard isActive else { return }
-        
+
+        // Trigger immediate segment rotation so the current segment is finalized
+        // before the app may be killed in the background
+        NotificationCenter.default.post(name: .timelapseForceSegmentRotation, object: nil)
+
         print("[BackgroundHandler] App entered background - starting background task")
         
         // Start background task to extend our execution time
@@ -131,6 +135,12 @@ class TimelapseBackgroundHandler {
         NotificationCenter.default.removeObserver(self)
         endBackgroundTask()
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let timelapseForceSegmentRotation = Notification.Name("timelapseForceSegmentRotation")
 }
 
 // MARK: - Background Capability Notes

@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { scheduleTrialEndNotification, cancelTrialEndNotification } from '../lib/notificationService';
+
 // Storage key
 const SUBSCRIPTION_STORAGE_KEY = 'lockin-subscription-state';
 
@@ -111,6 +113,19 @@ function getErrorMessage(error: any): string {
   return error?.message || 'An unexpected error occurred';
 }
 
+// Helper to schedule or cancel trial notification based on subscription info
+function handleTrialNotification(subscriptionInfo: SubscriptionInfo): void {
+  if (subscriptionInfo.periodType === 'TRIAL' && subscriptionInfo.expirationDate) {
+    scheduleTrialEndNotification(subscriptionInfo.expirationDate).catch((err) =>
+      console.error('[Subscription] Failed to schedule trial notification:', err)
+    );
+  } else {
+    cancelTrialEndNotification().catch((err) =>
+      console.error('[Subscription] Failed to cancel trial notification:', err)
+    );
+  }
+}
+
 export const useSubscriptionStore = create<SubscriptionState>()(
   persist(
     (set, get) => ({
@@ -153,6 +168,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
               subscriptionInfo,
               isSubscribed: subscriptionInfo.isActive,
             });
+            handleTrialNotification(subscriptionInfo);
           });
 
           // Get initial customer info
@@ -165,6 +181,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             subscriptionInfo,
             isSubscribed: subscriptionInfo.isActive,
           });
+
+          handleTrialNotification(subscriptionInfo);
 
           console.log('[Subscription] RevenueCat initialized, subscribed:', subscriptionInfo.isActive);
         } catch (error) {
@@ -215,6 +233,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 isSubscribed: subscriptionInfo.isActive,
                 isPurchasing: false,
               });
+              handleTrialNotification(subscriptionInfo);
               return true;
 
             case PAYWALL_RESULT.NOT_PRESENTED:

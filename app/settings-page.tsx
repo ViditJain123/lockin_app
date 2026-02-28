@@ -31,7 +31,9 @@ const SUPABASE_URL = 'https://tsojozycisspcfmabtku.supabase.co';
 
 export default function SettingsPageScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const userEmail = user?.email;
+  const userName = user?.user_metadata?.full_name || 'User';
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAppPickerVisible, setIsAppPickerVisible] = useState(false);
   const [tempSelection, setTempSelection] = useState<string | null>(null);
@@ -240,7 +242,22 @@ export default function SettingsPageScreen() {
         {/* Account Section */}
         <Text style={styles.sectionTitle}>Account</Text>
 
-        <TouchableOpacity onPress={handleLogout} style={styles.settingsRow}>
+        {/* Account Info */}
+        <View style={styles.settingsRow}>
+          <View style={styles.settingsRowLeft}>
+            <View style={[styles.iconContainer, styles.blueIconContainer]}>
+              <Ionicons name="person-outline" size={22} color="#007AFF" />
+            </View>
+            <View>
+              <Text style={styles.settingsRowText}>{userName}</Text>
+              {userEmail && (
+                <Text style={styles.settingsRowSubtext}>{userEmail}</Text>
+              )}
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity onPress={handleLogout} style={[styles.settingsRow, styles.marginTop]}>
           <View style={styles.settingsRowLeft}>
             <View style={styles.iconContainer}>
               <Ionicons name="log-out-outline" size={22} color="#FF3B5C" />

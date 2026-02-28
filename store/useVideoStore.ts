@@ -33,6 +33,7 @@ interface VideoState {
   // Actions
   loadVideos: () => Promise<void>;
   addVideo: (sourceUri: string, durationSeconds: number, userId?: string) => Promise<LocalVideo>;
+  addRecoveredVideo: (sourceUri: string, estimatedDurationSeconds: number, userId?: string) => Promise<LocalVideo>;
   markSavedToGallery: (id: string) => Promise<void>;
   deleteVideo: (id: string) => Promise<void>;
   refreshVideos: () => Promise<void>;
@@ -122,9 +123,54 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         durationSeconds,
       });
 
+      // Optimistic local profile update (so profile tab reflects new session immediately)
+      const { useProfileStore } = require('./useProfileStore');
+      const profileStore = useProfileStore.getState();
+      profileStore.updateStatsLocally(
+        profileStore.totalHours + (durationSeconds / 3600),
+        durationSeconds >= 3600 ? profileStore.totalGrinds + 1 : profileStore.totalGrinds,
+        profileStore.currentStreak,
+        userId
+      );
+
       return video;
     } catch (error) {
       console.error('[VideoStore] Failed to add video:', error);
+      throw error;
+    }
+  },
+
+  // Add a recovered video (from crash recovery) — no minimum duration check
+  addRecoveredVideo: async (sourceUri: string, estimatedDurationSeconds: number, userId?: string) => {
+    try {
+      const video = await saveVideoToPrivateStorage(sourceUri, estimatedDurationSeconds);
+
+      set((state) => ({
+        videos: [video, ...state.videos],
+      }));
+
+      const minutes = estimatedDurationSeconds / 60;
+      useHeatmapStore.getState().addMinutes(minutes);
+      console.log('[VideoStore] Recovered video added,', minutes, 'minutes to heatmap');
+
+      useNotificationStore.getState().setHasEverRecorded();
+
+      if (userId) {
+        enqueueChange('GRIND_RECORD', video.id, {
+          durationMs: estimatedDurationSeconds * 1000,
+        });
+      }
+
+      const { useGrindsStore } = require('./useGrindsStore');
+      useGrindsStore.getState().addGrindLocally({
+        id: video.id,
+        createdAt: video.createdAt,
+        durationSeconds: estimatedDurationSeconds,
+      });
+
+      return video;
+    } catch (error) {
+      console.error('[VideoStore] Failed to add recovered video:', error);
       throw error;
     }
   },

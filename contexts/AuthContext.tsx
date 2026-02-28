@@ -1,8 +1,9 @@
+import NetInfo, { NetInfoSubscription } from '@react-native-community/netinfo';
 import { Session, User } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
@@ -25,12 +26,99 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const isSigningOut = useRef(false);
+  const lastValidSession = useRef<Session | null>(null);
+  const recoveryUnsubscribe = useRef<NetInfoSubscription | null>(null);
+  const recoveryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Handle app state changes for token refresh
+  // Schedule session recovery when SIGNED_OUT happens while offline
+  const scheduleSessionRecovery = () => {
+    // Clean up any existing recovery listener
+    if (recoveryUnsubscribe.current) {
+      recoveryUnsubscribe.current();
+      recoveryUnsubscribe.current = null;
+    }
+    if (recoveryTimeout.current) {
+      clearTimeout(recoveryTimeout.current);
+      recoveryTimeout.current = null;
+    }
+
+    console.log('[Auth] Scheduling session recovery for when network returns');
+
+    recoveryUnsubscribe.current = NetInfo.addEventListener(async (state) => {
+      if (!state.isConnected || !state.isInternetReachable) return;
+
+      console.log('[Auth] Network restored, attempting session recovery');
+      // Clean up listener immediately
+      if (recoveryUnsubscribe.current) {
+        recoveryUnsubscribe.current();
+        recoveryUnsubscribe.current = null;
+      }
+      if (recoveryTimeout.current) {
+        clearTimeout(recoveryTimeout.current);
+        recoveryTimeout.current = null;
+      }
+
+      try {
+        // Try to restore session from Supabase storage first
+        const { data, error } = await supabase.auth.getSession();
+        if (data.session) {
+          console.log('[Auth] Session recovered from storage');
+          setSession(data.session);
+          lastValidSession.current = data.session;
+          return;
+        }
+
+        // Fall back to in-memory last valid session
+        if (lastValidSession.current) {
+          console.log('[Auth] Attempting recovery with last valid session');
+          const { error: setError } = await supabase.auth.setSession({
+            access_token: lastValidSession.current.access_token,
+            refresh_token: lastValidSession.current.refresh_token,
+          });
+          if (!setError) {
+            console.log('[Auth] Session recovered from last valid session');
+            return;
+          }
+          console.warn('[Auth] Recovery with last valid session failed:', setError.message);
+        }
+
+        // Recovery failed — token is truly expired
+        console.log('[Auth] Session recovery failed, clearing session');
+        setSession(null);
+        lastValidSession.current = null;
+        await useSubscriptionStore.getState().logoutUser();
+      } catch (err) {
+        console.error('[Auth] Session recovery error:', err);
+        setSession(null);
+        lastValidSession.current = null;
+      }
+    });
+
+    // 5-minute safety timeout to prevent listener leak
+    recoveryTimeout.current = setTimeout(() => {
+      console.log('[Auth] Session recovery timed out after 5 minutes');
+      if (recoveryUnsubscribe.current) {
+        recoveryUnsubscribe.current();
+        recoveryUnsubscribe.current = null;
+      }
+      recoveryTimeout.current = null;
+      // If we still have no valid session at this point, clear it
+      setSession(null);
+      lastValidSession.current = null;
+    }, 5 * 60 * 1000);
+  };
+
+  // Handle app state changes for token refresh (network-aware)
   useEffect(() => {
-    const handleAppStateChange = (state: AppStateStatus) => {
+    const handleAppStateChange = async (state: AppStateStatus) => {
       if (state === 'active') {
-        supabase.auth.startAutoRefresh();
+        const netState = await NetInfo.fetch();
+        if (netState.isConnected && netState.isInternetReachable !== false) {
+          supabase.auth.startAutoRefresh();
+        } else {
+          console.log('[Auth] Skipping auto-refresh — offline');
+        }
       } else {
         supabase.auth.stopAutoRefresh();
       }
@@ -44,34 +132,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // asynchronously once the cached session is restored from AsyncStorage
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, newSession) => {
         console.log('[Auth] Auth state changed:', event);
-        setSession(session);
-        if (!isInitialized) setIsInitialized(true);
 
-        // Handle OAuth callback
-        if (event === 'SIGNED_IN' && session) {
-          // Close any open auth session browser (ignore errors if already closed)
-          try {
-            await WebBrowser.dismissBrowser();
-          } catch {
-            // Browser was already dismissed, which is fine
+        if (event === 'INITIAL_SESSION') {
+          // Always trust the initial session from storage
+          setSession(newSession);
+          if (newSession) lastValidSession.current = newSession;
+          if (!isInitialized) setIsInitialized(true);
+          return;
+        }
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (newSession) {
+            setSession(newSession);
+            lastValidSession.current = newSession;
+          }
+          if (!isInitialized) setIsInitialized(true);
+
+          // Handle OAuth callback on SIGNED_IN
+          if (event === 'SIGNED_IN' && newSession) {
+            try {
+              await WebBrowser.dismissBrowser();
+            } catch {
+              // Browser was already dismissed, which is fine
+            }
+            console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
+            await useSubscriptionStore.getState().loginUser(newSession.user.id);
+          }
+          return;
+        }
+
+        if (event === 'SIGNED_OUT') {
+          if (!isInitialized) setIsInitialized(true);
+
+          // User-initiated sign out — always honour it
+          if (isSigningOut.current) {
+            console.log('[Auth] User-initiated sign out');
+            isSigningOut.current = false;
+            setSession(null);
+            lastValidSession.current = null;
+            return;
           }
 
-          // Login to RevenueCat with user ID for subscription syncing
-          console.log('[Auth] Logging in to RevenueCat with user ID:', session.user.id);
-          await useSubscriptionStore.getState().loginUser(session.user.id);
-        }
+          // System-triggered SIGNED_OUT — check network before clearing
+          try {
+            const netState = await NetInfo.fetch();
+            if (!netState.isConnected || netState.isInternetReachable === false) {
+              console.log('[Auth] SIGNED_OUT received while offline, keeping session');
+              scheduleSessionRecovery();
+              return;
+            }
+          } catch {
+            // If NetInfo fails, assume online and proceed with logout
+          }
 
-        // Handle sign out - logout from RevenueCat
-        if (event === 'SIGNED_OUT') {
+          // Online and token is truly invalid — clear session
+          console.log('[Auth] SIGNED_OUT received while online, clearing session');
+          setSession(null);
+          lastValidSession.current = null;
           console.log('[Auth] Logging out from RevenueCat');
           await useSubscriptionStore.getState().logoutUser();
+          return;
         }
+
+        // Fallback for any other events
+        setSession(newSession);
+        if (newSession) lastValidSession.current = newSession;
+        if (!isInitialized) setIsInitialized(true);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      // Clean up recovery listener on unmount
+      if (recoveryUnsubscribe.current) {
+        recoveryUnsubscribe.current();
+        recoveryUnsubscribe.current = null;
+      }
+      if (recoveryTimeout.current) {
+        clearTimeout(recoveryTimeout.current);
+        recoveryTimeout.current = null;
+      }
+    };
   }, []);
 
   // Handle deep links for OAuth callback
@@ -267,9 +410,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await useSubscriptionStore.getState().logoutUser();
       useSubscriptionStore.getState().reset();
 
+      isSigningOut.current = true;
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        isSigningOut.current = false;
+        throw error;
+      }
     } catch (error) {
+      isSigningOut.current = false;
       console.error('Sign out error:', error);
       if (error instanceof Error) {
         Alert.alert('Sign Out Error', error.message);

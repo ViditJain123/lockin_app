@@ -54,7 +54,10 @@ class TimelapseEncoder {
         
         // Create asset writer
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
-        
+
+        // Enable fragmented MP4 so partial files are recoverable after a crash
+        writer.movieFragmentInterval = CMTime(seconds: 10, preferredTimescale: 600)
+
         // Configure video settings
         // Using hardware encoder for efficiency
         let videoSettings: [String: Any] = [

@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   deleteAction: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#FF3B5C',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',

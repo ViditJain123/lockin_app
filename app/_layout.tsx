@@ -22,13 +22,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
 import { useEffect, useRef } from 'react';
-import { Appearance, AppState, AppStateStatus, Platform, StyleSheet } from 'react-native';
+import { Alert, Appearance, AppState, AppStateStatus, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import AppUpdateBanner from '../components/AppUpdateBanner';
 import AppUpdateModal from '../components/AppUpdateModal';
 import AuthScreen from '../components/AuthScreen';
+import HardPaywallScreen from '../components/HardPaywallScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
 import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
 import AppsQuestionScreen from '../components/quiz/questions/AppsQuestionScreen';
@@ -47,7 +48,7 @@ import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScr
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
-import { useSubscriptionStore } from '../store/useSubscriptionStore';
+import { useSubscriptionStore, useIsSubscribed } from '../store/useSubscriptionStore';
 // Family Controls screens
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
@@ -61,6 +62,7 @@ import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { migrateLocalDataToSupabase } from '../lib/dataMigration';
 import { initializeSyncEngine, teardownSyncEngine, performFullPull, flushPendingQueue } from '../lib/syncEngine';
+import { checkForRecoverableRecordings, recoverRecording, dismissRecovery, RecoverableSession } from '../modules/TimelapseEngine';
 import { useVideoStore } from '../store/useVideoStore';
 import { getEvents, onDeviceActivityMonitorEvent } from 'react-native-device-activity';
 import { initializeDailyBlock, unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '../lib/blockingService';
@@ -135,6 +137,10 @@ function RootLayoutNav() {
   // Force dark mode throughout the app
   const colorScheme = 'dark' as const;
   const { session, isInitialized } = useAuth();
+
+  // Subscription state
+  const isSubscribed = useIsSubscribed();
+  const subscriptionInitialized = useSubscriptionStore((state) => state.isInitialized);
 
   // App update state
   const {
@@ -227,6 +233,65 @@ function RootLayoutNav() {
     return () => {
       teardownSyncEngine();
     };
+  }, [session?.user?.id]);
+
+  // Check for recoverable timelapse recordings from previous crashes
+  useEffect(() => {
+    if (!session?.user?.id || Platform.OS !== 'ios') return;
+    const userId = session.user.id;
+
+    const checkRecovery = async () => {
+      try {
+        const sessions = await checkForRecoverableRecordings();
+        if (sessions.length === 0) return;
+
+        // Show recovery alert for the first recoverable session
+        const s = sessions[0] as RecoverableSession;
+        const durationStr = Math.round(s.estimatedDurationSeconds) + 's';
+
+        Alert.alert(
+          'Recording Found',
+          `A previous recording (~${durationStr} of output video, ${s.segmentCount} segment${s.segmentCount > 1 ? 's' : ''}) was interrupted. Would you like to recover it?`,
+          [
+            {
+              text: 'Dismiss',
+              style: 'destructive',
+              onPress: async () => {
+                for (const sess of sessions) {
+                  await dismissRecovery(sess.sessionId);
+                }
+              },
+            },
+            {
+              text: 'Recover',
+              style: 'default',
+              onPress: async () => {
+                try {
+                  const result = await recoverRecording(s.sessionId);
+                  await useVideoStore.getState().addRecoveredVideo(
+                    result.uri,
+                    s.estimatedDurationSeconds,
+                    userId
+                  );
+                  Alert.alert('Recovered', 'Your recording has been recovered successfully.');
+                  // Dismiss any remaining sessions
+                  for (const sess of sessions.slice(1)) {
+                    await dismissRecovery(sess.sessionId);
+                  }
+                } catch (err) {
+                  console.error('[Layout] Recovery failed:', err);
+                  Alert.alert('Recovery Failed', 'Could not recover the recording. The data has been kept for another attempt.');
+                }
+              },
+            },
+          ]
+        );
+      } catch (err) {
+        console.error('[Layout] Recovery check failed:', err);
+      }
+    };
+
+    checkRecovery();
   }, [session?.user?.id]);
 
   // Check for app updates on launch and when app comes to foreground
@@ -582,7 +647,6 @@ function RootLayoutNav() {
           {currentQuestionIndex === 21 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
             />
           )}
           {/* Question 24: Payment Success Screen */}
@@ -611,6 +675,21 @@ function RootLayoutNav() {
       <GestureHandlerRootView style={styles.container}>
         <StatusBar style="light" />
         <AuthScreen />
+      </GestureHandlerRootView>
+    );
+  }
+
+  // Wait for subscription store to initialize before deciding paywall
+  if (hasCompletedOnboarding && !subscriptionInitialized) {
+    return null; // Keep splash screen visible
+  }
+
+  // Hard paywall gate — block access if not subscribed
+  if (hasCompletedOnboarding && !isSubscribed) {
+    return (
+      <GestureHandlerRootView style={styles.container}>
+        <StatusBar style="light" />
+        <HardPaywallScreen />
       </GestureHandlerRootView>
     );
   }

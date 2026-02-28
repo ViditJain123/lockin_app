@@ -23,6 +23,17 @@ RCT_EXTERN_METHOD(getRecordingState:(RCTPromiseResolveBlock)resolver
 RCT_EXTERN_METHOD(isCallInProgress:(RCTPromiseResolveBlock)resolver
                   rejecter:(RCTPromiseRejectBlock)rejecter)
 
+RCT_EXTERN_METHOD(checkForRecoverableRecordings:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+
+RCT_EXTERN_METHOD(recoverRecording:(NSString *)sessionId
+                  resolver:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+
+RCT_EXTERN_METHOD(dismissRecovery:(NSString *)sessionId
+                  resolver:(RCTPromiseResolveBlock)resolver
+                  rejecter:(RCTPromiseRejectBlock)rejecter)
+
 + (BOOL)requiresMainQueueSetup
 {
   return YES;
