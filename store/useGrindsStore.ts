@@ -26,6 +26,9 @@ interface GrindsState {
 
   // Called by sync engine after conflict resolution
   updateFromRemote: (grinds: GrindSession[]) => void;
+
+  // Reset all grinds (used on logout for data isolation)
+  resetGrinds: () => void;
 }
 
 export const useGrindsStore = create<GrindsState>()(
@@ -48,6 +51,10 @@ export const useGrindsStore = create<GrindsState>()(
 
       updateFromRemote: (grinds: GrindSession[]) => {
         set({ grinds });
+      },
+
+      resetGrinds: () => {
+        set({ grinds: [] });
       },
     }),
     {

@@ -3,7 +3,7 @@ import AVFoundation
 import Photos
 import UIKit
 import React
-import CallKit
+
 
 /// Production-ready iOS Timelapse Engine
 /// Designed for 3-4 hours continuous recording with zero-wait export
@@ -26,10 +26,6 @@ class TimelapseEngine: RCTEventEmitter {
         }
         return instance
     }
-    
-    // MARK: - Call Detection
-    
-    private let callObserver = CXCallObserver()
     
     // MARK: - State Machine
     
@@ -179,12 +175,60 @@ class TimelapseEngine: RCTEventEmitter {
             }
             self.isFinalizationInProgress = true
 
+            // callOnce guard — ensures the promise fires exactly once
+            let promiseLock = NSLock()
+            var promiseFired = false
+
+            let safeResolve: RCTPromiseResolveBlock = { value in
+                promiseLock.lock()
+                guard !promiseFired else { promiseLock.unlock(); return }
+                promiseFired = true
+                promiseLock.unlock()
+                resolver(value)
+            }
+            let safeReject: RCTPromiseRejectBlock = { code, message, error in
+                promiseLock.lock()
+                guard !promiseFired else { promiseLock.unlock(); return }
+                promiseFired = true
+                promiseLock.unlock()
+                rejecter(code, message, error)
+            }
+
+            // 25s timeout safety net (fires before JS's 30s timeout)
+            let timeoutWork = DispatchWorkItem { [weak self] in
+                print("[TimelapseEngine] stopTimelapse timed out after 25s")
+                safeReject("STOP_TIMEOUT", "Stop timelapse timed out", nil)
+                self?.stateQueue.async {
+                    self?.state = .error
+                    self?.isFinalizationInProgress = false
+                    self?.cleanup()
+                }
+            }
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 25, execute: timeoutWork)
+
             self.state = .finalizing
 
-            // Stop capture first, then finalize inside the completion handler
-            // This guarantees no more frames arrive after stopRunning() returns
-            self.sessionManager?.stopCapture { [weak self] in
-                guard let self = self else { return }
+            // Guard sessionManager nil — if cleanup() already ran, reject immediately
+            guard let sessionManager = self.sessionManager else {
+                print("[TimelapseEngine] sessionManager is nil at stop")
+                self.state = .error
+                self.isFinalizationInProgress = false
+                timeoutWork.cancel()
+                safeReject("SESSION_NIL", "Session manager was deallocated", nil)
+                self.cleanup()
+                return
+            }
+
+            // Stop capture: flush buffered frames on captureQueue, then finalize
+            // preStop runs before stopRunning() so the session is still active
+            sessionManager.stopCapture(preStop: { [weak self] in
+                self?.flushFrameBuffer()
+            }, completion: { [weak self] in
+                guard let self = self else {
+                    timeoutWork.cancel()
+                    safeReject("ENGINE_DEALLOCATED", "TimelapseEngine deallocated during stop", nil)
+                    return
+                }
 
                 // Check for nil segment manager - reject promise if it doesn't exist
                 guard let segmentManager = self.segmentManager else {
@@ -193,14 +237,19 @@ class TimelapseEngine: RCTEventEmitter {
                         self.state = .error
                         self.isFinalizationInProgress = false
                     }
-                    rejecter("ENCODER_NIL", "Segment manager was not initialized", nil)
+                    timeoutWork.cancel()
+                    safeReject("ENCODER_NIL", "Segment manager was not initialized", nil)
                     self.cleanup()
                     return
                 }
 
                 // Finalize segments and concatenate — safe now that capture has stopped
                 segmentManager.finalize { [weak self] result in
-                    guard let self = self else { return }
+                    guard let self = self else {
+                        timeoutWork.cancel()
+                        safeReject("ENGINE_DEALLOCATED", "TimelapseEngine deallocated during finalization", nil)
+                        return
+                    }
 
                     switch result {
                     case .success(let outputURL):
@@ -219,7 +268,8 @@ class TimelapseEngine: RCTEventEmitter {
                                         "durationSeconds": self.getRecordingDuration()
                                     ]
                                     self.sendEvent(withName: "onTimelapseComplete", body: response)
-                                    resolver(response)
+                                    timeoutWork.cancel()
+                                    safeResolve(response)
                                     self.cleanup()
 
                                 case .failure(let error):
@@ -227,7 +277,8 @@ class TimelapseEngine: RCTEventEmitter {
                                         self.state = .error
                                         self.isFinalizationInProgress = false
                                     }
-                                    rejecter("GALLERY_SAVE_FAILED", error.localizedDescription, error)
+                                    timeoutWork.cancel()
+                                    safeReject("GALLERY_SAVE_FAILED", error.localizedDescription, error)
                                     self.cleanup()
                                 }
                             }
@@ -242,7 +293,8 @@ class TimelapseEngine: RCTEventEmitter {
                                 "durationSeconds": self.getRecordingDuration()
                             ]
                             self.sendEvent(withName: "onTimelapseComplete", body: response)
-                            resolver(response)
+                            timeoutWork.cancel()
+                            safeResolve(response)
                             self.cleanup()
                         }
 
@@ -251,14 +303,15 @@ class TimelapseEngine: RCTEventEmitter {
                             self.state = .error
                             self.isFinalizationInProgress = false
                         }
-                        rejecter("FINALIZE_FAILED", error.localizedDescription, error)
+                        timeoutWork.cancel()
+                        safeReject("FINALIZE_FAILED", error.localizedDescription, error)
                         self.cleanup()
                     }
                 }
-            }
+            })
         }
     }
-    
+
     /// Get current recording state
     @objc func getRecordingState(_ resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
         stateQueue.async { [weak self] in
@@ -277,17 +330,9 @@ class TimelapseEngine: RCTEventEmitter {
     
     /// Check if there's a phone call in progress
     @objc func isCallInProgress(_ resolver: @escaping RCTPromiseResolveBlock, rejecter: @escaping RCTPromiseRejectBlock) {
-        // CallKit is not available in China per MIIT requirements (Guideline 5.0)
-        if Locale.current.regionCode == "CN" {
-            resolver(false)
-            return
-        }
-
-        let hasActiveCall = callObserver.calls.contains { call in
-            // Check if any call is in a connected state (not ended or outgoing)
-            return !call.hasEnded && (call.hasConnected || call.isOutgoing)
-        }
-        resolver(hasActiveCall)
+        // CallKit removed per Apple Guideline 5.0 (MIIT requirements for China).
+        // Call detection was a UX guard, not a core feature.
+        resolver(false)
     }
     
     // MARK: - Private Methods
@@ -482,6 +527,34 @@ class TimelapseEngine: RCTEventEmitter {
         }
     }
     
+    /// Flush any buffered frames to the encoder before stopping.
+    /// Must be called on captureQueue (via preStop) so it doesn't race with processFrame.
+    private func flushFrameBuffer() {
+        guard isBufferingPhase, !frameBuffer.isEmpty else { return }
+
+        isBufferingPhase = false
+
+        // If only 1 frame in buffer, encode it (don't skip index 0 — short recordings need every frame)
+        let startIndex = frameBuffer.count >= bufferThreshold ? 1 : 0
+
+        for i in startIndex..<frameBuffer.count {
+            let (bufferedPixelBuffer, _) = frameBuffer[i]
+            let presentationTime = CMTime(
+                value: frameCount * Int64(600 / outputFps),
+                timescale: 600
+            )
+            do {
+                try segmentManager?.appendFrame(bufferedPixelBuffer, presentationTime: presentationTime)
+                frameCount += 1
+            } catch {
+                print("[TimelapseEngine] flushFrameBuffer failed at frame \(i): \(error)")
+            }
+        }
+
+        frameBuffer.removeAll()
+        print("[TimelapseEngine] Flushed frame buffer (\(frameCount) total frames)")
+    }
+
     private func emitProgressEvent() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -601,18 +674,36 @@ extension TimelapseEngine: TimelapseStabilityManagerDelegate {
             self.state = .finalizing
             self.emitError("Recording stopped due to system error: \(error.localizedDescription)")
 
-            // Stop capture first, then attempt to save partial recording
-            self.sessionManager?.stopCapture { [weak self] in
+            // Guard sessionManager nil
+            guard let sessionManager = self.sessionManager else {
+                self.isFinalizationInProgress = false
+                self.cleanup()
+                return
+            }
+
+            // Stop capture first, flush buffer, then attempt to save partial recording
+            sessionManager.stopCapture(preStop: { [weak self] in
+                self?.flushFrameBuffer()
+            }, completion: { [weak self] in
                 guard let self = self else { return }
 
-                self.segmentManager?.finalize { [weak self] _ in
+                // Guard segmentManager nil
+                guard let segmentManager = self.segmentManager else {
+                    self.stateQueue.async {
+                        self.isFinalizationInProgress = false
+                    }
+                    self.cleanup()
+                    return
+                }
+
+                segmentManager.finalize { [weak self] _ in
                     guard let self = self else { return }
                     self.stateQueue.async {
                         self.isFinalizationInProgress = false
                     }
                     self.cleanup()
                 }
-            }
+            })
         }
     }
 }
@@ -636,7 +727,16 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
             // Force finalize
             self.state = .finalizing
 
-            self.sessionManager?.stopCapture { [weak self] in
+            // Guard sessionManager nil
+            guard let sessionManager = self.sessionManager else {
+                self.isFinalizationInProgress = false
+                self.cleanup()
+                return
+            }
+
+            sessionManager.stopCapture(preStop: { [weak self] in
+                self?.flushFrameBuffer()
+            }, completion: { [weak self] in
                 guard let self = self else { return }
 
                 // Check for nil segment manager
@@ -663,7 +763,7 @@ extension TimelapseEngine: TimelapseBackgroundHandlerDelegate {
                         self.cleanup()
                     }
                 }
-            }
+            })
         }
     }
 }

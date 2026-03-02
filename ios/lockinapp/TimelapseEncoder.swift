@@ -209,6 +209,7 @@ class TimelapseEncoder {
         // Acquire writeLock so no concurrent appendFrame can pass the isWriting guard
         writeLock.lock()
         isWriting = false
+        let frames = framesWritten
         writeLock.unlock()
 
         guard let writer = assetWriter, let input = videoInput else {
@@ -217,30 +218,62 @@ class TimelapseEncoder {
             return
         }
 
+        // 0-frame guard: finishWriting on an empty fragmented-MP4 writer may hang forever
+        if frames == 0 {
+            print("[TimelapseEncoder] 0 frames written — cancelling writer instead of finishing")
+            writer.cancelWriting()
+            finalizationLock.sync { isFinalizationInProgress = false }
+            try? FileManager.default.removeItem(at: outputURL)
+            completion(.failure(TimelapseError.encoderFailed("No frames were written")))
+            return
+        }
+
         // Mark input as finished
         input.markAsFinished()
 
-        // Finish writing
-        writer.finishWriting { [weak self] in
-            guard let self = self else { return }
+        // Finish writing with timeout protection (10s).
+        // Use a lock-guarded flag to ensure completion is called exactly once.
+        let completionLock = NSLock()
+        var completionCalled = false
 
-            // Reset finalization flag
-            self.finalizationLock.sync { self.isFinalizationInProgress = false }
+        let callOnce: (Result<URL, Error>) -> Void = { [weak self] result in
+            completionLock.lock()
+            guard !completionCalled else {
+                completionLock.unlock()
+                return
+            }
+            completionCalled = true
+            completionLock.unlock()
+
+            self?.finalizationLock.sync { self?.isFinalizationInProgress = false }
+            completion(result)
+        }
+
+        let timeoutSeconds: Double = 10
+        let timeoutWork = DispatchWorkItem {
+            print("[TimelapseEncoder] finishWriting timed out after \(timeoutSeconds)s — cancelling writer")
+            writer.cancelWriting()
+            callOnce(.failure(TimelapseError.encoderFailed("finishWriting timed out")))
+        }
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + timeoutSeconds, execute: timeoutWork)
+
+        writer.finishWriting {
+            timeoutWork.cancel()
 
             switch writer.status {
             case .completed:
                 print("[TimelapseEncoder] Finalized: \(self.framesWritten) frames")
-                completion(.success(self.outputURL))
+                callOnce(.success(self.outputURL))
 
             case .failed:
                 let error = writer.error ?? TimelapseError.encoderFailed("Unknown error")
-                completion(.failure(error))
+                callOnce(.failure(error))
 
             case .cancelled:
-                completion(.failure(TimelapseError.encoderFailed("Writing cancelled")))
+                callOnce(.failure(TimelapseError.encoderFailed("Writing cancelled")))
 
             default:
-                completion(.failure(TimelapseError.encoderFailed("Unexpected state: \(writer.status.rawValue)")))
+                callOnce(.failure(TimelapseError.encoderFailed("Unexpected state: \(writer.status.rawValue)")))
             }
         }
     }

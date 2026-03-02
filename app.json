@@ -16,7 +16,7 @@
     "ios": {
       "bundleIdentifier": "com.lockin.club",
       "appleTeamId": "CCQU7Z66V5",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "usesAppleSignIn": true,
       "icon": "./assets/images/logo.jpg",
       "infoPlist": {

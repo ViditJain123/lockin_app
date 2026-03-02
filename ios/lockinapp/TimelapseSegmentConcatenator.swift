@@ -10,6 +10,7 @@ class TimelapseSegmentConcatenator {
         case noVideoTrack(URL)
         case exportFailed(String)
         case exportCancelled
+        case exportTimedOut
 
         var errorDescription: String? {
             switch self {
@@ -21,6 +22,8 @@ class TimelapseSegmentConcatenator {
                 return "Export failed: \(reason)"
             case .exportCancelled:
                 return "Export was cancelled"
+            case .exportTimedOut:
+                return "Export timed out"
             }
         }
     }
@@ -53,78 +56,154 @@ class TimelapseSegmentConcatenator {
             return
         }
 
-        let composition = AVMutableComposition()
+        // Load tracks asynchronously to avoid blocking on fragmented MP4s
+        let loadGroup = DispatchGroup()
+        let loadQueue = DispatchQueue(label: "com.lockin.timelapse.trackLoading", qos: .userInitiated)
 
-        guard let compositionTrack = composition.addMutableTrack(
-            withMediaType: .video,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        ) else {
-            completion(.failure(ConcatenationError.exportFailed("Failed to create composition track")))
-            return
+        struct SegmentTrackInfo {
+            let asset: AVURLAsset
+            let track: AVAssetTrack
+            let duration: CMTime
         }
 
-        var insertionTime = CMTime.zero
+        var loadedSegments: [SegmentTrackInfo] = []
+        let loadLock = NSLock()
 
         for segmentURL in segmentURLs {
-            let asset = AVURLAsset(url: segmentURL, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+            // Don't request precise duration — it causes expensive scanning on fragmented MP4s
+            let asset = AVURLAsset(url: segmentURL)
 
-            guard let videoTrack = asset.tracks(withMediaType: .video).first else {
-                print("[SegmentConcatenator] Skipping segment with no video track: \(segmentURL.lastPathComponent)")
-                continue
-            }
+            loadGroup.enter()
 
-            let duration = asset.duration
-
-            do {
-                try compositionTrack.insertTimeRange(
-                    CMTimeRange(start: .zero, duration: duration),
-                    of: videoTrack,
-                    at: insertionTime
-                )
-                insertionTime = CMTimeAdd(insertionTime, duration)
-            } catch {
-                print("[SegmentConcatenator] Failed to insert segment \(segmentURL.lastPathComponent): \(error)")
-                continue
-            }
-        }
-
-        guard CMTimeGetSeconds(insertionTime) > 0 else {
-            completion(.failure(ConcatenationError.noSegments))
-            return
-        }
-
-        // Remove existing output file
-        try? FileManager.default.removeItem(at: outputURL)
-
-        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
-            completion(.failure(ConcatenationError.exportFailed("Failed to create export session")))
-            return
-        }
-
-        exporter.outputURL = outputURL
-        exporter.outputFileType = .mp4
-
-        print("[SegmentConcatenator] Concatenating \(segmentURLs.count) segments, total duration: \(CMTimeGetSeconds(insertionTime))s")
-
-        exporter.exportAsynchronously {
-            switch exporter.status {
-            case .completed:
-                // Delete source segments immediately to free storage
-                for segmentURL in segmentURLs {
-                    try? FileManager.default.removeItem(at: segmentURL)
+            if #available(iOS 15.0, *) {
+                // Async track + duration loading (iOS 15+)
+                Task {
+                    do {
+                        let tracks = try await asset.loadTracks(withMediaType: .video)
+                        let duration = try await asset.load(.duration)
+                        if let track = tracks.first {
+                            loadLock.lock()
+                            loadedSegments.append(SegmentTrackInfo(asset: asset, track: track, duration: duration))
+                            loadLock.unlock()
+                        } else {
+                            print("[SegmentConcatenator] No video track in \(segmentURL.lastPathComponent)")
+                        }
+                    } catch {
+                        print("[SegmentConcatenator] Failed to load tracks for \(segmentURL.lastPathComponent): \(error)")
+                    }
+                    loadGroup.leave()
                 }
-                print("[SegmentConcatenator] Concatenation complete, deleted \(segmentURLs.count) source segments")
-                completion(.success(outputURL))
+            } else {
+                // Fallback: synchronous loading on background queue
+                loadQueue.async {
+                    if let track = asset.tracks(withMediaType: .video).first {
+                        let duration = asset.duration
+                        loadLock.lock()
+                        loadedSegments.append(SegmentTrackInfo(asset: asset, track: track, duration: duration))
+                        loadLock.unlock()
+                    } else {
+                        print("[SegmentConcatenator] No video track in \(segmentURL.lastPathComponent)")
+                    }
+                    loadGroup.leave()
+                }
+            }
+        }
 
-            case .failed:
-                let errorMsg = exporter.error?.localizedDescription ?? "Unknown error"
-                completion(.failure(ConcatenationError.exportFailed(errorMsg)))
+        loadGroup.notify(queue: .global(qos: .userInitiated)) {
+            // Sort by original order (segmentURLs order)
+            let urlOrder = Dictionary(uniqueKeysWithValues: segmentURLs.enumerated().map { ($1.absoluteString, $0) })
+            let sortedSegments = loadedSegments.sorted {
+                (urlOrder[$0.asset.url.absoluteString] ?? 0) < (urlOrder[$1.asset.url.absoluteString] ?? 0)
+            }
 
-            case .cancelled:
-                completion(.failure(ConcatenationError.exportCancelled))
+            let composition = AVMutableComposition()
 
-            default:
-                completion(.failure(ConcatenationError.exportFailed("Unexpected export status: \(exporter.status.rawValue)")))
+            guard let compositionTrack = composition.addMutableTrack(
+                withMediaType: .video,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else {
+                completion(.failure(ConcatenationError.exportFailed("Failed to create composition track")))
+                return
+            }
+
+            var insertionTime = CMTime.zero
+
+            for info in sortedSegments {
+                do {
+                    try compositionTrack.insertTimeRange(
+                        CMTimeRange(start: .zero, duration: info.duration),
+                        of: info.track,
+                        at: insertionTime
+                    )
+                    insertionTime = CMTimeAdd(insertionTime, info.duration)
+                } catch {
+                    print("[SegmentConcatenator] Failed to insert segment \(info.asset.url.lastPathComponent): \(error)")
+                    continue
+                }
+            }
+
+            guard CMTimeGetSeconds(insertionTime) > 0 else {
+                completion(.failure(ConcatenationError.noSegments))
+                return
+            }
+
+            // Remove existing output file
+            try? FileManager.default.removeItem(at: outputURL)
+
+            guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+                completion(.failure(ConcatenationError.exportFailed("Failed to create export session")))
+                return
+            }
+
+            exporter.outputURL = outputURL
+            exporter.outputFileType = .mp4
+
+            print("[SegmentConcatenator] Concatenating \(segmentURLs.count) segments, total duration: \(CMTimeGetSeconds(insertionTime))s")
+
+            // Export with 60s timeout
+            let completionLock = NSLock()
+            var completionCalled = false
+
+            let callOnce: (Result<URL, Error>) -> Void = { result in
+                completionLock.lock()
+                guard !completionCalled else {
+                    completionLock.unlock()
+                    return
+                }
+                completionCalled = true
+                completionLock.unlock()
+                completion(result)
+            }
+
+            let timeoutWork = DispatchWorkItem {
+                print("[SegmentConcatenator] Export timed out after 60s — cancelling")
+                exporter.cancelExport()
+                callOnce(.failure(ConcatenationError.exportTimedOut))
+            }
+            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 60, execute: timeoutWork)
+
+            exporter.exportAsynchronously {
+                timeoutWork.cancel()
+
+                switch exporter.status {
+                case .completed:
+                    // Delete source segments immediately to free storage
+                    for segmentURL in segmentURLs {
+                        try? FileManager.default.removeItem(at: segmentURL)
+                    }
+                    print("[SegmentConcatenator] Concatenation complete, deleted \(segmentURLs.count) source segments")
+                    callOnce(.success(outputURL))
+
+                case .failed:
+                    let errorMsg = exporter.error?.localizedDescription ?? "Unknown error"
+                    callOnce(.failure(ConcatenationError.exportFailed(errorMsg)))
+
+                case .cancelled:
+                    callOnce(.failure(ConcatenationError.exportCancelled))
+
+                default:
+                    callOnce(.failure(ConcatenationError.exportFailed("Unexpected export status: \(exporter.status.rawValue)")))
+                }
             }
         }
     }

@@ -61,6 +61,9 @@ class TimelapseSegmentManager {
     /// Serial queue for manifest writes and async finalization
     private let managerQueue = DispatchQueue(label: "com.lockin.timelapse.segmentManager", qos: .userInitiated)
 
+    /// Tracks in-flight segment finalizations from rotateSegment() so finalize() can wait for them
+    private let pendingFinalizationGroup = DispatchGroup()
+
     // MARK: - Class Methods
 
     /// Base directory for all timelapse sessions
@@ -167,7 +170,13 @@ class TimelapseSegmentManager {
         let newIndex = currentSegmentIndex + 1
 
         // Create new encoder FIRST (so frames can continue flowing)
-        let newEncoder = try createEncoder(forSegmentIndex: newIndex)
+        let newEncoder: TimelapseEncoder
+        do {
+            newEncoder = try createEncoder(forSegmentIndex: newIndex)
+        } catch {
+            rotationLock.unlock()
+            throw error
+        }
 
         // Swap — new frames go to new encoder
         currentEncoder = newEncoder
@@ -187,10 +196,22 @@ class TimelapseSegmentManager {
         rotationLock.unlock()
 
         // Finalize old encoder asynchronously (non-blocking)
+        let group = pendingFinalizationGroup
+        group.enter()
         managerQueue.async { [weak self] in
-            guard let self = self else { return }
+            guard let self = self else {
+                group.leave()
+                return
+            }
 
-            oldEncoder?.finalize { [weak self] result in
+            guard let encoder = oldEncoder else {
+                group.leave()
+                return
+            }
+
+            encoder.finalize { [weak self] result in
+                _ = encoder  // prevent premature deallocation — keep strong ref until completion fires
+                defer { group.leave() }
                 guard let self = self else { return }
 
                 switch result {
@@ -252,7 +273,11 @@ class TimelapseSegmentManager {
 
         // Finalize the last (current) segment
         encoder.finalize { [weak self] result in
-            guard let self = self else { return }
+            guard let self = self else {
+                // SegmentManager deallocated — still call completion so promise chain doesn't hang
+                completion(.failure(TimelapseError.encoderFailed("Segment manager deallocated during finalization")))
+                return
+            }
 
             switch result {
             case .success:
@@ -267,8 +292,11 @@ class TimelapseSegmentManager {
 
                 print("[SegmentManager] Last segment \(lastIndex) finalized (\(lastFrameCount) frames)")
 
-                // Concatenate all finalized segments
-                self.concatenateSegments(completion: completion)
+                // Wait for any in-flight segment finalizations from rotateSegment()
+                // before collecting finalized segments for concatenation
+                self.pendingFinalizationGroup.notify(queue: self.managerQueue) {
+                    self.concatenateSegments(completion: completion)
+                }
 
             case .failure(let error):
                 self.rotationLock.lock()
@@ -279,12 +307,14 @@ class TimelapseSegmentManager {
                 self.rotationLock.unlock()
                 self.writeManifest()
 
-                // Still try to concatenate whatever we have
-                let finalizedCount = self.manifest.segments.filter { $0.status == "finalized" }.count
-                if finalizedCount > 0 {
-                    print("[SegmentManager] Last segment failed, but concatenating \(finalizedCount) finalized segments")
-                    self.concatenateSegments(completion: completion)
-                } else {
+                // Wait for pending, then try to concatenate whatever we have
+                self.pendingFinalizationGroup.notify(queue: self.managerQueue) {
+                    let finalizedCount = self.manifest.segments.filter { $0.status == "finalized" }.count
+                    if finalizedCount > 0 {
+                        print("[SegmentManager] Last segment failed, but concatenating \(finalizedCount) finalized segments")
+                        self.concatenateSegments(completion: completion)
+                        return
+                    }
                     completion(.failure(error))
                 }
             }

@@ -42,6 +42,9 @@ interface EarnedTimeState {
   getRemainingTimeSeconds: () => number;
   getRemainingTimeMinutes: () => number;
   hasReachedDailyTarget: (targetHours: number) => boolean;
+
+  // Reset all earned time state (used on logout for data isolation)
+  resetEarnedTime: () => void;
 }
 
 export const useEarnedTimeStore = create<EarnedTimeState>()(
@@ -198,6 +201,16 @@ export const useEarnedTimeStore = create<EarnedTimeState>()(
       hasReachedDailyTarget: (targetHours: number) => {
         const targetSeconds = targetHours * 3600;
         return get().totalGrindSecondsToday >= targetSeconds;
+      },
+
+      resetEarnedTime: () => {
+        set({
+          earnedTimeToday: 0,
+          usedTimeToday: 0,
+          totalGrindSecondsToday: 0,
+          lastResetDate: getLocalDateString(),
+          lastMonitoringStartedAt: null,
+        });
       },
     }),
     {

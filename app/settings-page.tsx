@@ -46,7 +46,7 @@ export default function SettingsPageScreen() {
   const earnedTimeToday = useEarnedTimeStore((s) => s.earnedTimeToday);
   const usedTimeToday = useEarnedTimeStore((s) => s.usedTimeToday);
   const totalGrindSecondsToday = useEarnedTimeStore((s) => s.totalGrindSecondsToday);
-  const remainingMinutes = Math.floor(Math.max(0, earnedTimeToday - usedTimeToday) / 60);
+  const remainingSeconds = Math.max(0, earnedTimeToday - usedTimeToday);
 
   // Daily target progress
   const targetHours = quizAnswers.targetHours || 4;
@@ -55,14 +55,15 @@ export default function SettingsPageScreen() {
   const targetReached = totalGrindSecondsToday >= targetSeconds;
 
   // Format time for display
-  const formatMinutes = (seconds: number) => {
+  const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     if (mins >= 60) {
       const hours = Math.floor(mins / 60);
       const remainingMins = mins % 60;
       return `${hours}h ${remainingMins}m`;
     }
-    return `${mins}m`;
+    if (mins > 0) return `${mins}m`;
+    return `${Math.floor(seconds)}s`;
   };
 
   const handleLogout = () => {
@@ -169,17 +170,19 @@ export default function SettingsPageScreen() {
           <Text style={styles.statsCardTitle}>Today's Screen Time</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{formatMinutes(earnedTimeToday)}</Text>
+              <Text style={styles.statValue}>{formatTime(earnedTimeToday)}</Text>
               <Text style={styles.statLabel}>Earned</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{formatMinutes(usedTimeToday)}</Text>
+              <Text style={styles.statValue}>{formatTime(usedTimeToday)}</Text>
               <Text style={styles.statLabel}>Used</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={[styles.statValue, styles.statValueHighlight]}>{remainingMinutes}m</Text>
+              <Text style={[styles.statValue, styles.statValueHighlight]}>
+                {remainingSeconds >= 60 ? `${Math.floor(remainingSeconds / 60)}m` : `${remainingSeconds}s`}
+              </Text>
               <Text style={styles.statLabel}>Remaining</Text>
             </View>
           </View>
@@ -215,7 +218,7 @@ export default function SettingsPageScreen() {
                   <Text style={styles.settingsRowSubtext}>
                     {targetReached
                       ? 'Target reached! Phone unlocked'
-                      : `${formatMinutes(totalGrindSecondsToday)} / ${targetHours}hr grind today`}
+                      : `${formatTime(totalGrindSecondsToday)} / ${targetHours}hr grind today`}
                   </Text>
                   <View style={styles.progressBarContainer}>
                     <View style={[styles.progressBarFill, { width: `${targetProgress * 100}%` }]} />

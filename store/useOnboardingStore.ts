@@ -66,6 +66,9 @@ interface OnboardingState {
 
   // Called by sync engine after conflict resolution
   updateFromRemote: (profile: QuizAnswers, hasCompleted: boolean) => void;
+
+  // Clear quiz answers on logout (keeps hasCompletedOnboarding)
+  clearQuizAnswers: () => void;
 }
 
 const initialQuizAnswers: QuizAnswers = {
@@ -211,6 +214,16 @@ export const useOnboardingStore = create<OnboardingState>()(
         set({
           quizAnswers: profile,
           hasCompletedOnboarding: hasCompleted,
+        });
+      },
+
+      // Clear quiz answers without resetting hasCompletedOnboarding (device-level flag)
+      clearQuizAnswers: () => {
+        set({
+          quizAnswers: initialQuizAnswers,
+          localUpdatedAt: 0,
+          isInQuizFunnel: false,
+          currentQuestionIndex: 0,
         });
       },
     }),

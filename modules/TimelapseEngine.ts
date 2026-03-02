@@ -184,6 +184,33 @@ function isTimelapseResult(obj: unknown): obj is TimelapseResult {
 }
 
 // ============================================================================
+// Internal Utilities
+// ============================================================================
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  errorMessage: string
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
+// ============================================================================
 // Main API
 // ============================================================================
 
@@ -251,7 +278,11 @@ export async function stopTimelapse(): Promise<TimelapseResult> {
     throw new Error('Timelapse is only available on iOS');
   }
 
-  const result = await NativeTimelapseEngine.stopTimelapse();
+  const result = await withTimeout(
+    NativeTimelapseEngine.stopTimelapse(),
+    30_000,
+    'Timelapse stop timed out after 30 seconds'
+  );
 
   if (!isTimelapseResult(result)) {
     throw new Error('Invalid result from native module');

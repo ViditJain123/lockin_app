@@ -1,20 +1,25 @@
 import NetInfo, { NetInfoSubscription } from '@react-native-community/netinfo';
 import { Session, User } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
+import { clearQueue } from '../lib/pendingChangesQueue';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
+import { useProfileStore } from '../store/useProfileStore';
+import { useTaskStore } from '../store/useTaskStore';
+import { useBadgeStore } from '../store/useBadgeStore';
+import { useHeatmapStore } from '../store/useHeatmapStore';
+import { useGrindsStore } from '../store/useGrindsStore';
+import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
+import { useOnboardingStore } from '../store/useOnboardingStore';
 
 // Types
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isInitialized: boolean;
-  signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -150,13 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           if (!isInitialized) setIsInitialized(true);
 
-          // Handle OAuth callback on SIGNED_IN
           if (event === 'SIGNED_IN' && newSession) {
-            try {
-              await WebBrowser.dismissBrowser();
-            } catch {
-              // Browser was already dismissed, which is fine
-            }
             console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
             await useSubscriptionStore.getState().loginUser(newSession.user.id);
           }
@@ -217,134 +216,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Handle deep links for OAuth callback
-  useEffect(() => {
-    const handleDeepLink = async (event: { url: string }) => {
-      const url = event.url;
-      
-      console.log('[Auth] Deep link received:', url);
-      
-      // Check for auth callback - support both formats
-      if (url.includes('auth-callback') || url.includes('auth/callback') || url.includes('#access_token')) {
-        console.log('[Auth] Processing auth callback');
-        
-        // Extract tokens from URL
-        const params = extractHashParams(url);
-        
-        console.log('[Auth] Deep link params:', Object.keys(params));
-        
-        if (params.access_token && params.refresh_token) {
-          const { error } = await supabase.auth.setSession({
-            access_token: params.access_token,
-            refresh_token: params.refresh_token,
-          });
-          
-          if (error) {
-            console.error('[Auth] Error setting session from deep link:', error);
-            Alert.alert('Authentication Error', error.message);
-          } else {
-            console.log('[Auth] Session set from deep link successfully');
-          }
-        } else {
-          console.log('[Auth] No tokens in deep link, checking Supabase session...');
-          // Sometimes Supabase handles the session automatically
-          const { data: sessionData } = await supabase.auth.getSession();
-          if (sessionData.session) {
-            console.log('[Auth] Session found from Supabase');
-            setSession(sessionData.session);
-          }
-        }
-      }
-    };
-
-    // Handle initial URL (app opened from deep link)
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        console.log('[Auth] Initial deep link URL:', url);
-        handleDeepLink({ url });
-      }
-    });
-
-    // Listen for incoming deep links
-    const subscription = Linking.addEventListener('url', handleDeepLink);
-    return () => subscription.remove();
-  }, []);
-
-  // Sign in with Google using Supabase OAuth
-  const signInWithGoogle = async () => {
-    try {
-      // Create redirect URL using the app scheme
-      // This generates: lockinapp://auth/callback (based on scheme in app.json)
-      const redirectUrl = Linking.createURL('auth-callback');
-      
-      console.log('[Auth] OAuth redirect URL:', redirectUrl);
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        console.log('[Auth] Opening OAuth URL:', data.url);
-        
-        // Open the OAuth URL in a web browser
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          redirectUrl,
-          {
-            showInRecents: true,
-            preferEphemeralSession: false,
-          }
-        );
-
-        console.log('[Auth] OAuth result type:', result.type);
-        
-        if (result.type === 'success' && result.url) {
-          console.log('[Auth] OAuth callback URL:', result.url);
-          
-          // Handle the redirect URL
-          const params = extractHashParams(result.url);
-          
-          console.log('[Auth] Extracted params:', Object.keys(params));
-          
-          if (params.access_token && params.refresh_token) {
-            const { error: sessionError } = await supabase.auth.setSession({
-              access_token: params.access_token,
-              refresh_token: params.refresh_token,
-            });
-            
-            if (sessionError) {
-              throw sessionError;
-            }
-            console.log('[Auth] Session set successfully');
-          } else {
-            console.warn('[Auth] Missing tokens in callback. Params:', params);
-            // Try to get session from Supabase (it may have been set automatically)
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (sessionData.session) {
-              console.log('[Auth] Session found after callback');
-              setSession(sessionData.session);
-            }
-          }
-        } else if (result.type === 'cancel') {
-          console.log('[Auth] User cancelled authentication');
-        } else if (result.type === 'dismiss') {
-          console.log('[Auth] Browser dismissed');
-        }
-      }
-    } catch (error) {
-      console.error('[Auth] Google sign-in error:', error);
-      if (error instanceof Error) {
-        Alert.alert('Sign In Error', error.message);
-      }
-    }
-  };
-
   // Sign in with Apple using native iOS authentication
   const signInWithApple = async () => {
     if (Platform.OS !== 'ios') {
@@ -403,14 +274,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Clear all user-specific data on logout for data isolation between accounts
+  const clearAllUserData = () => {
+    // Reset all Zustand stores
+    useProfileStore.getState().resetStats();
+    useTaskStore.getState().updateFromRemote([]);
+    useBadgeStore.getState().resetBadges();
+    useHeatmapStore.getState().clearActivity();
+    useGrindsStore.getState().resetGrinds();
+    useEarnedTimeStore.getState().resetEarnedTime();
+    useOnboardingStore.getState().clearQuizAnswers();
+
+    // Clear pending sync queue (prevent old user's changes syncing to new user)
+    clearQueue();
+  };
+
   // Sign out
   const signOut = async () => {
     try {
+      isSigningOut.current = true;
+
+      // Clear UI state immediately → shows AuthScreen (avoids paywall flash)
+      setSession(null);
+      lastValidSession.current = null;
+
+      // Clear all user data stores for data isolation
+      clearAllUserData();
+
       // Logout from RevenueCat and reset subscription state
       await useSubscriptionStore.getState().logoutUser();
       useSubscriptionStore.getState().reset();
 
-      isSigningOut.current = true;
       const { error } = await supabase.auth.signOut();
       if (error) {
         isSigningOut.current = false;
@@ -429,7 +323,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     user: session?.user ?? null,
     isInitialized,
-    signInWithGoogle,
     signInWithApple,
     signOut,
   };
@@ -444,39 +337,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
-
-// Helper function to extract hash parameters from URL
-function extractHashParams(url: string): Record<string, string> {
-  const params: Record<string, string> = {};
-  
-  // Check for hash fragment
-  const hashIndex = url.indexOf('#');
-  if (hashIndex !== -1) {
-    const hash = url.substring(hashIndex + 1);
-    const pairs = hash.split('&');
-    
-    for (const pair of pairs) {
-      const [key, value] = pair.split('=');
-      if (key && value) {
-        params[decodeURIComponent(key)] = decodeURIComponent(value);
-      }
-    }
-  }
-  
-  // Also check for query parameters (some OAuth flows use these)
-  const queryIndex = url.indexOf('?');
-  if (queryIndex !== -1) {
-    const query = url.substring(queryIndex + 1).split('#')[0];
-    const pairs = query.split('&');
-    
-    for (const pair of pairs) {
-      const [key, value] = pair.split('=');
-      if (key && value) {
-        params[decodeURIComponent(key)] = decodeURIComponent(value);
-      }
-    }
-  }
-  
-  return params;
 }

@@ -152,3 +152,18 @@ export async function hasPendingChanges(): Promise<boolean> {
 export function resetMemoryCache(): void {
   memoryQueue = null;
 }
+
+/**
+ * Clear all queued changes (for logout / data isolation).
+ * Removes both the pending queue and dead-letter queue from AsyncStorage,
+ * and resets the in-memory cache.
+ */
+export async function clearQueue(): Promise<void> {
+  memoryQueue = null;
+  try {
+    await AsyncStorage.multiRemove([QUEUE_KEY, DEAD_LETTER_KEY]);
+    console.log('[PendingQueue] Cleared all queues');
+  } catch (err) {
+    console.error('[PendingQueue] Failed to clear queues:', err);
+  }
+}

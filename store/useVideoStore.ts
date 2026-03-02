@@ -99,11 +99,11 @@ export const useVideoStore = create<VideoState>((set, get) => ({
           unblockAppsUnlimited(familyActivitySelection);
           console.log('[VideoStore] Daily target reached! Apps fully unlocked');
         } else {
-          const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
-          if (remainingMinutes > 0) {
-            unblockApps(familyActivitySelection, remainingMinutes);
+          const remainingSeconds = earnedTimeStore.getRemainingTimeSeconds();
+          if (remainingSeconds > 0) {
+            unblockApps(familyActivitySelection, remainingSeconds);
             earnedTimeStore.setMonitoringStartedAt(Date.now());
-            console.log('[VideoStore] Unblocked apps with', remainingMinutes, 'minutes remaining');
+            console.log('[VideoStore] Unblocked apps with', remainingSeconds, 'seconds remaining');
           }
         }
       }

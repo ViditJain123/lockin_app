@@ -267,8 +267,17 @@ class TimelapseSessionManager: NSObject {
     }
     
     func stopCapture(completion: (() -> Void)? = nil) {
+        stopCapture(preStop: nil, completion: completion)
+    }
+
+    /// Stop capture with an optional closure that runs on captureQueue *before* stopRunning().
+    /// This lets callers flush buffered frames while the session is still active.
+    func stopCapture(preStop: (() -> Void)?, completion: (() -> Void)?) {
         print("[TimelapseSessionManager] stopCapture() called")
         captureQueue.async { [weak self] in
+            // Execute pre-stop work (e.g. flush frame buffer) while session is still running
+            preStop?()
+
             print("[TimelapseSessionManager] Stopping capture session...")
             self?.captureSession?.stopRunning()
             print("[TimelapseSessionManager] Capture session stopped")

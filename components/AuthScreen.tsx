@@ -10,7 +10,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppleSignInButton from './AppleSignInButton';
-import GoogleSignInButton from './GoogleSignInButton';
 
 import { Fonts } from '../constants/Fonts';
 
@@ -50,7 +49,6 @@ export default function AuthScreen() {
 
           <View style={styles.buttonContainer}>
             <AppleSignInButton />
-            <GoogleSignInButton />
           </View>
 
           <Text style={styles.termsText}>

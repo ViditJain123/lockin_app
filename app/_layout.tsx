@@ -385,11 +385,11 @@ function RootLayoutNav() {
       // Check if iOS monitor has fired a threshold event since last unblock
       checkIfTimeWasExhausted();
 
-      const remainingMinutes = earnedTimeStore.getRemainingTimeMinutes();
-      if (remainingMinutes > 0) {
+      const remainingSeconds = earnedTimeStore.getRemainingTimeSeconds();
+      if (remainingSeconds > 0) {
         // Has remaining earned time: ensure apps are unblocked with monitor
-        console.log('[Layout] Same day with', remainingMinutes, 'min remaining, ensuring unblock');
-        unblockApps(familyActivitySelection, remainingMinutes);
+        console.log('[Layout] Same day with', remainingSeconds, 's remaining, ensuring unblock');
+        unblockApps(familyActivitySelection, remainingSeconds);
         earnedTimeStore.setMonitoringStartedAt(Date.now());
       } else {
         // No remaining time — ensure apps are blocked

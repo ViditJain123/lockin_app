@@ -9,7 +9,7 @@ import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { formatDuration, isCallInProgress, isTimelapseAvailable } from '@/modules/TimelapseEngine';
 import { setTorch, turnOffTorch } from '@/modules/TorchController';
 import { TimerFilterType, useRecordingError, useRecordingStore, useTimerFilter, useTimerPosition, useTimerScale, useActiveTaskId } from '@/store/useRecordingStore';
-import { useRemainingTimeMinutes } from '@/store/useEarnedTimeStore';
+import { useEarnedTimeStore } from '@/store/useEarnedTimeStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -70,7 +70,9 @@ export default function CameraScreen() {
   const recordingError = useRecordingError();
 
   // Earned screen time
-  const remainingTimeMinutes = useRemainingTimeMinutes();
+  const earnedTimeToday = useEarnedTimeStore((s) => s.earnedTimeToday);
+  const usedTimeToday = useEarnedTimeStore((s) => s.usedTimeToday);
+  const remainingTimeSeconds = Math.max(0, earnedTimeToday - usedTimeToday);
 
   // Active task from Tasks tab
   const activeTaskId = useActiveTaskId();
@@ -397,14 +399,16 @@ export default function CameraScreen() {
       )}
 
       {/* Earned screen time pill - shows when not recording and user has earned time */}
-      {!isRecording && !isFinishing && !isCountingDown && remainingTimeMinutes > 0 && (
+      {!isRecording && !isFinishing && !isCountingDown && remainingTimeSeconds > 0 && (
         <TouchableOpacity
           style={[styles.screenTimePill, { top: insets.top + 12 }]}
           onPress={() => router.push('/settings-page' as any)}
           activeOpacity={0.7}
         >
           <Ionicons name="time-outline" size={14} color="#34C759" />
-          <Text style={styles.screenTimePillText}>{remainingTimeMinutes}m earned</Text>
+          <Text style={styles.screenTimePillText}>
+            {remainingTimeSeconds >= 60 ? `${Math.floor(remainingTimeSeconds / 60)}m earned` : `${remainingTimeSeconds}s earned`}
+          </Text>
         </TouchableOpacity>
       )}
 

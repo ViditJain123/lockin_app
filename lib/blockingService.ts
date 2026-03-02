@@ -181,18 +181,18 @@ export async function initializeDailyBlock(familyActivitySelection: string | nul
  * Called when user has earned screen time
  *
  * @param familyActivitySelection - The user's saved app selection string
- * @param remainingMinutes - Minutes of screen time remaining
+ * @param remainingSeconds - Seconds of screen time remaining
  */
 export function unblockApps(
   familyActivitySelection: string | null,
-  remainingMinutes: number
+  remainingSeconds: number
 ): void {
   if (!isBlockingAvailable() || !familyActivitySelection) {
     console.log('[BlockingService] Skipping unblock - not available or no selection');
     return;
   }
 
-  if (remainingMinutes <= 0) {
+  if (remainingSeconds <= 0) {
     console.log('[BlockingService] No remaining time, not unblocking');
     return;
   }
@@ -205,9 +205,9 @@ export function unblockApps(
     );
 
     // Start monitoring usage with the remaining time as threshold
-    startUsageMonitoring(familyActivitySelection, remainingMinutes);
+    startUsageMonitoring(familyActivitySelection, remainingSeconds);
 
-    console.log(`[BlockingService] Apps unblocked with ${remainingMinutes} minutes allowed`);
+    console.log(`[BlockingService] Apps unblocked with ${remainingSeconds} seconds allowed`);
   } catch (error) {
     console.error('[BlockingService] Error unblocking apps:', error);
   }
@@ -218,11 +218,11 @@ export function unblockApps(
  * When the threshold is reached, the extension will automatically re-block
  *
  * @param familyActivitySelection - The user's saved app selection string
- * @param thresholdMinutes - Minutes until re-blocking
+ * @param thresholdSeconds - Seconds until re-blocking
  */
 export function startUsageMonitoring(
   familyActivitySelection: string,
-  thresholdMinutes: number
+  thresholdSeconds: number
 ): void {
   if (!isBlockingAvailable()) {
     return;
@@ -270,13 +270,20 @@ export function startUsageMonitoring(
     };
 
     // Create an event that fires when the threshold is reached
+    // Only include non-zero components — iOS DeviceActivity treats
+    // `minute: 0` differently from `minute: nil`, which can cause
+    // eventDidReachThreshold to fire immediately for sub-minute thresholds.
+    const minutes = Math.floor(thresholdSeconds / 60);
+    const seconds = thresholdSeconds % 60;
+    const threshold: { minute?: number; second?: number } = {};
+    if (minutes > 0) threshold.minute = minutes;
+    if (seconds > 0) threshold.second = seconds;
+
     const events = [
       {
         familyActivitySelection,
         eventName: 'timeExhausted',
-        threshold: {
-          minute: thresholdMinutes,
-        },
+        threshold,
         includesPastActivity: false,
       },
     ];
@@ -284,7 +291,7 @@ export function startUsageMonitoring(
     // Start monitoring
     startMonitoring(EARNED_TIME_ACTIVITY, schedule, events);
 
-    console.log(`[BlockingService] Usage monitoring started with ${thresholdMinutes} min threshold`);
+    console.log(`[BlockingService] Usage monitoring started with ${thresholdSeconds}s threshold`);
   } catch (error) {
     console.error('[BlockingService] Error starting usage monitoring:', error);
   }
