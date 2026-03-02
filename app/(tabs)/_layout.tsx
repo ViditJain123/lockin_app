@@ -1,4 +1,4 @@
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Badge, Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
 
 export default function TabLayout() {
@@ -9,24 +9,26 @@ export default function TabLayout() {
       minimizeBehavior="onScrollDown"
     >
       <NativeTabs.Trigger name="index">
-        <Icon sf="house.fill" />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="analytics">
-        <Icon sf="safari" />
-        <Label>Explore</Label>
+        <Icon sf="chart.bar.fill" />
+        <Label>Analytics</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="tasks">
         <Icon sf="bolt.fill" />
-        <Label>Activity</Label>
+        <Label>Tasks</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">
         <Icon sf="person.fill" />
         <Label>Profile</Label>
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="camera" role="search">
+        <Icon sf="camera.fill" />
+        <Label>Camera</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="analytics" hidden />
     </NativeTabs>
   );
 }

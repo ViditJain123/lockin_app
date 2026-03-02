@@ -2,10 +2,10 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Fonts } from '../../constants/Fonts';
 
-export default function HomeScreen() {
+export default function AnalyticsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Home</Text>
+      <Text style={styles.title}>Analytics</Text>
       <Text style={styles.subtitle}>Coming Soon</Text>
     </View>
   );

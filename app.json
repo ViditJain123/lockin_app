@@ -62,7 +62,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "15.5"
           }
         }
       ],
@@ -78,6 +78,13 @@
         {
           "appleTeamId": "CCQU7Z66V5",
           "appGroup": "group.com.lockin.club"
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to track your focus sessions",
+          "enableFrameProcessors": true
         }
       ]
     ],

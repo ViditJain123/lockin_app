@@ -7,30 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		02970686F6E9D569F34768FF /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */; };
+		10CBDDDEE2226FBC61195F7C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8C8E15D742D85D85FED3C9F6 /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		1ED05BEF2A0F1F9BD9DD8E9E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		727D4B182F2F5987008F198C /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 727D4B172F2F5987008F198C /* Products.storekit */; };
-		9649CE0BEF0A475400D3123E /* VideoOrientation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 462E3F9FBBF92D50B50BDC0D /* VideoOrientation.swift */; };
+		49FD1878D9643566B94F05B2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21247B82E436DF28040B0294 /* ExpoModulesProvider.swift */; };
+		B354A029CB9F7B3BB42C4787 /* libPods-LockinClub.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 31514B03CAF0FD1C39757E30 /* libPods-LockinClub.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C738C002936C2AC9AC1D8D33 /* libPods-lockinapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = A6D69B9C3514FA4B464A28BC /* libPods-lockinapp.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		FONTBUILD0001 /* Quicksand-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = FONTREF0001 /* Quicksand-SemiBold.ttf */; };
-		TL0001001000000001 /* TimelapseEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000001 /* TimelapseEngine.swift */; };
-		TL0001001000000002 /* TimelapseEngineModule.m in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000002 /* TimelapseEngineModule.m */; };
-		TL0001001000000003 /* TimelapseSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000003 /* TimelapseSessionManager.swift */; };
-		TL0001001000000004 /* TimelapseFrameProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000004 /* TimelapseFrameProcessor.swift */; };
-		TL0001001000000005 /* TimelapseEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000005 /* TimelapseEncoder.swift */; };
-		TL0001001000000006 /* TimelapseStabilityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000006 /* TimelapseStabilityManager.swift */; };
-		TL0001001000000007 /* TimelapseBackgroundHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000007 /* TimelapseBackgroundHandler.swift */; };
-		TL0001001000000008 /* TimelapsePhotoLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */; };
-		TL0001001000000009 /* TimelapsePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000009 /* TimelapsePreviewView.swift */; };
-		TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000010 /* TimelapsePreviewViewManager.m */; };
-		TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000011 /* TimelapseFrameOverlay.swift */; };
-		TL0001001000000012 /* TimelapseSegmentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000012 /* TimelapseSegmentManager.swift */; };
-		TL0001001000000013 /* TimelapseSegmentConcatenator.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000013 /* TimelapseSegmentConcatenator.swift */; };
-		TL0001001000000014 /* TimelapseCrashRecoveryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = TL0002001000000014 /* TimelapseCrashRecoveryManager.swift */; };
 		XX103037AC5A7B821341EBXX /* ShieldConfiguration.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XXEC8F4A23169846583657XX /* ShieldConfiguration.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		XX44FC18D28196FBCB6075XX /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXB6D82409997898620841XX /* ManagedSettingsUI.framework */; };
 		XXBEFFB36AB412820C306DXX /* ShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XX05E83E103BF49F57A457XX /* ShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -79,36 +62,19 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-lockinapp/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.release.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.release.xcconfig"; sourceTree = "<group>"; };
-		13B07F961A680F5B00A75B9A /* lockinapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = lockinapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = lockinapp/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = lockinapp/Info.plist; sourceTree = "<group>"; };
-		462E3F9FBBF92D50B50BDC0D /* VideoOrientation.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VideoOrientation.swift; path = lockinapp/VideoOrientation.swift; sourceTree = "<group>"; };
-		61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = undefined; name = PrivacyInfo.xcprivacy; path = lockinapp/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		6537FF8C98D19669C05558CC /* Pods-lockinapp.debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-lockinapp.debug.xcconfig"; path = "Target Support Files/Pods-lockinapp/Pods-lockinapp.debug.xcconfig"; sourceTree = "<group>"; };
-		727D4B172F2F5987008F198C /* Products.storekit */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
-		A6D69B9C3514FA4B464A28BC /* libPods-lockinapp.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; fileEncoding = 4; includeInIndex = 0; path = "libPods-lockinapp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = lockinapp/SplashScreen.storyboard; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* LockinClub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = LockinClub.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = LockinClub/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = LockinClub/Info.plist; sourceTree = "<group>"; };
+		21247B82E436DF28040B0294 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-LockinClub/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		31514B03CAF0FD1C39757E30 /* libPods-LockinClub.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-LockinClub.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8C8E15D742D85D85FED3C9F6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = LockinClub/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9F3B57AF2BB70FC7EC773CAB /* Pods-LockinClub.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LockinClub.release.xcconfig"; path = "Target Support Files/Pods-LockinClub/Pods-LockinClub.release.xcconfig"; sourceTree = "<group>"; };
+		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = LockinClub/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		E777BD5AFF34655D7FA72F22 /* Pods-LockinClub.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LockinClub.debug.xcconfig"; path = "Target Support Files/Pods-LockinClub/Pods-LockinClub.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = lockinapp/AppDelegate.swift; sourceTree = "<group>"; };
-		F11748442D0722820044C1D9 /* lockinapp-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "lockinapp-Bridging-Header.h"; path = "lockinapp/lockinapp-Bridging-Header.h"; sourceTree = "<group>"; };
-		FONTREF0001 /* Quicksand-SemiBold.ttf */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file; path = "Quicksand-SemiBold.ttf"; sourceTree = "<group>"; };
-		TL0002001000000001 /* TimelapseEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseEngine.swift; path = lockinapp/TimelapseEngine.swift; sourceTree = "<group>"; };
-		TL0002001000000002 /* TimelapseEngineModule.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapseEngineModule.m; path = lockinapp/TimelapseEngineModule.m; sourceTree = "<group>"; };
-		TL0002001000000003 /* TimelapseSessionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseSessionManager.swift; path = lockinapp/TimelapseSessionManager.swift; sourceTree = "<group>"; };
-		TL0002001000000004 /* TimelapseFrameProcessor.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameProcessor.swift; path = lockinapp/TimelapseFrameProcessor.swift; sourceTree = "<group>"; };
-		TL0002001000000005 /* TimelapseEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseEncoder.swift; path = lockinapp/TimelapseEncoder.swift; sourceTree = "<group>"; };
-		TL0002001000000006 /* TimelapseStabilityManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseStabilityManager.swift; path = lockinapp/TimelapseStabilityManager.swift; sourceTree = "<group>"; };
-		TL0002001000000007 /* TimelapseBackgroundHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseBackgroundHandler.swift; path = lockinapp/TimelapseBackgroundHandler.swift; sourceTree = "<group>"; };
-		TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapsePhotoLibraryManager.swift; path = lockinapp/TimelapsePhotoLibraryManager.swift; sourceTree = "<group>"; };
-		TL0002001000000009 /* TimelapsePreviewView.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapsePreviewView.swift; path = lockinapp/TimelapsePreviewView.swift; sourceTree = "<group>"; };
-		TL0002001000000010 /* TimelapsePreviewViewManager.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapsePreviewViewManager.m; path = lockinapp/TimelapsePreviewViewManager.m; sourceTree = "<group>"; };
-		TL0002001000000011 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = lockinapp/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
-		TL0002001000000012 /* TimelapseSegmentManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseSegmentManager.swift; path = lockinapp/TimelapseSegmentManager.swift; sourceTree = "<group>"; };
-		TL0002001000000013 /* TimelapseSegmentConcatenator.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseSegmentConcatenator.swift; path = lockinapp/TimelapseSegmentConcatenator.swift; sourceTree = "<group>"; };
-		TL0002001000000014 /* TimelapseCrashRecoveryManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseCrashRecoveryManager.swift; path = lockinapp/TimelapseCrashRecoveryManager.swift; sourceTree = "<group>"; };
+		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = LockinClub/AppDelegate.swift; sourceTree = "<group>"; };
+		F11748442D0722820044C1D9 /* LockinClub-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "LockinClub-Bridging-Header.h"; path = "LockinClub/LockinClub-Bridging-Header.h"; sourceTree = "<group>"; };
 		XX05E83E103BF49F57A457XX /* ShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = ShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		XX7DDE620121E0E26B18E0XX /* ActivityMonitorExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = ActivityMonitorExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		XXB6D82409997898620841XX /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
@@ -187,7 +153,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C738C002936C2AC9AC1D8D33 /* libPods-lockinapp.a in Frameworks */,
+				B354A029CB9F7B3BB42C4787 /* libPods-LockinClub.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -210,51 +176,35 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		07DFCBE01547C06DA5ED9571 /* ExpoModulesProviders */ = {
+		00F8ADE02635DD20034907C8 /* LockinClub */ = {
 			isa = PBXGroup;
 			children = (
-				ACF60021FD00B69550863DA0 /* lockinapp */,
+				21247B82E436DF28040B0294 /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = LockinClub;
 			sourceTree = "<group>";
 		};
-		13B07FAE1A68108700A75B9A /* lockinapp */ = {
+		13B07FAE1A68108700A75B9A /* LockinClub */ = {
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
-				F11748442D0722820044C1D9 /* lockinapp-Bridging-Header.h */,
-				TL0002001000000001 /* TimelapseEngine.swift */,
-				TL0002001000000002 /* TimelapseEngineModule.m */,
-				TL0002001000000003 /* TimelapseSessionManager.swift */,
-				TL0002001000000004 /* TimelapseFrameProcessor.swift */,
-				TL0002001000000005 /* TimelapseEncoder.swift */,
-				TL0002001000000006 /* TimelapseStabilityManager.swift */,
-				TL0002001000000007 /* TimelapseBackgroundHandler.swift */,
-				TL0002001000000008 /* TimelapsePhotoLibraryManager.swift */,
-				TL0002001000000009 /* TimelapsePreviewView.swift */,
-				TL0002001000000010 /* TimelapsePreviewViewManager.m */,
-				TL0002001000000011 /* TimelapseFrameOverlay.swift */,
-				TL0002001000000012 /* TimelapseSegmentManager.swift */,
-				TL0002001000000013 /* TimelapseSegmentConcatenator.swift */,
-				TL0002001000000014 /* TimelapseCrashRecoveryManager.swift */,
-				FONTGRP0001 /* Fonts */,
+				F11748442D0722820044C1D9 /* LockinClub-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				61347491901B8422FFFB55F0 /* PrivacyInfo.xcprivacy */,
-				462E3F9FBBF92D50B50BDC0D /* VideoOrientation.swift */,
+				8C8E15D742D85D85FED3C9F6 /* PrivacyInfo.xcprivacy */,
 			);
-			name = lockinapp;
+			name = LockinClub;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				A6D69B9C3514FA4B464A28BC /* libPods-lockinapp.a */,
 				XXCA68A9416C78B970D1D9XX /* DeviceActivity.framework */,
 				XXB6D82409997898620841XX /* ManagedSettingsUI.framework */,
+				31514B03CAF0FD1C39757E30 /* libPods-LockinClub.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -270,13 +220,12 @@
 			isa = PBXGroup;
 			children = (
 				XX3E41C1850246162C0061XX /* expo:targets */,
-				727D4B172F2F5987008F198C /* Products.storekit */,
-				13B07FAE1A68108700A75B9A /* lockinapp */,
+				13B07FAE1A68108700A75B9A /* LockinClub */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				C60979F487C9D009893E3C1D /* Pods */,
-				07DFCBE01547C06DA5ED9571 /* ExpoModulesProviders */,
+				FB210FA7C415E4CB050D3D23 /* Pods */,
+				D93C6BBF36E52FA26F901E8A /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -286,20 +235,12 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* lockinapp.app */,
+				13B07F961A680F5B00A75B9A /* LockinClub.app */,
 				XX7DDE620121E0E26B18E0XX /* ActivityMonitorExtension.appex */,
 				XX05E83E103BF49F57A457XX /* ShieldAction.appex */,
 				XXEC8F4A23169846583657XX /* ShieldConfiguration.appex */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		ACF60021FD00B69550863DA0 /* lockinapp */ = {
-			isa = PBXGroup;
-			children = (
-				0C3627C65043C32FD77F2116 /* ExpoModulesProvider.swift */,
-			);
-			name = lockinapp;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -308,25 +249,25 @@
 				BB2F792C24A3F905000567C9 /* Expo.plist */,
 			);
 			name = Supporting;
-			path = lockinapp/Supporting;
+			path = LockinClub/Supporting;
 			sourceTree = "<group>";
 		};
-		C60979F487C9D009893E3C1D /* Pods */ = {
+		D93C6BBF36E52FA26F901E8A /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				6537FF8C98D19669C05558CC /* Pods-lockinapp.debug.xcconfig */,
-				0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */,
+				00F8ADE02635DD20034907C8 /* LockinClub */,
 			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		FB210FA7C415E4CB050D3D23 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				E777BD5AFF34655D7FA72F22 /* Pods-LockinClub.debug.xcconfig */,
+				9F3B57AF2BB70FC7EC773CAB /* Pods-LockinClub.release.xcconfig */,
+			);
+			name = Pods;
 			path = Pods;
-			sourceTree = "<group>";
-		};
-		FONTGRP0001 /* Fonts */ = {
-			isa = PBXGroup;
-			children = (
-				FONTREF0001 /* Quicksand-SemiBold.ttf */,
-			);
-			name = Fonts;
-			path = lockinapp/Fonts;
 			sourceTree = "<group>";
 		};
 		XX3E41C1850246162C0061XX /* expo:targets */ = {
@@ -343,19 +284,19 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* lockinapp */ = {
+		13B07F861A680F5B00A75B9A /* LockinClub */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "lockinapp" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "LockinClub" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				E7216854CE002BFCFB2D87F7 /* [Expo] Configure project */,
+				0CC107C7D5A062AF93DD992F /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				F6E980379FC203E8F4469956 /* [CP] Embed Pods Frameworks */,
 				XX72A8CFBF0FBA13A79902XX /* Embed Foundation Extensions */,
+				7F05E9898EE10171D868D519 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -364,9 +305,9 @@
 				XX8283B63BC6F404E071E6XX /* PBXTargetDependency */,
 				XXD8AF739B55EDF58D1988XX /* PBXTargetDependency */,
 			);
-			name = lockinapp;
-			productName = lockinapp;
-			productReference = 13B07F961A680F5B00A75B9A /* lockinapp.app */;
+			name = LockinClub;
+			productName = LockinClub;
+			productReference = 13B07F961A680F5B00A75B9A /* LockinClub.app */;
 			productType = "com.apple.product-type.application";
 		};
 		XX706159966BF339C9E982XX /* ShieldConfiguration */ = {
@@ -437,9 +378,7 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						DevelopmentTeam = CCQU7Z66V5;
 						LastSwiftMigration = 1250;
-						ProvisioningStyle = Automatic;
 					};
 					XX706159966BF339C9E982XX = {
 						CreatedOnToolsVersion = 14.3;
@@ -458,7 +397,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "lockinapp" */;
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "LockinClub" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -471,7 +410,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* lockinapp */,
+				13B07F861A680F5B00A75B9A /* LockinClub */,
 				XXC881C9415BB8776E78E7XX /* ActivityMonitorExtension */,
 				XXC2CC348BA1BA4A1422FEXX /* ShieldAction */,
 				XX706159966BF339C9E982XX /* ShieldConfiguration */,
@@ -487,9 +426,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				1ED05BEF2A0F1F9BD9DD8E9E /* PrivacyInfo.xcprivacy in Resources */,
-				727D4B182F2F5987008F198C /* Products.storekit in Resources */,
-				FONTBUILD0001 /* Quicksand-SemiBold.ttf in Resources */,
+				10CBDDDEE2226FBC61195F7C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -553,58 +490,14 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-lockinapp-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-LockinClub-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-lockinapp/Pods-lockinapp-resources.sh",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCatUI/RevenueCat_RevenueCatUI.bundle",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat_RevenueCatUI.bundle",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-lockinapp/Pods-lockinapp-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		E7216854CE002BFCFB2D87F7 /* [Expo] Configure project */ = {
+		0CC107C7D5A062AF93DD992F /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -615,26 +508,26 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/lockinapp/lockinapp.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-lockinapp/expo-configure-project.sh",
+				"$(SRCROOT)/LockinClub/LockinClub.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-LockinClub/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-lockinapp/ExpoModulesProvider.swift",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-LockinClub/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-lockinapp/expo-configure-project.sh\"\n";
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-LockinClub/expo-configure-project.sh\"\n";
 		};
-		F6E980379FC203E8F4469956 /* [CP] Embed Pods Frameworks */ = {
+		7F05E9898EE10171D868D519 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-lockinapp/Pods-lockinapp-frameworks.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-LockinClub/Pods-LockinClub-frameworks.sh",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
@@ -647,7 +540,67 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-lockinapp/Pods-lockinapp-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-LockinClub/Pods-LockinClub-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-LockinClub/Pods-LockinClub-resources.sh",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXApplication/ExpoApplication_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/EXNotifications/ExpoNotifications_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/GTMSessionFetcher/GTMSessionFetcher_Core_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleDataTransport/GoogleDataTransport_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleToolboxForMac/GoogleToolboxForMac_Logger_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/GoogleUtilities/GoogleUtilities_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/MLKitFaceDetection/GoogleMVFaceDetectorResources.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/PromisesObjC/FBLPromises_Privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCatUI/RevenueCat_RevenueCatUI.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/nanopb/nanopb_Privacy.bundle",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoApplication_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/EXConstants.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GTMSessionFetcher_Core_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleDataTransport_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleToolboxForMac_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleToolboxForMac_Logger_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleUtilities_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleMVFaceDetectorResources.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/FBLPromises_Privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat_RevenueCatUI.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/nanopb_Privacy.bundle",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-LockinClub/Pods-LockinClub-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -658,22 +611,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				02970686F6E9D569F34768FF /* ExpoModulesProvider.swift in Sources */,
-				TL0001001000000001 /* TimelapseEngine.swift in Sources */,
-				TL0001001000000002 /* TimelapseEngineModule.m in Sources */,
-				TL0001001000000003 /* TimelapseSessionManager.swift in Sources */,
-				TL0001001000000004 /* TimelapseFrameProcessor.swift in Sources */,
-				TL0001001000000005 /* TimelapseEncoder.swift in Sources */,
-				TL0001001000000006 /* TimelapseStabilityManager.swift in Sources */,
-				TL0001001000000007 /* TimelapseBackgroundHandler.swift in Sources */,
-				TL0001001000000008 /* TimelapsePhotoLibraryManager.swift in Sources */,
-				TL0001001000000009 /* TimelapsePreviewView.swift in Sources */,
-				TL0001001000000010 /* TimelapsePreviewViewManager.m in Sources */,
-				TL0001001000000011 /* TimelapseFrameOverlay.swift in Sources */,
-				TL0001001000000012 /* TimelapseSegmentManager.swift in Sources */,
-				TL0001001000000013 /* TimelapseSegmentConcatenator.swift in Sources */,
-				TL0001001000000014 /* TimelapseCrashRecoveryManager.swift in Sources */,
-				9649CE0BEF0A475400D3123E /* VideoOrientation.swift in Sources */,
+				49FD1878D9643566B94F05B2 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -721,14 +659,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6537FF8C98D19669C05558CC /* Pods-lockinapp.debug.xcconfig */;
+			baseConfigurationReference = E777BD5AFF34655D7FA72F22 /* Pods-LockinClub.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = lockinapp/lockinapp.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = LockinClub/LockinClub.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CCQU7Z66V5;
 				ENABLE_BITCODE = NO;
@@ -736,8 +672,8 @@
 					"$(inherited)",
 					"FB_SONARKIT_ENABLED=1",
 				);
-				INFOPLIST_FILE = lockinapp/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				INFOPLIST_FILE = LockinClub/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -752,7 +688,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.lockin.club;
 				PRODUCT_NAME = LockinClub;
 				REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP = group.com.lockin.club;
-				SWIFT_OBJC_BRIDGING_HEADER = "lockinapp/lockinapp-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "LockinClub/LockinClub-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -762,18 +698,16 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0FF4F1BE0B2B78B6E58EFAAE /* Pods-lockinapp.release.xcconfig */;
+			baseConfigurationReference = 9F3B57AF2BB70FC7EC773CAB /* Pods-LockinClub.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = lockinapp/lockinapp.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_ENTITLEMENTS = LockinClub/LockinClub.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = CCQU7Z66V5;
-				INFOPLIST_FILE = lockinapp/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				INFOPLIST_FILE = LockinClub/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -788,7 +722,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.lockin.club;
 				PRODUCT_NAME = LockinClub;
 				REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP = group.com.lockin.club;
-				SWIFT_OBJC_BRIDGING_HEADER = "lockinapp/lockinapp-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "LockinClub/LockinClub-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -952,7 +886,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -993,7 +927,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -1036,7 +970,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -1079,7 +1013,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -1120,7 +1054,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -1163,14 +1097,14 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "lockinapp" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "LockinClub" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
@@ -1179,7 +1113,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "lockinapp" */ = {
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "LockinClub" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,

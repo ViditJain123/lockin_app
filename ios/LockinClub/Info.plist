@@ -67,10 +67,6 @@
     <true/>
     <key>REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP</key>
     <string>$(REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP)</string>
-    <key>UIAppFonts</key>
-    <array>
-      <string>Fonts/Quicksand-SemiBold.ttf</string>
-    </array>
     <key>UIBackgroundModes</key>
     <array>
       <string>audio</string>
@@ -85,7 +81,7 @@
     <key>UIRequiresFullScreen</key>
     <false/>
     <key>UIStatusBarStyle</key>
-    <string>UIStatusBarStyleLightContent</string>
+    <string>UIStatusBarStyleDefault</string>
     <key>UISupportedInterfaceOrientations</key>
     <array>
       <string>UIInterfaceOrientationPortrait</string>
