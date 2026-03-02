@@ -5,14 +5,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
-import { clearQueue } from '../lib/pendingChangesQueue';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
-import { useProfileStore } from '../store/useProfileStore';
-import { useTaskStore } from '../store/useTaskStore';
-import { useBadgeStore } from '../store/useBadgeStore';
-import { useHeatmapStore } from '../store/useHeatmapStore';
-import { useGrindsStore } from '../store/useGrindsStore';
-import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 
 // Types
@@ -276,17 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Clear all user-specific data on logout for data isolation between accounts
   const clearAllUserData = () => {
-    // Reset all Zustand stores
-    useProfileStore.getState().resetStats();
-    useTaskStore.getState().updateFromRemote([]);
-    useBadgeStore.getState().resetBadges();
-    useHeatmapStore.getState().clearActivity();
-    useGrindsStore.getState().resetGrinds();
-    useEarnedTimeStore.getState().resetEarnedTime();
     useOnboardingStore.getState().clearQuizAnswers();
-
-    // Clear pending sync queue (prevent old user's changes syncing to new user)
-    clearQueue();
   };
 
   // Sign out

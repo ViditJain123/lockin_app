@@ -120,13 +120,7 @@ export async function initializeNotifications(): Promise<void> {
   // Set up notification response handler (when user taps notification)
   Notifications.addNotificationResponseReceivedListener((response) => {
     const identifier = response.notification.request.identifier;
-    const userInfo = response.notification.request.content.data;
     console.log('[Notifications] User tapped notification:', identifier);
-
-    if (userInfo?.screen === 'emergency-access') {
-      router.push('/emergency-access');
-      return;
-    }
 
     router.replace('/(tabs)');
   });

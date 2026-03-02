@@ -16,18 +16,15 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Stack, router } from 'expo-router';
-import * as Notifications from 'expo-notifications';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
-import { useEffect, useRef } from 'react';
-import { Alert, Appearance, AppState, AppStateStatus, Platform, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import AppUpdateBanner from '../components/AppUpdateBanner';
-import AppUpdateModal from '../components/AppUpdateModal';
 import AuthScreen from '../components/AuthScreen';
 import HardPaywallScreen from '../components/HardPaywallScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
@@ -47,7 +44,6 @@ import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
-import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { useSubscriptionStore, useIsSubscribed } from '../store/useSubscriptionStore';
 // Family Controls screens
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
@@ -58,17 +54,7 @@ import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { useNotificationSetup } from '../hooks/useNotificationSetup';
-import { preloadAllBadges } from '../lib/badgeAssetCache';
-import { migrateLocalDataToSupabase } from '../lib/dataMigration';
-import { initializeSyncEngine, teardownSyncEngine, performFullPull, flushPendingQueue } from '../lib/syncEngine';
-import { checkForRecoverableRecordings, recoverRecording, dismissRecovery, RecoverableSession } from '../modules/TimelapseEngine';
-import { useVideoStore } from '../store/useVideoStore';
-import { getEvents, onDeviceActivityMonitorEvent } from 'react-native-device-activity';
-import { initializeDailyBlock, unblockApps, unblockAppsUnlimited, isBlockingAvailable } from '../lib/blockingService';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
-import { useEarnedTimeStore } from '../store/useEarnedTimeStore';
-import { useEmergencyAccessStore } from '../store/useEmergencyAccessStore';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -114,9 +100,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      // Preload badge assets in background (fire and forget - don't block splash)
-      preloadAllBadges();
-
       // Initialize subscription store (which initializes StoreKit)
       useSubscriptionStore.getState().initialize();
     }
@@ -142,15 +125,6 @@ function RootLayoutNav() {
   const isSubscribed = useIsSubscribed();
   const subscriptionInitialized = useSubscriptionStore((state) => state.isInitialized);
 
-  // App update state
-  const {
-    showForceUpdateModal,
-    showSoftUpdateBanner,
-    checkForUpdate,
-    _hasHydrated: updateStoreHydrated,
-  } = useAppUpdateStore();
-  const appState = useRef(AppState.currentState);
-
   // Onboarding state
   const {
     shouldShowOnboarding,
@@ -168,263 +142,12 @@ function RootLayoutNav() {
     completeQuizFunnel,
   } = useOnboardingStore();
 
-  // Initialize notification system
-  useNotificationSetup();
-
-  // Handle emergency-access notifications when app is in foreground
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener((notification) => {
-      const userInfo = notification.request.content.data;
-      if (userInfo?.screen === 'emergency-access') {
-        router.push('/emergency-access');
-      }
-    });
-    return () => subscription.remove();
-  }, []);
-
-  // Handle emergency-access notification tap on cold start
-  useEffect(() => {
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) {
-        const userInfo = response.notification.request.content.data;
-        if (userInfo?.screen === 'emergency-access') {
-          router.push('/emergency-access');
-        }
-      }
-    });
-  }, []);
-
   // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {
     // Force dark mode at the React Native level
     Appearance.setColorScheme('dark');
     setBackgroundColorAsync('#000000');
   }, [colorScheme]);
-
-  // Sync user data via sync engine on app launch (after auth)
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    const userId = session.user.id;
-
-    const runSync = async () => {
-      try {
-        // 1. Load videos from disk first (local files, unchanged)
-        await useVideoStore.getState().loadVideos();
-
-        // 2. One-time migration of existing local data to Supabase (idempotent)
-        await migrateLocalDataToSupabase(userId);
-
-        // 3. Initialize sync engine (NetInfo + AppState listeners)
-        initializeSyncEngine();
-
-        // 4. Full pull from Supabase with conflict resolution
-        await performFullPull(userId);
-
-        // 5. Flush any pending offline changes
-        await flushPendingQueue(userId);
-      } catch (err) {
-        console.error('[Layout] Sync error:', err);
-      }
-    };
-
-    runSync();
-
-    // Cleanup sync engine on unmount
-    return () => {
-      teardownSyncEngine();
-    };
-  }, [session?.user?.id]);
-
-  // Check for recoverable timelapse recordings from previous crashes
-  useEffect(() => {
-    if (!session?.user?.id || Platform.OS !== 'ios') return;
-    const userId = session.user.id;
-
-    const checkRecovery = async () => {
-      try {
-        const sessions = await checkForRecoverableRecordings();
-        if (sessions.length === 0) return;
-
-        // Show recovery alert for the first recoverable session
-        const s = sessions[0] as RecoverableSession;
-        const durationStr = Math.round(s.estimatedDurationSeconds) + 's';
-
-        Alert.alert(
-          'Recording Found',
-          `A previous recording (~${durationStr} of output video, ${s.segmentCount} segment${s.segmentCount > 1 ? 's' : ''}) was interrupted. Would you like to recover it?`,
-          [
-            {
-              text: 'Dismiss',
-              style: 'destructive',
-              onPress: async () => {
-                for (const sess of sessions) {
-                  await dismissRecovery(sess.sessionId);
-                }
-              },
-            },
-            {
-              text: 'Recover',
-              style: 'default',
-              onPress: async () => {
-                try {
-                  const result = await recoverRecording(s.sessionId);
-                  await useVideoStore.getState().addRecoveredVideo(
-                    result.uri,
-                    s.estimatedDurationSeconds,
-                    userId
-                  );
-                  Alert.alert('Recovered', 'Your recording has been recovered successfully.');
-                  // Dismiss any remaining sessions
-                  for (const sess of sessions.slice(1)) {
-                    await dismissRecovery(sess.sessionId);
-                  }
-                } catch (err) {
-                  console.error('[Layout] Recovery failed:', err);
-                  Alert.alert('Recovery Failed', 'Could not recover the recording. The data has been kept for another attempt.');
-                }
-              },
-            },
-          ]
-        );
-      } catch (err) {
-        console.error('[Layout] Recovery check failed:', err);
-      }
-    };
-
-    checkRecovery();
-  }, [session?.user?.id]);
-
-  // Check for app updates on launch and when app comes to foreground
-  useEffect(() => {
-    if (!updateStoreHydrated) return;
-
-    // Check on initial mount
-    checkForUpdate();
-
-    // Listen for app state changes (foreground/background)
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to the foreground - check for updates
-        checkForUpdate();
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [updateStoreHydrated, checkForUpdate]);
-
-  // Handle earned time daily reset and blocking on app foreground
-  useEffect(() => {
-    if (!_hasHydrated || !session) return;
-
-    const { familyActivitySelection, targetHours } = quizAnswers;
-
-    // Check iOS monitor events to detect if earned time was used up
-    const checkIfTimeWasExhausted = (): boolean => {
-      try {
-        const earnedTimeStore = useEarnedTimeStore.getState();
-        const { lastMonitoringStartedAt } = earnedTimeStore;
-
-        const events = getEvents('earnedTimeMonitoring');
-        const thresholdEvent = events.find(
-          (e) =>
-            e.callbackName === 'eventDidReachThreshold' &&
-            e.eventName === 'timeExhausted' &&
-            (lastMonitoringStartedAt == null ||
-              new Date(e.lastCalledAt).getTime() > lastMonitoringStartedAt)
-        );
-
-        if (thresholdEvent) {
-          console.log('[Layout] Detected timeExhausted event from iOS monitor');
-          earnedTimeStore.markTimeExhausted();
-          return true;
-        }
-      } catch (error) {
-        console.log('[Layout] Error checking monitor events:', error);
-      }
-      return false;
-    };
-
-    // Check for new day and handle blocking state
-    const handleBlockingState = () => {
-      if (!isBlockingAvailable() || !familyActivitySelection) return;
-
-      const earnedTimeStore = useEarnedTimeStore.getState();
-      const emergencyStore = useEmergencyAccessStore.getState();
-
-      // Reset passes for new day if needed
-      emergencyStore.checkAndResetForNewDay();
-
-      // Clean up expired emergency sessions → re-block if any expired
-      const hadExpiredSession = emergencyStore.cleanupExpiredSessions();
-
-      const wasNewDay = earnedTimeStore.checkAndResetForNewDay();
-
-      if (wasNewDay) {
-        // New day: reset blocking state
-        console.log('[Layout] New day detected, initializing daily block');
-        initializeDailyBlock(familyActivitySelection);
-        return;
-      }
-
-      // If an active emergency session exists and hasn't expired, leave unblocked
-      if (emergencyStore.hasActiveSession()) {
-        console.log('[Layout] Active emergency session, leaving unblocked');
-        return;
-      }
-
-      // If daily target reached, fully unlock (no usage monitor)
-      if (earnedTimeStore.hasReachedDailyTarget(targetHours)) {
-        console.log('[Layout] Daily target reached, unlimited unlock');
-        unblockAppsUnlimited(familyActivitySelection);
-        return;
-      }
-
-      // Check if iOS monitor has fired a threshold event since last unblock
-      checkIfTimeWasExhausted();
-
-      const remainingSeconds = earnedTimeStore.getRemainingTimeSeconds();
-      if (remainingSeconds > 0) {
-        // Has remaining earned time: ensure apps are unblocked with monitor
-        console.log('[Layout] Same day with', remainingSeconds, 's remaining, ensuring unblock');
-        unblockApps(familyActivitySelection, remainingSeconds);
-        earnedTimeStore.setMonitoringStartedAt(Date.now());
-      } else {
-        // No remaining time — ensure apps are blocked
-        console.log('[Layout] No remaining time, ensuring apps are blocked');
-        initializeDailyBlock(familyActivitySelection);
-      }
-    };
-
-    // Run on mount
-    handleBlockingState();
-
-    // Listen for app state changes
-    const appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App has come to the foreground - check blocking state
-        handleBlockingState();
-      }
-    });
-
-    // Real-time listener for iOS monitor threshold events
-    const monitorSubscription = onDeviceActivityMonitorEvent((event) => {
-      if (event.callbackName === 'eventDidReachThreshold') {
-        console.log('[Layout] Real-time eventDidReachThreshold received');
-        const wasExhausted = checkIfTimeWasExhausted();
-        if (wasExhausted && familyActivitySelection) {
-          initializeDailyBlock(familyActivitySelection);
-        }
-      }
-    });
-
-    return () => {
-      appStateSubscription.remove();
-      monitorSubscription.remove();
-    };
-  }, [_hasHydrated, session, quizAnswers.familyActivitySelection, hasCompletedOnboarding]);
 
   // Hide splash screen once store hydration and auth initialization are both done
   useEffect(() => {
@@ -701,28 +424,6 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
-            name="preview"
-            options={{
-              presentation: 'fullScreenModal',
-              headerShown: false,
-              gestureEnabled: true,
-              animation: 'slide_from_bottom',
-              contentStyle: {
-                backgroundColor: 'black',
-              },
-            }}
-          />
-          <Stack.Screen
-            name="grind-complete"
-            options={{
-              presentation: 'fullScreenModal',
-              headerShown: false,
-              gestureEnabled: false,
-              animation: 'slide_from_bottom',
-              contentStyle: { backgroundColor: 'black' },
-            }}
-          />
-          <Stack.Screen
             name="modal"
             options={{
               presentation: Platform.OS === 'ios'
@@ -747,42 +448,7 @@ function RootLayoutNav() {
               },
             }}
           />
-          <Stack.Screen
-            name="emergency-access"
-            options={{
-              presentation: 'fullScreenModal',
-              headerShown: false,
-              gestureEnabled: false,
-              animation: 'slide_from_bottom',
-              contentStyle: { backgroundColor: 'black' },
-            }}
-          />
-          <Stack.Screen
-            name="paywall"
-            options={{
-              headerShown: false,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="settings-page"
-            options={{
-              headerShown: false,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen
-            name="trophies-page"
-            options={{
-              headerShown: false,
-              animation: 'slide_from_right',
-            }}
-          />
         </Stack>
-
-        {/* App Update Components */}
-        <AppUpdateBanner visible={showSoftUpdateBanner} />
-        <AppUpdateModal visible={showForceUpdateModal} />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

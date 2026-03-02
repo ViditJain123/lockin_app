@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ONBOARDING_DEV_MODE } from '../lib/config';
-import { enqueueChange } from '../lib/syncEngine';
 
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
@@ -196,8 +195,6 @@ export const useOnboardingStore = create<OnboardingState>()(
           localUpdatedAt: now,
         });
 
-        // Enqueue profile push via sync engine
-        enqueueChange('PROFILE_UPDATE', 'profile', get().quizAnswers);
       },
 
       // Exit quiz funnel without completing
