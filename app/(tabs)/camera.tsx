@@ -1,20 +1,51 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
-import { useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { Camera } from 'react-native-vision-camera-face-detector';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, Text, View, Pressable, AppState } from 'react-native';
+import { Camera, useCameraDevice, useCameraFormat, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+import { useFaceDetector } from 'react-native-vision-camera-face-detector';
 import type { Face } from 'react-native-vision-camera-face-detector';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
+import { Worklets } from 'react-native-worklets-core';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Fonts } from '../../constants/Fonts';
+import DigicamOverlay from '../../components/DigicamOverlay';
 
-const WORKING_COLOR = '#00E676';
-const PAUSED_COLOR = '#FF3B5C';
-const GRACE_PERIOD_MS = 2000;
+const WORKING_COLOR = '#2563EB';
+const PAUSED_COLOR = '#F97316';
 const EYE_OPEN_THRESHOLD = 0.4;
+
+const FOCUSED_QUOTES = [
+  "you're locked in rn fr fr",
+  "main character energy",
+  "no thoughts just grind",
+  "this is your villain arc",
+  "slay the work bestie",
+  "serving focus realness",
+  "literally unstoppable",
+  "the grind never lies",
+  "built different tbh",
+  "giving academic weapon",
+];
+
+const PAUSED_QUOTES = [
+  "bro come back",
+  "the screen misses you",
+  "this is not very slay",
+  "ur giving quitter vibes",
+  "hello?? we had a deal",
+  "the grind doesn't pause itself",
+  "not you leaving mid-sesh",
+  "bestie this ain't it",
+  "you fell off ngl",
+  "main characters don't quit",
+];
+
+function pickRandom(arr: string[]): string {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 function formatTime(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
@@ -30,26 +61,42 @@ function formatTime(totalSeconds: number): string {
 export default function CameraScreen() {
   useKeepAwake();
 
+  const [isForeground, setIsForeground] = useState(true);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      setIsForeground(state === 'active');
+    });
+    return () => subscription.remove();
+  }, []);
+
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
+  const format = useCameraFormat(device, [
+    { videoResolution: { width: 1280, height: 720 } },
+  ]);
   const cameraRef = useRef(null);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isWorking, setIsWorking] = useState(false);
+  const [quote, setQuote] = useState(() => pickRandom(PAUSED_QUOTES));
 
   const isWorkingRef = useRef(false);
-  const lastWorkingTimestamp = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Animated border color
+  // Animated border + glow color (consolidated to avoid duplicate RGB math at 60fps)
   const borderProgress = useSharedValue(0);
+  const frameCounter = useSharedValue(0);
 
-  const animatedBorderStyle = useAnimatedStyle(() => {
-    const r = Math.round(0 + borderProgress.value * (255 - 0));
-    const g = Math.round(230 + borderProgress.value * (59 - 230));
-    const b = Math.round(118 + borderProgress.value * (92 - 118));
+  const animatedColorStyle = useAnimatedStyle(() => {
+    const r = Math.round(37 + borderProgress.value * (249 - 37));
+    const g = Math.round(99 + borderProgress.value * (115 - 99));
+    const b = Math.round(235 + borderProgress.value * (22 - 235));
+    const color = `rgb(${r}, ${g}, ${b})`;
     return {
-      borderColor: `rgb(${r}, ${g}, ${b})`,
+      borderColor: color,
+      shadowColor: color,
     };
   });
 
@@ -62,42 +109,76 @@ export default function CameraScreen() {
     }, 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
     };
   }, []);
 
+  // Cycle motivational quote on focus state change + every 10s
+  useEffect(() => {
+    const quotes = isWorking ? FOCUSED_QUOTES : PAUSED_QUOTES;
+    setQuote(pickRandom(quotes));
+    const id = setInterval(() => setQuote(pickRandom(quotes)), 10000);
+    return () => clearInterval(id);
+  }, [isWorking]);
+
   const updateWorkingState = useCallback((working: boolean) => {
-    if (working === isWorkingRef.current) return;
-    isWorkingRef.current = working;
-    setIsWorking(working);
-    borderProgress.value = withTiming(working ? 0 : 1, { duration: 300 });
+    if (working) {
+      // Resume instantly — clear any pending pause
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+        pauseTimeoutRef.current = null;
+      }
+      if (isWorkingRef.current) return;
+      isWorkingRef.current = true;
+      setIsWorking(true);
+      borderProgress.value = withTiming(0, { duration: 300 });
+    } else {
+      // Pause with 300ms grace period (absorbs blinks)
+      if (!isWorkingRef.current) return;
+      if (pauseTimeoutRef.current) return; // already scheduled
+      pauseTimeoutRef.current = setTimeout(() => {
+        pauseTimeoutRef.current = null;
+        isWorkingRef.current = false;
+        setIsWorking(false);
+        borderProgress.value = withTiming(1, { duration: 300 });
+      }, 300);
+    }
   }, [borderProgress]);
 
   const handleFacesDetected = useCallback((faces: Face[]) => {
-    const now = Date.now();
-
     if (faces.length > 0) {
       const face = faces[0];
       const eyesOpen =
         face.leftEyeOpenProbability > EYE_OPEN_THRESHOLD &&
         face.rightEyeOpenProbability > EYE_OPEN_THRESHOLD;
 
-      if (eyesOpen) {
-        lastWorkingTimestamp.current = now;
-        updateWorkingState(true);
-        return;
-      }
+      updateWorkingState(eyesOpen);
+    } else {
+      updateWorkingState(false);
     }
-
-    // Not working — apply grace period
-    if (
-      isWorkingRef.current &&
-      now - lastWorkingTimestamp.current < GRACE_PERIOD_MS
-    ) {
-      return; // Still within grace period
-    }
-
-    updateWorkingState(false);
   }, [updateWorkingState]);
+
+  // Face detection setup (no Skia dependency)
+  const faceDetectionOptions = useMemo(() => ({
+    performanceMode: 'fast' as const,
+    classificationMode: 'all' as const,
+    cameraFacing: 'front' as const,
+  }), []);
+
+  const { detectFaces } = useFaceDetector(faceDetectionOptions);
+
+  const runOnJS = useMemo(
+    () => Worklets.createRunOnJS(handleFacesDetected),
+    [handleFacesDetected]
+  );
+
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    frameCounter.value = frameCounter.value + 1;
+    if (frameCounter.value % 5 !== 0) return;
+    const faces = detectFaces(frame);
+    runOnJS(faces);
+  }, [detectFaces, runOnJS, frameCounter]);
 
   // Permission not yet granted
   if (!hasPermission) {
@@ -129,40 +210,24 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
-        <Animated.View style={[styles.cameraBorder, animatedBorderStyle]}>
-          <Camera
-            ref={cameraRef}
-            style={styles.camera}
-            device={device}
-            isActive={true}
-            faceDetectionOptions={{
-              performanceMode: 'fast',
-              classificationMode: 'all',
-              cameraFacing: 'front',
-            }}
-            faceDetectionCallback={handleFacesDetected}
-          />
+        <Animated.View style={[styles.cameraGlow, animatedColorStyle]}>
+          <Animated.View style={[styles.cameraBorder, animatedColorStyle]}>
+            <Camera
+              ref={cameraRef}
+              style={styles.camera}
+              device={device}
+              isActive={isForeground}
+              pixelFormat="yuv"
+              format={format}
+              frameProcessor={frameProcessor}
+            />
+            <DigicamOverlay isWorking={isWorking} elapsedSeconds={elapsedSeconds} />
+          </Animated.View>
         </Animated.View>
       </View>
 
       <Text style={styles.timer}>{formatTime(elapsedSeconds)}</Text>
-
-      <View style={styles.statusRow}>
-        <View
-          style={[
-            styles.statusDot,
-            { backgroundColor: isWorking ? WORKING_COLOR : PAUSED_COLOR },
-          ]}
-        />
-        <Text
-          style={[
-            styles.statusText,
-            { color: isWorking ? WORKING_COLOR : PAUSED_COLOR },
-          ]}
-        >
-          {isWorking ? 'Focused' : 'Paused'}
-        </Text>
-      </View>
+      <Text style={styles.motivationalText}>{quote}</Text>
     </View>
   );
 }
@@ -178,8 +243,29 @@ const styles = StyleSheet.create({
   cameraSection: {
     width: '100%',
     aspectRatio: 3 / 4,
-    maxHeight: '60%',
-    marginBottom: 32,
+    maxHeight: '65%',
+    marginBottom: 24,
+  },
+  timer: {
+    fontSize: 48,
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+  },
+  motivationalText: {
+    fontSize: 16,
+    fontFamily: Fonts.medium,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  cameraGlow: {
+    flex: 1,
+    borderRadius: 20,
+    shadowColor: PAUSED_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    elevation: 10,
   },
   cameraBorder: {
     flex: 1,
@@ -190,26 +276,6 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
-  },
-  timer: {
-    fontSize: 48,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
-    marginBottom: 16,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  statusText: {
-    fontSize: 18,
-    fontFamily: Fonts.medium,
   },
   permissionTitle: {
     fontSize: 24,
@@ -227,7 +293,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   permissionButton: {
-    backgroundColor: '#FF3B5C',
+    backgroundColor: '#2563EB',
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 12,

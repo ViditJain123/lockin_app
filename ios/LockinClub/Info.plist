@@ -53,6 +53,8 @@
     <string>LockIn uses Screen Time to help you manage app usage and build better habits</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Lockin Club uses your location to enhance your experience</string>
     <key>NSMotionUsageDescription</key>
     <string>Used to detect device orientation for timer display</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
