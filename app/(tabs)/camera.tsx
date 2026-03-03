@@ -210,6 +210,7 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.cameraSection}>
+        <Animated.View style={[styles.cameraGlowOuter, animatedColorStyle]}>
         <Animated.View style={[styles.cameraGlow, animatedColorStyle]}>
           <Animated.View style={[styles.cameraBorder, animatedColorStyle]}>
             <Camera
@@ -223,6 +224,7 @@ export default function CameraScreen() {
             />
             <DigicamOverlay isWorking={isWorking} elapsedSeconds={elapsedSeconds} />
           </Animated.View>
+        </Animated.View>
         </Animated.View>
       </View>
 
@@ -258,14 +260,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  cameraGlowOuter: {
+    flex: 1,
+    borderRadius: 20,
+    shadowColor: PAUSED_COLOR,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 50,
+    elevation: 20,
+  },
   cameraGlow: {
     flex: 1,
     borderRadius: 20,
     shadowColor: PAUSED_COLOR,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOpacity: 1.0,
+    shadowRadius: 30,
+    elevation: 20,
   },
   cameraBorder: {
     flex: 1,
