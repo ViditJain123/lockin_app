@@ -36,3 +36,17 @@ export function sliderTick(): void {
 export function animationReveal(): void {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 }
+
+/**
+ * Heavy impact feedback for starting a focus session.
+ */
+export function sessionStart(): void {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+}
+
+/**
+ * Success notification feedback for stopping a session and saving timelapse.
+ */
+export function sessionStop(): void {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+}

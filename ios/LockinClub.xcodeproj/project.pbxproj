@@ -13,6 +13,8 @@
 		49FD1878D9643566B94F05B2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21247B82E436DF28040B0294 /* ExpoModulesProvider.swift */; };
 		B354A029CB9F7B3BB42C4787 /* libPods-LockinClub.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 31514B03CAF0FD1C39757E30 /* libPods-LockinClub.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		AA12345600000000000000A1 /* TimelapseModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B1 /* TimelapseModule.swift */; };
+		AA12345600000000000000A2 /* TimelapseModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B2 /* TimelapseModule.m */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		XX103037AC5A7B821341EBXX /* ShieldConfiguration.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XXEC8F4A23169846583657XX /* ShieldConfiguration.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		XX44FC18D28196FBCB6075XX /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXB6D82409997898620841XX /* ManagedSettingsUI.framework */; };
@@ -73,6 +75,8 @@
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		E777BD5AFF34655D7FA72F22 /* Pods-LockinClub.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LockinClub.debug.xcconfig"; path = "Target Support Files/Pods-LockinClub/Pods-LockinClub.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 1; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		AA12345600000000000000B1 /* TimelapseModule.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseModule.swift; path = LockinClub/TimelapseModule.swift; sourceTree = "<group>"; };
+		AA12345600000000000000B2 /* TimelapseModule.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapseModule.m; path = LockinClub/TimelapseModule.m; sourceTree = "<group>"; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = LockinClub/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* LockinClub-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "LockinClub-Bridging-Header.h"; path = "LockinClub/LockinClub-Bridging-Header.h"; sourceTree = "<group>"; };
 		XX05E83E103BF49F57A457XX /* ShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = ShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -188,6 +192,8 @@
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
+				AA12345600000000000000B1 /* TimelapseModule.swift */,
+				AA12345600000000000000B2 /* TimelapseModule.m */,
 				F11748442D0722820044C1D9 /* LockinClub-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -610,6 +616,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
+				AA12345600000000000000A1 /* TimelapseModule.swift in Sources */,
+				AA12345600000000000000A2 /* TimelapseModule.m in Sources */,
 				49FD1878D9643566B94F05B2 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
