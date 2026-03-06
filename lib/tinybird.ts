@@ -28,7 +28,7 @@ export async function sendSessionEvent(event: SessionEvent): Promise<void> {
     };
 
     const response = await fetch(
-      `${TINYBIRD_HOST}/v0/events?name=${DATASOURCE_NAME}`,
+      `${TINYBIRD_HOST}/v0/events?name=${DATASOURCE_NAME}&format=ndjson`,
       {
         method: 'POST',
         headers: {
@@ -43,7 +43,8 @@ export async function sendSessionEvent(event: SessionEvent): Promise<void> {
       const text = await response.text();
       console.warn('[Tinybird] Failed to send session event:', response.status, text);
     } else {
-      console.log('[Tinybird] Session event sent successfully');
+      const body = await response.json();
+      console.log('[Tinybird] Session event sent successfully:', JSON.stringify(body));
     }
   } catch (error) {
     console.warn('[Tinybird] Error sending session event:', error);

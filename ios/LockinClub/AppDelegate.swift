@@ -64,7 +64,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
     let settings = RCTBundleURLProvider.sharedSettings()
     if settings.jsLocation == nil || settings.jsLocation?.isEmpty == true {
-      settings.jsLocation = "10.3.2.17"
+      settings.jsLocation = "10.157.130.139"
     }
     return settings.jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
