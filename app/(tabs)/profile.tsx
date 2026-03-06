@@ -1,12 +1,226 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  RefreshControl,
+  Dimensions,
+  Pressable,
+  ActionSheetIOS,
+  Alert,
+  Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { shareAsync } from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
+import { router } from 'expo-router';
 import { Fonts } from '../../constants/Fonts';
+import { useAuth } from '../../contexts/AuthContext';
+import { updateMaxStreakIfHigher } from '../../lib/supabaseUser';
+import { fetchProfileStats } from '../../lib/tinybird';
+import { useBadgeStore } from '../../store/useBadgeStore';
+import { useVideoGalleryStore, resolveUri, type Recording } from '../../store/useVideoGalleryStore';
+import { useProfileStatsStore } from '../../store/useProfileStatsStore';
+import VideoGridItem from '../../components/VideoGridItem';
+import FeaturedBadges from '../../components/FeaturedBadges';
+import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const GRID_GAP = 4;
+const GRID_COLUMNS = 3;
+const GRID_ITEM_SIZE = (SCREEN_WIDTH - 32 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+const PINK = '#FF3B5C';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
+  const [refreshing, setRefreshing] = useState(false);
+  const [previewUri, setPreviewUri] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+
+  const { user } = useAuth();
+  const recordings = useVideoGalleryStore((s) => s.recordings);
+  const removeRecording = useVideoGalleryStore((s) => s.removeRecording);
+
+  const total_hours = useProfileStatsStore((s) => s.total_hours);
+  const grinds = useProfileStatsStore((s) => s.grinds);
+  const streak = useProfileStatsStore((s) => s.streak);
+  const hasHydrated = useProfileStatsStore((s) => s.hasHydrated);
+  const setStats = useProfileStatsStore((s) => s.setStats);
+
+  const refreshStatsAndBadges = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const stats = await fetchProfileStats(user.id);
+      const maxStreak = await updateMaxStreakIfHigher(user.id, stats.streak);
+      setStats(stats);
+      useBadgeStore.getState().checkAndAwardBadges({
+        totalHours: stats.total_hours,
+        totalGrinds: stats.grinds,
+        currentStreak: maxStreak,
+      });
+    } catch (err) {
+      console.warn('[Profile] Failed to refresh stats/badges:', err);
+    }
+  }, [user?.id, setStats]);
+
+  useEffect(() => {
+    refreshStatsAndBadges();
+  }, [refreshStatsAndBadges]);
+
+  const onRefresh = useCallback(async () => {
+    if (!user?.id) return;
+    setRefreshing(true);
+    await refreshStatsAndBadges();
+    setRefreshing(false);
+  }, [user?.id, refreshStatsAndBadges]);
+
+  const handleTap = useCallback((rec: Recording) => {
+    setPreviewUri(resolveUri(rec.videoUri));
+    setShowPreview(true);
+  }, []);
+
+  const handleLongPress = useCallback((rec: Recording) => {
+    if (Platform.OS === 'ios') {
+      const videoPath = resolveUri(rec.videoUri);
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Share', 'Save to Gallery', 'Delete', 'Cancel'],
+          destructiveButtonIndex: 2,
+          cancelButtonIndex: 3,
+        },
+        async (buttonIndex) => {
+          if (buttonIndex === 0) {
+            try { await shareAsync(videoPath); } catch {}
+          } else if (buttonIndex === 1) {
+            try {
+              const { status } = await MediaLibrary.requestPermissionsAsync();
+              if (status === 'granted') {
+                await MediaLibrary.saveToLibraryAsync(videoPath);
+                Alert.alert('Saved', 'Video saved to your gallery.');
+              }
+            } catch {}
+          } else if (buttonIndex === 2) {
+            Alert.alert('Delete Video', 'Are you sure?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  removeRecording(rec.id);
+                  try { await FileSystem.deleteAsync(videoPath, { idempotent: true }); } catch {}
+                  if (rec.thumbnailUri) {
+                    try { await FileSystem.deleteAsync(resolveUri(rec.thumbnailUri), { idempotent: true }); } catch {}
+                  }
+                },
+              },
+            ]);
+          }
+        }
+      );
+    }
+  }, [removeRecording]);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.subtitle}>Coming Soon</Text>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 8 }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top Bar */}
+        <View style={styles.topBar}>
+          <View style={styles.proBadge}>
+            <Text style={styles.proBadgeText}>PRO</Text>
+          </View>
+          <View style={styles.topBarRight}>
+            <Pressable style={styles.topBarIcon} onPress={() => router.push('/trophies-page')}>
+              <Ionicons name="trophy-outline" size={22} color="#fff" />
+            </Pressable>
+            <Pressable style={styles.topBarIcon}>
+              <Ionicons name="settings-outline" size={22} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Avatar + Name */}
+        <View style={styles.headerSection}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user?.user_metadata?.full_name
+                  ? user.user_metadata.full_name
+                      .split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2)
+                  : '?'}
+              </Text>
+            </View>
+            <View style={styles.streakBadge}>
+              <Text style={styles.streakBadgeText}>{hasHydrated && streak != null ? streak : '-'}</Text>
+            </View>
+          </View>
+          <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
+        </View>
+
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{hasHydrated && total_hours != null ? (total_hours < 1 ? Math.round(total_hours * 60) : total_hours) : '-'}</Text>
+            <Text style={styles.statLabel}>{hasHydrated && total_hours != null && total_hours < 1 ? 'Mins' : 'Hours'}</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{hasHydrated && grinds != null ? grinds : '-'}</Text>
+            <Text style={styles.statLabel}>Grinds</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{hasHydrated && streak != null ? streak : '-'}</Text>
+            <Text style={styles.statLabel}>Streak</Text>
+          </View>
+        </View>
+
+        {/* Badge Collection */}
+        <FeaturedBadges />
+
+        {/* Video Grid */}
+        <View style={styles.gridSection}>
+          {recordings.length === 0 ? (
+            <View style={styles.emptyGridState}>
+              <Ionicons name="videocam-outline" size={48} color="rgba(255,255,255,0.2)" />
+              <Text style={styles.emptyGridTitle}>No grinds yet</Text>
+              <Text style={styles.emptyGridSubtitle}>
+                Start recording to see your grinds here
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.grid}>
+              {recordings.map((rec) => (
+                <VideoGridItem
+                  key={rec.id}
+                  recording={rec}
+                  size={GRID_ITEM_SIZE}
+                  onPress={() => handleTap(rec)}
+                  onLongPress={() => handleLongPress(rec)}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      <TimelapsePreviewSheet
+        visible={showPreview}
+        videoUri={previewUri}
+        onClose={() => setShowPreview(false)}
+      />
     </View>
   );
 }
@@ -15,18 +229,135 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  proBadge: {
+    backgroundColor: PINK,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  proBadgeText: {
+    fontSize: 12,
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  topBarIcon: {
+    padding: 4,
+  },
+  headerSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: PINK,
+    backgroundColor: '#1a1a1a',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 32,
+  avatarText: {
+    fontSize: 40,
+    fontFamily: Fonts.bold,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  streakBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    backgroundColor: PINK,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#000000',
+  },
+  streakBadgeText: {
+    fontSize: 14,
     fontFamily: Fonts.bold,
     color: '#FFFFFF',
   },
-  subtitle: {
-    fontSize: 16,
+  userName: {
+    fontSize: 24,
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 24,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 18,
+    fontFamily: Fonts.bold,
+    color: '#FFFFFF',
+  },
+  statLabel: {
+    fontSize: 13,
     fontFamily: Fonts.regular,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  gridSection: {
+    minHeight: 200,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+  },
+  emptyGridState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  emptyGridTitle: {
+    fontSize: 18,
+    fontFamily: Fonts.semiBold,
     color: 'rgba(255,255,255,0.5)',
-    marginTop: 8,
+    marginTop: 12,
+  },
+  emptyGridSubtitle: {
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    color: 'rgba(255,255,255,0.3)',
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

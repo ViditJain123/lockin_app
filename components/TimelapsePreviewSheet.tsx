@@ -1,10 +1,15 @@
-import React from 'react';
-import { Modal, View, Pressable, Text, StyleSheet, Alert } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Pressable, Text, StyleSheet, Alert, Dimensions } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { shareAsync } from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../constants/Fonts';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+const DISMISS_THRESHOLD = 150;
 
 interface Props {
   visible: boolean;
@@ -13,6 +18,45 @@ interface Props {
 }
 
 export default function TimelapsePreviewSheet({ visible, videoUri, onClose }: Props) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible) {
+      translateY.value = 0;
+      opacity.value = withTiming(1, { duration: 200 });
+    } else {
+      opacity.value = 0;
+    }
+  }, [visible]);
+
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+        opacity.value = 1 - e.translationY / SCREEN_HEIGHT;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > DISMISS_THRESHOLD) {
+        translateY.value = withTiming(SCREEN_HEIGHT, { duration: 200 });
+        opacity.value = withTiming(0, { duration: 200 }, () => {
+          runOnJS(onClose)();
+        });
+      } else {
+        translateY.value = withTiming(0, { duration: 200 });
+        opacity.value = withTiming(1, { duration: 200 });
+      }
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   const handleShare = async () => {
     try {
       await shareAsync(videoUri);
@@ -36,39 +80,45 @@ export default function TimelapsePreviewSheet({ visible, videoUri, onClose }: Pr
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.closeButton} onPress={onClose}>
-          <Ionicons name="close" size={28} color="#FFFFFF" />
-        </Pressable>
-
-        <Video
-          source={{ uri: videoUri }}
-          style={styles.video}
-          isLooping
-          shouldPlay={visible}
-          resizeMode={ResizeMode.CONTAIN}
-        />
-
-        <View style={styles.buttonRow}>
-          <Pressable style={styles.actionButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={22} color="#FFFFFF" />
-            <Text style={styles.actionText}>Share</Text>
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents={visible ? 'auto' : 'none'}>
+        <Animated.View style={[styles.content, animatedStyle]}>
+          <Pressable style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={28} color="#FFFFFF" />
           </Pressable>
-          <Pressable style={styles.actionButton} onPress={handleSave}>
-            <Ionicons name="download-outline" size={22} color="#FFFFFF" />
-            <Text style={styles.actionText}>Save to Gallery</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
+
+          <Video
+            source={{ uri: videoUri }}
+            style={styles.video}
+            isLooping
+            shouldPlay={visible}
+            resizeMode={ResizeMode.CONTAIN}
+          />
+
+          <View style={styles.buttonRow}>
+            <Pressable style={styles.actionButton} onPress={handleShare}>
+              <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+              <Text style={styles.actionText}>Share</Text>
+            </Pressable>
+            <Pressable style={styles.actionButton} onPress={handleSave}>
+              <Ionicons name="download-outline" size={22} color="#FFFFFF" />
+              <Text style={styles.actionText}>Save to Gallery</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
     backgroundColor: '#000000',
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },

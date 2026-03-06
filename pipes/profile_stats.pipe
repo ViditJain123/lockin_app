@@ -1,0 +1,38 @@
+NODE total_hours_node
+SQL >
+    %
+    SELECT COALESCE(SUM(total_locked_in_seconds) / 3600.0, 0) AS total_hours
+    FROM lockin_sessions
+    WHERE user_id = {{String(user_id, 'anonymous')}}
+
+NODE grinds_node
+SQL >
+    %
+    SELECT COUNT(*) AS grinds
+    FROM lockin_sessions
+    WHERE user_id = {{String(user_id, 'anonymous')}}
+      AND total_locked_in_seconds > 3600
+
+NODE streak_node
+SQL >
+    %
+    SELECT countIf(rn = diff + 1) AS streak
+    FROM (
+        SELECT
+            d,
+            row_number() OVER (ORDER BY d DESC) AS rn,
+            dateDiff('day', d, today()) AS diff
+        FROM (
+            SELECT DISTINCT toDate(date) AS d
+            FROM lockin_sessions
+            WHERE user_id = {{String(user_id, 'anonymous')}}
+        )
+    )
+
+NODE endpoint
+SQL >
+    SELECT h.total_hours, g.grinds, s.streak
+    FROM total_hours_node AS h
+    CROSS JOIN grinds_node AS g
+    CROSS JOIN streak_node AS s
+TYPE endpoint

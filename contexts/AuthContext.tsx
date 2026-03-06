@@ -5,6 +5,8 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
+import { upsertUserRow } from '../lib/supabaseUser';
+import { useBadgeStore } from '../store/useBadgeStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 
@@ -151,6 +153,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (event === 'SIGNED_IN' && newSession) {
             console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
             await useSubscriptionStore.getState().loginUser(newSession.user.id);
+            // Ensure a users row exists in Supabase
+            upsertUserRow(newSession.user.id, {}).catch((err) =>
+              console.warn('[Auth] Failed to upsert user row:', err)
+            );
           }
           return;
         }
@@ -270,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Clear all user-specific data on logout for data isolation between accounts
   const clearAllUserData = () => {
     useOnboardingStore.getState().clearQuizAnswers();
+    useBadgeStore.getState().resetBadges();
   };
 
   // Sign out

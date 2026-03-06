@@ -18,6 +18,44 @@ function toClickHouseDateTime(iso: string): string {
   return iso.replace('T', ' ').replace(/\.\d{3}Z$/, '');
 }
 
+export interface ProfileStats {
+  total_hours: number;
+  grinds: number;
+  streak: number;
+}
+
+export async function fetchProfileStats(userId: string): Promise<ProfileStats> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/profile_stats.json?user_id=${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Tinybird] Failed to fetch profile stats:', response.status);
+      return { total_hours: 0, grinds: 0, streak: 0 };
+    }
+
+    const json = await response.json();
+    console.log('[Tinybird] Profile stats raw response:', JSON.stringify(json));
+    const row = json.data?.[0];
+    if (!row) return { total_hours: 0, grinds: 0, streak: 0 };
+
+    return {
+      total_hours: row['h.total_hours'] ?? 0,
+      grinds: row['g.grinds'] ?? 0,
+      streak: row['s.streak'] ?? 0,
+    };
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching profile stats:', error);
+    return { total_hours: 0, grinds: 0, streak: 0 };
+  }
+}
+
 export async function sendSessionEvent(event: SessionEvent): Promise<void> {
   try {
     const payload = {

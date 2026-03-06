@@ -53,7 +53,11 @@ import NotificationPermissionScreen from '../components/quiz/questions/Notificat
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
+import TrophyReceivedModal from '../components/TrophyReceivedModal';
+import { getBadgeById } from '../constants/Badges';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { preloadAllBadges } from '../lib/badgeAssetCache';
+import { useBadgeStore, usePendingNewBadges } from '../store/useBadgeStore';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 
 export {
@@ -102,6 +106,8 @@ export default function RootLayout() {
     if (loaded) {
       // Initialize subscription store (which initializes StoreKit)
       useSubscriptionStore.getState().initialize();
+      // Preload badge assets (fire and forget)
+      preloadAllBadges();
     }
   }, [loaded]);
 
@@ -417,6 +423,16 @@ function RootLayoutNav() {
     );
   }
 
+  // Trophy modal state - show one pending badge at a time
+  const pendingNewBadges = usePendingNewBadges();
+  const firstPendingBadge = pendingNewBadges.length > 0 ? getBadgeById(pendingNewBadges[0]) : null;
+
+  const handleDismissTrophy = () => {
+    if (pendingNewBadges.length > 0) {
+      useBadgeStore.getState().markBadgeAsSeen(pendingNewBadges[0]);
+    }
+  };
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -448,7 +464,14 @@ function RootLayoutNav() {
               },
             }}
           />
+          <Stack.Screen name="trophies-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
         </Stack>
+        <TrophyReceivedModal
+          visible={!!firstPendingBadge}
+          badge={firstPendingBadge ?? null}
+          onClose={handleDismissTrophy}
+          onAddToCollection={handleDismissTrophy}
+        />
       </ThemeProvider>
     </GestureHandlerRootView>
   );
