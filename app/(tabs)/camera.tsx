@@ -19,6 +19,10 @@ import DigicamOverlay from '../../components/DigicamOverlay';
 import * as Haptics from '../../lib/haptics';
 import * as Timelapse from '../../lib/timelapseModule';
 import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
+import { sendSessionEvent } from '../../lib/tinybird';
+import { useAuth } from '../../contexts/AuthContext';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 
 const WORKING_COLOR = '#2563EB';
 const PAUSED_COLOR = '#F97316';
@@ -77,12 +81,20 @@ function formatTime(totalSeconds: number): string {
 
 export default function CameraScreen() {
   useKeepAwake();
+  const { user } = useAuth();
 
   const [isForeground, setIsForeground] = useState(true);
   const [isSessionActive, setIsSessionActive] = useState(false);
 
   const isForegroundRef = useRef(true);
   const isSessionActiveRef = useRef(false);
+
+  // Session tracking refs
+  const sessionStartTimeRef = useRef<Date | null>(null);
+  const distractionCountRef = useRef(0);
+  const distractedSecondsRef = useRef(0);
+  const distractedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasDistractedRef = useRef(false);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -192,8 +204,15 @@ export default function CameraScreen() {
       }
       if (isWorkingRef.current) return;
       isWorkingRef.current = true;
+      wasDistractedRef.current = false;
       setIsWorking(true);
       borderProgress.value = withTiming(0, { duration: 300 });
+
+      // Stop counting distracted time
+      if (distractedTimerRef.current) {
+        clearInterval(distractedTimerRef.current);
+        distractedTimerRef.current = null;
+      }
     } else {
       if (!isWorkingRef.current) return;
       if (pauseTimeoutRef.current) return;
@@ -202,6 +221,21 @@ export default function CameraScreen() {
         isWorkingRef.current = false;
         setIsWorking(false);
         borderProgress.value = withTiming(1, { duration: 300 });
+
+        // Count this as a new distraction event
+        if (isSessionActiveRef.current && !wasDistractedRef.current) {
+          wasDistractedRef.current = true;
+          distractionCountRef.current += 1;
+        }
+
+        // Start counting distracted time
+        if (isSessionActiveRef.current && !distractedTimerRef.current) {
+          distractedTimerRef.current = setInterval(() => {
+            if (!isWorkingRef.current && isSessionActiveRef.current) {
+              distractedSecondsRef.current += 1;
+            }
+          }, 1000);
+        }
       }, 300);
     }
   }, [borderProgress]);
@@ -266,6 +300,12 @@ export default function CameraScreen() {
     setElapsedSeconds(0);
     Haptics.sessionStart();
 
+    // Reset session tracking
+    sessionStartTimeRef.current = new Date();
+    distractionCountRef.current = 0;
+    distractedSecondsRef.current = 0;
+    wasDistractedRef.current = false;
+
     try {
       // Use approximate dimensions for the captured view (3:4 aspect)
       await Timelapse.startRecording(720, 960);
@@ -281,9 +321,21 @@ export default function CameraScreen() {
   }, [captureFrame]);
 
   const stopSession = useCallback(async () => {
+    const sessionEndTime = new Date();
+    const sessionStartTime = sessionStartTimeRef.current || sessionEndTime;
+    const lockedInSeconds = elapsedSeconds;
+    const distractedSeconds = distractedSecondsRef.current;
+    const distractionCount = distractionCountRef.current;
+
     setIsSessionActive(false);
     isSessionActiveRef.current = false;
     Haptics.sessionStop();
+
+    // Stop distracted timer
+    if (distractedTimerRef.current) {
+      clearInterval(distractedTimerRef.current);
+      distractedTimerRef.current = null;
+    }
 
     // Stop capture interval
     if (captureIntervalRef.current) {
@@ -302,6 +354,20 @@ export default function CameraScreen() {
       pauseTimeoutRef.current = null;
     }
 
+    // Send session data to Tinybird
+    const dateStr = sessionStartTime.toISOString().split('T')[0];
+    await sendSessionEvent({
+      session_id: uuidv4(),
+      user_id: user?.id ?? 'anonymous',
+      date: dateStr,
+      time_started: sessionStartTime.toISOString(),
+      time_ended: sessionEndTime.toISOString(),
+      distraction_count: distractionCount,
+      total_locked_in_seconds: lockedInSeconds,
+      total_distracted_seconds: distractedSeconds,
+      timestamp: sessionEndTime.toISOString(),
+    });
+
     try {
       const videoPath = await Timelapse.stopRecording();
       if (videoPath) {
@@ -315,7 +381,7 @@ export default function CameraScreen() {
         console.warn('Failed to stop timelapse recording:', e);
       }
     }
-  }, [borderProgress]);
+  }, [borderProgress, elapsedSeconds, user]);
 
   const toggleSession = useCallback(() => {
     if (isSessionActiveRef.current) {
@@ -330,6 +396,9 @@ export default function CameraScreen() {
     return () => {
       if (captureIntervalRef.current) {
         clearInterval(captureIntervalRef.current);
+      }
+      if (distractedTimerRef.current) {
+        clearInterval(distractedTimerRef.current);
       }
       if (isSessionActiveRef.current) {
         Timelapse.cancelRecording().catch(() => {});

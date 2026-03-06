@@ -1,0 +1,25 @@
+SCHEMA >
+    `session_id` String,
+    `user_id` String,
+    `date` String,
+    `time_started` DateTime,
+    `time_ended` DateTime,
+    `distraction_count` UInt32,
+    `total_locked_in_seconds` UInt32,
+    `total_distracted_seconds` UInt32,
+    `timestamp` DateTime
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "user_id, timestamp"
+
+FORWARD_QUERY >
+  SELECT
+    defaultValueOfTypeName('String') AS session_id,
+    defaultValueOfTypeName('String') AS user_id,
+    defaultValueOfTypeName('String') AS date,
+    defaultValueOfTypeName('DateTime') AS time_started,
+    defaultValueOfTypeName('DateTime') AS time_ended,
+    defaultValueOfTypeName('UInt32') AS distraction_count,
+    defaultValueOfTypeName('UInt32') AS total_locked_in_seconds,
+    defaultValueOfTypeName('UInt32') AS total_distracted_seconds,
+    defaultValueOfTypeName('DateTime') AS timestamp

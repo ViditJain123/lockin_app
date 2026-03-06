@@ -1,0 +1,14 @@
+{
+    "host": "https://api.us-east.tinybird.co",
+    "id": "8431a9fe-26ca-4862-be68-21c14dfd3d66",
+    "name": "Lockin",
+    "scope": "user",
+    "token": "p.eyJ1IjogIjg0MzFhOWZlLTI2Y2EtNDg2Mi1iZTY4LTIxYzE0ZGZkM2Q2NiIsICJpZCI6ICJmZTNkZWFlZi04MzQxLTQ3YjgtODRiOS0zMjMyMDM4YWJiYTEiLCAiaG9zdCI6ICJ1c19lYXN0In0.u_4rg_c1HUOvtsqAdAxTYvmeCCKq65ImDAKerPKrVms",
+    "tokens": {
+        "https://api.us-east.tinybird.co": "p.eyJ1IjogIjg0MzFhOWZlLTI2Y2EtNDg2Mi1iZTY4LTIxYzE0ZGZkM2Q2NiIsICJpZCI6ICJmZTNkZWFlZi04MzQxLTQ3YjgtODRiOS0zMjMyMDM4YWJiYTEiLCAiaG9zdCI6ICJ1c19lYXN0In0.u_4rg_c1HUOvtsqAdAxTYvmeCCKq65ImDAKerPKrVms"
+    },
+    "user_email": "workwithvidit@gmail.com",
+    "user_id": "9cbafb98-51cb-473e-8908-2c1683d3a109",
+    "user_token": "p.eyJ1IjogIjljYmFmYjk4LTUxY2ItNDczZS04OTA4LTJjMTY4M2QzYTEwOSIsICJpZCI6ICIyYjcxNDFiNC0zN2QyLTQ2MTEtODg4ZS1mNTk5YWQzYzUzODciLCAiaG9zdCI6ICJ1c19lYXN0In0.O6uoH-ur1INQdKBSNUzkuParI5xyOMZFHBkxBmO48YA",
+    "version": "3.5.4"
+}
