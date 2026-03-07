@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import RevenueCatUI from 'react-native-purchases-ui';
-import Purchases from 'react-native-purchases';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '../constants/Fonts';
@@ -26,9 +25,7 @@ export default function HardPaywallScreen() {
 
   const handlePurchaseCompleted = async () => {
     // Refresh subscription state after purchase
-    const customerInfo = await Purchases.getCustomerInfo();
-    const store = useSubscriptionStore.getState();
-    store.checkSubscriptionStatus();
+    await useSubscriptionStore.getState().checkSubscriptionStatus();
   };
 
   const handleRestoreCompleted = async () => {
