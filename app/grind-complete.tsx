@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts } from '../constants/Fonts';
 import Button3D from '../components/Button3D';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { useAppLockStore } from '../store/useAppLockStore';
 import Ribbon from '../assets/images/ribbon.svg';
 import TimelapseStar from '../assets/images/timelapse_start.svg';
 
@@ -53,6 +54,13 @@ export default function GrindCompleteScreen() {
 
   const durationSeconds = parseInt(grindDurationSeconds || '0', 10);
   const durationText = formatDuration(durationSeconds);
+
+  const earnedSeconds = Math.floor(durationSeconds / 4);
+  const earnedText = formatDuration(earnedSeconds);
+  const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
+  const isCurrentlyLocked = useAppLockStore((s) => s.isCurrentlyLocked);
+  const availableScreenTime = useAppLockStore.getState().getAvailableScreenTime();
+  const canUnlock = !isFullyUnlocked && isCurrentlyLocked && availableScreenTime >= 60;
 
   const motivationalMessage = useMemo(
     () => MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)],
@@ -154,6 +162,15 @@ export default function GrindCompleteScreen() {
           <Text style={styles.durationValue}>{durationText}</Text>
         </Animated.View>
 
+        {/* Earned screen time */}
+        <Animated.View style={durationAnimStyle}>
+          <Text style={styles.earnedLabel}>
+            {isFullyUnlocked
+              ? 'Target reached! Apps unlocked until tonight'
+              : `You earned ${earnedText} of screen time`}
+          </Text>
+        </Animated.View>
+
         {/* Motivational message */}
         <Animated.View style={messageAnimStyle}>
           <Text style={styles.motivationalMessage}>{motivationalMessage}</Text>
@@ -161,6 +178,20 @@ export default function GrindCompleteScreen() {
 
         {/* Spacer */}
         <View style={{ flex: 1 }} />
+
+        {/* Unlock button (if eligible) */}
+        {canUnlock && (
+          <Animated.View style={[styles.buttonContainer, buttonAnimStyle, { marginBottom: 12 }]}>
+            <Button3D
+              title="Unlock Apps"
+              variant="blue"
+              onPress={() => {
+                useAppLockStore.getState().unlockApps();
+                router.back();
+              }}
+            />
+          </Animated.View>
+        )}
 
         {/* Done button */}
         <Animated.View style={[styles.buttonContainer, buttonAnimStyle]}>
@@ -218,6 +249,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 24,
+  },
+  earnedLabel: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 15,
+    color: '#34d399',
+    textAlign: 'center',
+    marginBottom: 16,
   },
   motivationalMessage: {
     fontFamily: Fonts.medium,

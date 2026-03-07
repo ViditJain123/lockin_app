@@ -25,6 +25,7 @@ import { useRecordingStore } from '../../store/useRecordingStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useProfileStatsStore } from '../../store/useProfileStatsStore';
 import { useVideoGalleryStore } from '../../store/useVideoGalleryStore';
+import { useAppLockStore } from '../../store/useAppLockStore';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import 'react-native-get-random-values';
@@ -380,6 +381,9 @@ export default function CameraScreen() {
     };
     console.log('[StopSession] Adding session:', sessionData);
     useSessionStore.getState().addSession(sessionData);
+
+    // Credit earned screen time (4:1 ratio)
+    useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
 
     // Recompute profile stats from local data
     useProfileStatsStore.getState().recomputeFromSessions();

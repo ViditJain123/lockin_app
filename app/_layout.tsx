@@ -59,6 +59,14 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { useBadgeStore, usePendingNewBadges } from '../store/useBadgeStore';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
+import { useAppLockStore } from '../store/useAppLockStore';
+import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
+import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
+import {
+  onDeviceActivityMonitorEvent,
+  updateShield,
+  setFamilyActivitySelectionId,
+} from 'react-native-device-activity';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -170,6 +178,62 @@ function RootLayoutNav() {
       SplashScreen.hideAsync();
     }
   }, [_hasHydrated, isInitialized]);
+
+  // Initialize app lock system after auth + onboarding
+  useEffect(() => {
+    if (!_hasHydrated || !isInitialized || !session || !hasCompletedOnboarding) return;
+
+    const { sleepTime, familyActivitySelection } = useOnboardingStore.getState().quizAnswers;
+
+    // Store the family activity selection ID for use in actions
+    if (familyActivitySelection) {
+      setFamilyActivitySelectionId({
+        id: 'onboardingSelection',
+        familyActivitySelection,
+      });
+    }
+
+    // Schedule sleep time lock
+    const time24h = convertSleepTimeTo24h(sleepTime);
+    const [h, m] = time24h.split(':').map(Number);
+    scheduleSleepTimeLock(h, m);
+
+    // Configure shield appearance
+    updateShield(
+      {
+        title: 'Stay Locked In',
+        subtitle: 'Complete a focus session to unlock',
+        primaryButtonLabel: 'Open LockIn',
+        backgroundColor: { red: 0, green: 0, blue: 0 },
+        titleColor: { red: 255, green: 255, blue: 255 },
+        subtitleColor: { red: 180, green: 180, blue: 180 },
+        primaryButtonLabelColor: { red: 255, green: 255, blue: 255 },
+        primaryButtonBackgroundColor: { red: 255, green: 59, blue: 92 },
+      },
+      {
+        primary: {
+          behavior: 'close',
+          actions: [{ type: 'openApp' }],
+        },
+      },
+      'appLockInit'
+    );
+
+    // Check if daily reset is needed
+    useAppLockStore.getState().resetDaily();
+
+    // Listen for re-lock events from device activity monitor
+    const subscription = onDeviceActivityMonitorEvent((event) => {
+      if (event.callbackName === 'eventDidReachThreshold') {
+        useAppLockStore.getState().relockApps();
+      }
+      if (event.callbackName === 'intervalDidStart') {
+        useAppLockStore.getState().lockAppsForSleep();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [_hasHydrated, isInitialized, session, hasCompletedOnboarding]);
 
   const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
 
@@ -391,7 +455,25 @@ function RootLayoutNav() {
           {currentQuestionIndex === 22 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
-              onContinue={completeQuizFunnel}
+              onContinue={() => {
+                // Sync onboarding data to Supabase before completing
+                if (session?.user?.id) {
+                  const { sleepTime, targetHours, familyActivitySelection } = quizAnswers;
+                  upsertUserRow(session.user.id, {
+                    sleep_time: convertSleepTimeTo24h(sleepTime),
+                    target_hours: targetHours,
+                  }).catch((err) => console.warn('[Onboarding] Failed to sync:', err));
+
+                  // Store the family activity selection ID
+                  if (familyActivitySelection) {
+                    setFamilyActivitySelectionId({
+                      id: 'onboardingSelection',
+                      familyActivitySelection,
+                    });
+                  }
+                }
+                completeQuizFunnel();
+              }}
             />
           )}
         </GestureHandlerRootView>

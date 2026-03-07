@@ -5,7 +5,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
-import { upsertUserRow } from '../lib/supabaseUser';
+import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
 import { useBadgeStore } from '../store/useBadgeStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
@@ -158,8 +158,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
             await useSubscriptionStore.getState().loginUser(newSession.user.id);
             useTaskStore.getState().setUserId(newSession.user.id);
-            // Ensure a users row exists in Supabase
-            upsertUserRow(newSession.user.id, {}).catch((err) =>
+            // Ensure a users row exists in Supabase and sync onboarding data
+            const { sleepTime, targetHours } = useOnboardingStore.getState().quizAnswers;
+            upsertUserRow(newSession.user.id, {
+              sleep_time: convertSleepTimeTo24h(sleepTime),
+              target_hours: targetHours,
+            }).catch((err) =>
               console.warn('[Auth] Failed to upsert user row:', err)
             );
           }
