@@ -20,7 +20,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
@@ -147,6 +147,15 @@ function RootLayoutNav() {
     setAnswer,
     completeQuizFunnel,
   } = useOnboardingStore();
+
+  // Trophy modal state — moved before early returns to satisfy Rules of Hooks
+  const pendingNewBadges = usePendingNewBadges();
+  const firstPendingBadge = pendingNewBadges.length > 0 ? getBadgeById(pendingNewBadges[0]) : null;
+  const handleDismissTrophy = useCallback(() => {
+    if (pendingNewBadges.length > 0) {
+      useBadgeStore.getState().markBadgeAsSeen(pendingNewBadges[0]);
+    }
+  }, [pendingNewBadges]);
 
   // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {
@@ -423,16 +432,6 @@ function RootLayoutNav() {
     );
   }
 
-  // Trophy modal state - show one pending badge at a time
-  const pendingNewBadges = usePendingNewBadges();
-  const firstPendingBadge = pendingNewBadges.length > 0 ? getBadgeById(pendingNewBadges[0]) : null;
-
-  const handleDismissTrophy = () => {
-    if (pendingNewBadges.length > 0) {
-      useBadgeStore.getState().markBadgeAsSeen(pendingNewBadges[0]);
-    }
-  };
-
   return (
     <GestureHandlerRootView style={styles.container}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -464,7 +463,17 @@ function RootLayoutNav() {
               },
             }}
           />
+          <Stack.Screen
+            name="grind-complete"
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+              gestureEnabled: false,
+              animation: 'slide_from_bottom',
+            }}
+          />
           <Stack.Screen name="trophies-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="settings-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
         </Stack>
         <TrophyReceivedModal
           visible={!!firstPendingBadge}

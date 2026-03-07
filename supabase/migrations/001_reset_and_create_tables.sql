@@ -1,8 +1,18 @@
 -- 001_reset_and_create_tables.sql
 -- Drop all existing tables and recreate from scratch
 
-DROP TABLE IF EXISTS subscriptions CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+DO $$
+DECLARE
+  _tbl TEXT;
+BEGIN
+  FOR _tbl IN
+    SELECT table_name FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+  LOOP
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', _tbl);
+  END LOOP;
+END;
+$$;
 
 -- ============================================================
 -- users table

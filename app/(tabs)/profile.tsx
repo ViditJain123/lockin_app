@@ -124,9 +124,9 @@ export default function ProfileScreen() {
   }, [removeRecording]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 8 }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
         }
@@ -134,14 +134,18 @@ export default function ProfileScreen() {
       >
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>PRO</Text>
-          </View>
+          <View />
           <View style={styles.topBarRight}>
-            <Pressable style={styles.topBarIcon} onPress={() => router.push('/trophies-page')}>
+            <Pressable
+              style={({ pressed }) => [styles.topBarIcon, pressed && styles.topBarIconPressed]}
+              onPress={() => router.push('/trophies-page')}
+            >
               <Ionicons name="trophy-outline" size={22} color="#fff" />
             </Pressable>
-            <Pressable style={styles.topBarIcon}>
+            <Pressable
+              style={({ pressed }) => [styles.topBarIcon, pressed && styles.topBarIconPressed]}
+              onPress={() => router.push('/settings-page')}
+            >
               <Ionicons name="settings-outline" size={22} color="#fff" />
             </Pressable>
           </View>
@@ -240,24 +244,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  proBadge: {
-    backgroundColor: PINK,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  proBadgeText: {
-    fontSize: 12,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
-    letterSpacing: 1,
-  },
   topBarRight: {
     flexDirection: 'row',
     gap: 16,
   },
   topBarIcon: {
     padding: 4,
+  },
+  topBarIconPressed: {
+    opacity: 0.5,
+    transform: [{ scale: 0.85 }],
   },
   headerSection: {
     alignItems: 'center',

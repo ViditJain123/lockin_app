@@ -27,6 +27,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
+import { useRouter } from 'expo-router';
 
 const WORKING_COLOR = '#2563EB';
 const PAUSED_COLOR = '#F97316';
@@ -85,6 +86,7 @@ function formatTime(totalSeconds: number): string {
 
 export default function CameraScreen() {
   useKeepAwake();
+  const router = useRouter();
   const { user } = useAuth();
   const setIsSessionActiveGlobal = useRecordingStore((s) => s.setIsSessionActive);
 
@@ -413,6 +415,14 @@ export default function CameraScreen() {
 
         setPreviewVideoUri(permanentUri);
         setShowPreview(true);
+
+        router.push({
+          pathname: '/grind-complete',
+          params: {
+            videoUri: permanentUri,
+            grindDurationSeconds: String(lockedInSeconds + distractedSeconds),
+          },
+        });
       }
     } catch (e: any) {
       if (e?.code === 'ERR_EMPTY') {
@@ -421,7 +431,7 @@ export default function CameraScreen() {
         console.warn('Failed to stop timelapse recording:', e);
       }
     }
-  }, [borderProgress, elapsedSeconds, user, setIsSessionActiveGlobal]);
+  }, [borderProgress, elapsedSeconds, user, setIsSessionActiveGlobal, router]);
 
   const toggleSession = useCallback(() => {
     if (isSessionActiveRef.current) {
