@@ -22,6 +22,8 @@ import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
 import { sendSessionEvent } from '../../lib/tinybird';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRecordingStore } from '../../store/useRecordingStore';
+import { useSessionStore } from '../../store/useSessionStore';
+import { useProfileStatsStore } from '../../store/useProfileStatsStore';
 import { useVideoGalleryStore } from '../../store/useVideoGalleryStore';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -363,10 +365,35 @@ export default function CameraScreen() {
       pauseTimeoutRef.current = null;
     }
 
-    // Send session data to Tinybird
+    // Generate a single session ID for both local and Tinybird
+    const sessionId = uuidv4();
     const dateStr = sessionStartTime.toISOString().split('T')[0];
-    await sendSessionEvent({
-      session_id: uuidv4(),
+
+    // Store session locally first (local-first)
+    const sessionData = {
+      session_id: sessionId,
+      date: dateStr,
+      total_locked_in_seconds: lockedInSeconds,
+      total_distracted_seconds: distractedSeconds,
+      distraction_count: distractionCount,
+      created_at: sessionEndTime.toISOString(),
+    };
+    console.log('[StopSession] Adding session:', sessionData);
+    useSessionStore.getState().addSession(sessionData);
+
+    // Recompute profile stats from local data
+    useProfileStatsStore.getState().recomputeFromSessions();
+
+    const statsAfter = useProfileStatsStore.getState();
+    console.log('[StopSession] Stats after recompute:', {
+      total_hours: statsAfter.total_hours,
+      grinds: statsAfter.grinds,
+      streak: statsAfter.streak,
+    });
+
+    // Send to Tinybird as backup (fire-and-forget)
+    const tinybirdPayload = {
+      session_id: sessionId,
       user_id: user?.id ?? 'anonymous',
       date: dateStr,
       time_started: sessionStartTime.toISOString(),
@@ -375,6 +402,10 @@ export default function CameraScreen() {
       total_locked_in_seconds: lockedInSeconds,
       total_distracted_seconds: distractedSeconds,
       timestamp: sessionEndTime.toISOString(),
+    };
+    console.log('[StopSession] Sending to Tinybird:', tinybirdPayload);
+    sendSessionEvent(tinybirdPayload).catch((err) => {
+      console.warn('[StopSession] Tinybird send FAILED:', err);
     });
 
     try {
@@ -389,7 +420,7 @@ export default function CameraScreen() {
 
         // Generate thumbnail and save to permanent storage
         let thumbnailRelPath: string | null = null;
-        const recordingId = uuidv4();
+        const recordingId = sessionId;
         try {
           const thumb = await VideoThumbnails.getThumbnailAsync(permanentUri, { time: 0 });
           const thumbsDir = FileSystem.documentDirectory + 'thumbnails/';

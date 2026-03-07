@@ -25,6 +25,7 @@ export interface ProfileStats {
 }
 
 export async function fetchProfileStats(userId: string): Promise<ProfileStats> {
+  console.log('[Tinybird] fetchProfileStats for user:', userId);
   try {
     const response = await fetch(
       `${TINYBIRD_HOST}/v0/pipes/profile_stats.json?user_id=${encodeURIComponent(userId)}`,
@@ -56,6 +57,43 @@ export async function fetchProfileStats(userId: string): Promise<ProfileStats> {
   }
 }
 
+export interface TaskEvent {
+  event_type: 'task_create' | 'task_complete' | 'task_uncomplete' | 'task_delete';
+  task_id: string;
+  user_id: string;
+  title: string;
+  is_daily: boolean;
+  timestamp: string; // ISO datetime
+}
+
+export async function sendTaskEvent(event: TaskEvent): Promise<void> {
+  try {
+    const payload = {
+      ...event,
+      timestamp: toClickHouseDateTime(event.timestamp),
+    };
+
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/events?name=lockin_tasks&format=ndjson`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.warn('[Tinybird] Failed to send task event:', response.status, text);
+    }
+  } catch (error) {
+    console.warn('[Tinybird] Error sending task event:', error);
+  }
+}
+
 export async function sendSessionEvent(event: SessionEvent): Promise<void> {
   try {
     const payload = {
@@ -64,6 +102,7 @@ export async function sendSessionEvent(event: SessionEvent): Promise<void> {
       time_ended: toClickHouseDateTime(event.time_ended),
       timestamp: toClickHouseDateTime(event.timestamp),
     };
+    console.log('[Tinybird] sendSessionEvent payload:', JSON.stringify(payload));
 
     const response = await fetch(
       `${TINYBIRD_HOST}/v0/events?name=${DATASOURCE_NAME}&format=ndjson`,

@@ -73,14 +73,40 @@ export const useVideoGalleryStore = create<VideoGalleryState>()(
       },
       onRehydrateStorage: () => {
         return (state) => {
-          if (!state) return;
-          // Re-generate missing thumbnails after hydration
-          regenerateMissingThumbnails(state);
+          if (!state) {
+            console.log('[VideoGallery] Hydration returned null state (fresh install)');
+            return;
+          }
+          console.log('[VideoGallery] Hydrated:', state.recordings.length, 'recordings');
+          // Clean up orphaned recordings (files deleted after reinstall) then regenerate thumbnails
+          cleanOrphanedRecordings(state).then(() => regenerateMissingThumbnails(state));
         };
       },
     }
   )
 );
+
+async function cleanOrphanedRecordings(state: VideoGalleryState) {
+  const recordings = state.recordings;
+  if (recordings.length === 0) return;
+
+  const validRecordings: Recording[] = [];
+  const orphanedIds: string[] = [];
+
+  for (const rec of recordings) {
+    const exists = await fileExists(resolveUri(rec.videoUri));
+    if (exists) {
+      validRecordings.push(rec);
+    } else {
+      orphanedIds.push(rec.id);
+    }
+  }
+
+  if (orphanedIds.length > 0) {
+    console.log('[VideoGallery] Cleaned up', orphanedIds.length, 'orphaned recordings:', orphanedIds);
+    useVideoGalleryStore.setState({ recordings: validRecordings });
+  }
+}
 
 async function regenerateMissingThumbnails(state: VideoGalleryState) {
   const recordings = state.recordings;

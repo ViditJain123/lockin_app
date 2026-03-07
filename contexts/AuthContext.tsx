@@ -9,6 +9,7 @@ import { upsertUserRow } from '../lib/supabaseUser';
 import { useBadgeStore } from '../store/useBadgeStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { useTaskStore } from '../store/useTaskStore';
 
 // Types
 interface AuthContextType {
@@ -138,7 +139,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'INITIAL_SESSION') {
           // Always trust the initial session from storage
           setSession(newSession);
-          if (newSession) lastValidSession.current = newSession;
+          if (newSession) {
+            lastValidSession.current = newSession;
+            useTaskStore.getState().setUserId(newSession.user.id);
+          }
           if (!isInitialized) setIsInitialized(true);
           return;
         }
@@ -153,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (event === 'SIGNED_IN' && newSession) {
             console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
             await useSubscriptionStore.getState().loginUser(newSession.user.id);
+            useTaskStore.getState().setUserId(newSession.user.id);
             // Ensure a users row exists in Supabase
             upsertUserRow(newSession.user.id, {}).catch((err) =>
               console.warn('[Auth] Failed to upsert user row:', err)
@@ -277,6 +282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearAllUserData = () => {
     useOnboardingStore.getState().clearQuizAnswers();
     useBadgeStore.getState().resetBadges();
+    useTaskStore.getState().setUserId(null);
   };
 
   // Sign out

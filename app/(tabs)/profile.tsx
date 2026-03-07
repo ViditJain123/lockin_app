@@ -20,7 +20,7 @@ import { router } from 'expo-router';
 import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
 import { updateMaxStreakIfHigher } from '../../lib/supabaseUser';
-import { fetchProfileStats } from '../../lib/tinybird';
+import { useSessionStore } from '../../store/useSessionStore';
 import { useBadgeStore } from '../../store/useBadgeStore';
 import { useVideoGalleryStore, resolveUri, type Recording } from '../../store/useVideoGalleryStore';
 import { useProfileStatsStore } from '../../store/useProfileStatsStore';
@@ -48,23 +48,40 @@ export default function ProfileScreen() {
   const grinds = useProfileStatsStore((s) => s.grinds);
   const streak = useProfileStatsStore((s) => s.streak);
   const hasHydrated = useProfileStatsStore((s) => s.hasHydrated);
-  const setStats = useProfileStatsStore((s) => s.setStats);
+
+  const recomputeFromSessions = useProfileStatsStore((s) => s.recomputeFromSessions);
+  const fetchAndStoreBaseline = useProfileStatsStore((s) => s.fetchAndStoreBaseline);
+  const sessions = useSessionStore((s) => s.sessions);
 
   const refreshStatsAndBadges = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const stats = await fetchProfileStats(user.id);
-      const maxStreak = await updateMaxStreakIfHigher(user.id, stats.streak);
-      setStats(stats);
+      // On first launch with no local sessions, fetch baseline from Tinybird once
+      if (sessions.length === 0) {
+        console.log('[Profile] refreshStatsAndBadges: no local sessions, fetching baseline');
+        await fetchAndStoreBaseline(user.id);
+      } else {
+        console.log('[Profile] refreshStatsAndBadges: recomputing from', sessions.length, 'local sessions');
+        recomputeFromSessions();
+      }
+
+      const currentStats = useProfileStatsStore.getState();
+      console.log('[Profile] refreshStatsAndBadges result:', {
+        total_hours: currentStats.total_hours,
+        grinds: currentStats.grinds,
+        streak: currentStats.streak,
+        baselineFetched: currentStats.baselineFetched,
+      });
+      const maxStreak = await updateMaxStreakIfHigher(user.id, currentStats.streak);
       useBadgeStore.getState().checkAndAwardBadges({
-        totalHours: stats.total_hours,
-        totalGrinds: stats.grinds,
+        totalHours: currentStats.total_hours,
+        totalGrinds: currentStats.grinds,
         currentStreak: maxStreak,
       });
     } catch (err) {
       console.warn('[Profile] Failed to refresh stats/badges:', err);
     }
-  }, [user?.id, setStats]);
+  }, [user?.id, sessions.length, recomputeFromSessions, fetchAndStoreBaseline]);
 
   useEffect(() => {
     refreshStatsAndBadges();

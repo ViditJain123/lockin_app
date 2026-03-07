@@ -1,0 +1,10 @@
+SCHEMA >
+    `event_type` String `json:$.event_type`,
+    `task_id` String `json:$.task_id`,
+    `user_id` String `json:$.user_id`,
+    `title` String `json:$.title`,
+    `is_daily` UInt8 `json:$.is_daily`,
+    `timestamp` DateTime `json:$.timestamp`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "user_id, timestamp"
