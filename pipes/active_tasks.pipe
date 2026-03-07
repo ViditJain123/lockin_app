@@ -1,0 +1,24 @@
+NODE active_tasks_node
+SQL >
+    %
+    SELECT
+        task_id,
+        title,
+        is_daily,
+        event_type = 'task_complete' AS is_completed,
+        timestamp
+    FROM lockin_tasks
+    WHERE user_id = {{String(user_id, 'anonymous')}}
+      AND (task_id, timestamp) IN (
+          SELECT task_id, max(timestamp) AS max_ts
+          FROM lockin_tasks
+          WHERE user_id = {{String(user_id, 'anonymous')}}
+          GROUP BY task_id
+      )
+      AND event_type != 'task_delete'
+    ORDER BY timestamp ASC
+
+NODE endpoint
+SQL >
+    SELECT * FROM active_tasks_node
+TYPE endpoint

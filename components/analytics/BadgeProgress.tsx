@@ -1,15 +1,15 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BadgeDefinition } from '@/constants/Badges';
 import { Fonts } from '@/constants/Fonts';
+import { BadgeProgressItem } from '@/types/analytics';
 
 const BRAND_PINK = '#FF3B5C';
 
 const CATEGORY_ICONS: Record<string, string> = {
-  hours: '\u23F1',
-  grinds: '\uD83D\uDCAA',
-  streak: '\uD83D\uDD25',
+  hours: '⏱',
+  grinds: '💪',
+  streak: '🔥',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -17,14 +17,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   grinds: 'Grinds',
   streak: 'Streak',
 };
-
-export interface BadgeProgressItem {
-  category: string;
-  badge: BadgeDefinition;
-  current: number;
-  target: number;
-  progress: number;
-}
 
 interface Props {
   items: BadgeProgressItem[];

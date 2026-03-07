@@ -94,6 +94,38 @@ export async function sendTaskEvent(event: TaskEvent): Promise<void> {
   }
 }
 
+export interface ActiveTaskRow {
+  task_id: string;
+  title: string;
+  is_daily: number; // ClickHouse returns booleans as 0/1
+  is_completed: number;
+  timestamp: string;
+}
+
+export async function fetchActiveTasks(userId: string): Promise<ActiveTaskRow[]> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/active_tasks.json?user_id=${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Tinybird] Failed to fetch active tasks:', response.status);
+      return [];
+    }
+
+    const json = await response.json();
+    return json.data ?? [];
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching active tasks:', error);
+    return [];
+  }
+}
+
 export async function sendSessionEvent(event: SessionEvent): Promise<void> {
   try {
     const payload = {

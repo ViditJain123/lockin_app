@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { sendTaskEvent } from '@/lib/tinybird';
+import { sendTaskEvent, fetchActiveTasks } from '@/lib/tinybird';
 
 export interface Task {
   id: string;
@@ -22,6 +22,7 @@ interface TaskState {
 
   setUserId: (userId: string | null) => void;
   setHasHydrated: (v: boolean) => void;
+  restoreFromTinybird: (userId: string) => Promise<void>;
   addTask: (title: string, description: string, isDaily: boolean) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -47,6 +48,30 @@ export const useTaskStore = create<TaskState>()(
 
       setUserId: (userId) => set({ userId }),
       setHasHydrated: (v) => set({ hasHydrated: v }),
+
+      restoreFromTinybird: async (userId: string) => {
+        try {
+          const rows = await fetchActiveTasks(userId);
+          if (rows.length === 0) return;
+
+          const now = new Date().toISOString();
+          const restoredTasks: Task[] = rows.map((row) => ({
+            id: row.task_id,
+            title: row.title,
+            description: '',
+            isDaily: !!row.is_daily,
+            isCompleted: !!row.is_completed,
+            createdAt: row.timestamp,
+            completedAt: row.is_completed ? row.timestamp : null,
+            updatedAt: now,
+          }));
+
+          set({ tasks: restoredTasks });
+          console.log(`[TaskStore] Restored ${restoredTasks.length} tasks from Tinybird`);
+        } catch (error) {
+          console.warn('[TaskStore] Failed to restore tasks from Tinybird:', error);
+        }
+      },
 
       addTask: (title: string, description: string, isDaily: boolean) => {
         const now = new Date().toISOString();
@@ -153,6 +178,9 @@ export const useTaskStore = create<TaskState>()(
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
+        if (state && state.tasks.length === 0 && state.userId) {
+          state.restoreFromTinybird(state.userId);
+        }
       },
     }
   )
