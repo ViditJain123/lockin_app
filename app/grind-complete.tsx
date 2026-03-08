@@ -154,27 +154,29 @@ export default function GrindCompleteScreen() {
           <Text style={styles.title}>
             {userName ? `${userName}, you crushed it!` : 'You crushed it!'}
           </Text>
-        </Animated.View>
-
-        {/* Duration */}
-        <Animated.View style={durationAnimStyle}>
-          <Text style={styles.durationLabel}>Grind Duration</Text>
-          <Text style={styles.durationValue}>{durationText}</Text>
-        </Animated.View>
-
-        {/* Earned screen time */}
-        <Animated.View style={durationAnimStyle}>
-          <Text style={styles.earnedLabel}>
-            {isFullyUnlocked
-              ? 'Target reached! Apps unlocked until tonight'
-              : `You earned ${earnedText} of screen time`}
-          </Text>
-        </Animated.View>
-
-        {/* Motivational message */}
-        <Animated.View style={messageAnimStyle}>
           <Text style={styles.motivationalMessage}>{motivationalMessage}</Text>
         </Animated.View>
+
+        {/* Stats Card */}
+        <Animated.View style={[styles.statsCard, durationAnimStyle]}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Grind Duration</Text>
+            <Text style={styles.statValue}>{durationText}</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Screen Time Earned</Text>
+            <Text style={[styles.statValue, styles.earnedValue]}>
+              {isFullyUnlocked ? 'Unlocked' : earnedText}
+            </Text>
+          </View>
+        </Animated.View>
+
+        {isFullyUnlocked && (
+          <Animated.View style={messageAnimStyle}>
+            <Text style={styles.unlockedNote}>Apps unlocked until tonight</Text>
+          </Animated.View>
+        )}
 
         {/* Spacer */}
         <View style={{ flex: 1 }} />
@@ -232,38 +234,60 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 24,
-  },
-  durationLabel: {
-    fontFamily: Fonts.medium,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
-  durationValue: {
-    fontFamily: Fonts.bold,
-    fontSize: 40,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  earnedLabel: {
-    fontFamily: Fonts.semiBold,
-    fontSize: 15,
-    color: '#34d399',
-    textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   motivationalMessage: {
     fontFamily: Fonts.medium,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 20,
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  statsCard: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  statValue: {
+    fontFamily: Fonts.bold,
+    fontSize: 28,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  earnedValue: {
+    color: '#34d399',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  unlockedNote: {
+    fontFamily: Fonts.medium,
+    fontSize: 14,
+    color: '#34d399',
+    textAlign: 'center',
+    marginTop: 12,
   },
   buttonContainer: {
     width: '100%',

@@ -9,6 +9,8 @@ export interface LocalSession {
   total_distracted_seconds: number;
   distraction_count: number;
   created_at: string; // ISO datetime
+  time_started?: string; // ISO datetime (optional for backward compat)
+  time_ended?: string;   // ISO datetime (optional for backward compat)
 }
 
 interface SessionStoreState {

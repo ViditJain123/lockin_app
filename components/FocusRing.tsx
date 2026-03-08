@@ -81,8 +81,8 @@ export default function FocusRing({ currentHours, targetHours, size: sizeProp }:
         <View style={styles.statsContainer}>
           <Text style={styles.statsLabel}>Grind hours</Text>
           <Text style={styles.statsValue}>
-            <Text style={styles.currentValue}>{Math.round(currentHours)}</Text>
-            <Text style={styles.targetValue}>/{targetHours} hours</Text>
+            <Text style={styles.currentValue}>{displayCurrent}</Text>
+            <Text style={styles.targetValue}>/{displayTarget}</Text>
           </Text>
         </View>
       </View>

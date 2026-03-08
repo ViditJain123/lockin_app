@@ -1,0 +1,16 @@
+NODE endpoint
+SQL >
+    %
+    SELECT
+        session_id,
+        date,
+        time_started,
+        time_ended,
+        distraction_count,
+        total_locked_in_seconds,
+        total_distracted_seconds
+    FROM lockin_sessions
+    WHERE user_id = {{String(user_id, 'anonymous')}}
+      AND date = {{String(date, '')}}
+    ORDER BY time_started ASC
+TYPE endpoint

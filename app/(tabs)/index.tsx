@@ -31,6 +31,8 @@ import * as VideoThumbnails from 'expo-video-thumbnails';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { useRouter } from 'expo-router';
+import { getLocalDateString } from '../../lib/dateUtils';
+import { SESSION_DEV_MODE_ENABLED } from '../../lib/config';
 
 const WORKING_COLOR = '#2563EB';
 const PAUSED_COLOR = '#F97316';
@@ -368,7 +370,7 @@ export default function CameraScreen() {
 
     // Generate a single session ID for both local and Tinybird
     const sessionId = uuidv4();
-    const dateStr = sessionStartTime.toISOString().split('T')[0];
+    const dateStr = getLocalDateString(sessionStartTime);
 
     // Store session locally first (local-first)
     const sessionData = {
@@ -378,6 +380,8 @@ export default function CameraScreen() {
       total_distracted_seconds: distractedSeconds,
       distraction_count: distractionCount,
       created_at: sessionEndTime.toISOString(),
+      time_started: sessionStartTime.toISOString(),
+      time_ended: sessionEndTime.toISOString(),
     };
     console.log('[StopSession] Adding session:', sessionData);
     useSessionStore.getState().addSession(sessionData);
@@ -467,6 +471,50 @@ export default function CameraScreen() {
       }
     }
   }, [borderProgress, elapsedSeconds, user, setIsSessionActiveGlobal, router]);
+
+  const simulateSession = useCallback(() => {
+    const now = new Date();
+    const sessionId = uuidv4();
+    const dateStr = getLocalDateString(now);
+    const lockedInSeconds = 240; // 4 minutes
+    const distractedSeconds = 30;
+    const distractionCount = 2;
+    const totalSeconds = lockedInSeconds + distractedSeconds;
+
+    const timeStarted = new Date(now.getTime() - totalSeconds * 1000);
+
+    const sessionData = {
+      session_id: sessionId,
+      date: dateStr,
+      total_locked_in_seconds: lockedInSeconds,
+      total_distracted_seconds: distractedSeconds,
+      distraction_count: distractionCount,
+      created_at: now.toISOString(),
+      time_started: timeStarted.toISOString(),
+      time_ended: now.toISOString(),
+    };
+    useSessionStore.getState().addSession(sessionData);
+    useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
+    useProfileStatsStore.getState().recomputeFromSessions();
+
+    // Send to Tinybird (fire-and-forget)
+    sendSessionEvent({
+      session_id: sessionId,
+      user_id: user?.id ?? 'anonymous',
+      date: dateStr,
+      time_started: timeStarted.toISOString(),
+      time_ended: now.toISOString(),
+      distraction_count: distractionCount,
+      total_locked_in_seconds: lockedInSeconds,
+      total_distracted_seconds: distractedSeconds,
+      timestamp: now.toISOString(),
+    }).catch((err) => console.warn('[DevSession] Tinybird send failed:', err));
+
+    router.push({
+      pathname: '/grind-complete',
+      params: { grindDurationSeconds: String(totalSeconds) },
+    });
+  }, [user, router]);
 
   const toggleSession = useCallback(() => {
     if (isSessionActiveRef.current) {
@@ -584,19 +632,26 @@ export default function CameraScreen() {
       <Text style={styles.timer}>{isSessionActive ? formatTime(elapsedSeconds) : '00:00'}</Text>
 
       {/* Record / Stop Button */}
-      <Pressable onPress={toggleSession} style={styles.recordButtonOuter}>
-        {isSessionActive ? (
-          // Stop button: pink circle with white square
-          <View style={styles.recordButtonActive}>
-            <View style={styles.stopSquare} />
-          </View>
-        ) : (
-          // Record button: pink circle with inner pink circle
-          <View style={styles.recordButtonIdle}>
-            <View style={styles.recordInnerCircle} />
-          </View>
+      <View style={styles.buttonRow}>
+        <Pressable onPress={toggleSession} style={styles.recordButtonOuter}>
+          {isSessionActive ? (
+            // Stop button: pink circle with white square
+            <View style={styles.recordButtonActive}>
+              <View style={styles.stopSquare} />
+            </View>
+          ) : (
+            // Record button: pink circle with inner pink circle
+            <View style={styles.recordButtonIdle}>
+              <View style={styles.recordInnerCircle} />
+            </View>
+          )}
+        </Pressable>
+        {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
+          <Pressable onPress={simulateSession} style={styles.devButton}>
+            <Text style={styles.devButtonText}>Dev</Text>
+          </Pressable>
         )}
-      </Pressable>
+      </View>
 
       <Text style={styles.motivationalText}>{quote}</Text>
 
@@ -659,6 +714,22 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  devButton: {
+    backgroundColor: '#2A2A2A',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  devButtonText: {
+    color: '#AAAAAA',
+    fontSize: 14,
+    fontFamily: Fonts.semiBold,
   },
   // Record button styles
   recordButtonOuter: {

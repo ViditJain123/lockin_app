@@ -1,0 +1,10 @@
+NODE endpoint
+SQL >
+    %
+    SELECT date, ROUND(SUM(total_locked_in_seconds) / 60.0, 0) AS total_minutes
+    FROM lockin_sessions
+    WHERE user_id = {{String(user_id, 'anonymous')}}
+      AND toDate(date) >= today() - INTERVAL 365 DAY
+    GROUP BY date
+    ORDER BY date ASC
+TYPE endpoint

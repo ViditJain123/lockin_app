@@ -126,6 +126,93 @@ export async function fetchActiveTasks(userId: string): Promise<ActiveTaskRow[]>
   }
 }
 
+export interface DailySessionRow {
+  session_id: string;
+  date: string;
+  time_started: string;
+  time_ended: string;
+  distraction_count: number;
+  total_locked_in_seconds: number;
+  total_distracted_seconds: number;
+}
+
+export async function fetchDailySessions(userId: string, date: string): Promise<DailySessionRow[]> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/daily_sessions.json?user_id=${encodeURIComponent(userId)}&date=${encodeURIComponent(date)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Tinybird] Failed to fetch daily sessions:', response.status);
+      return [];
+    }
+
+    const json = await response.json();
+    return json.data ?? [];
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching daily sessions:', error);
+    return [];
+  }
+}
+
+export async function fetchWeeklySessions(userId: string, startDate: string, endDate: string): Promise<DailySessionRow[]> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/weekly_sessions.json?user_id=${encodeURIComponent(userId)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Tinybird] Failed to fetch weekly sessions:', response.status);
+      return [];
+    }
+
+    const json = await response.json();
+    return json.data ?? [];
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching weekly sessions:', error);
+    return [];
+  }
+}
+
+export interface YearlyActivityRow {
+  date: string;
+  total_minutes: number;
+}
+
+export async function fetchYearlyActivity(userId: string): Promise<YearlyActivityRow[]> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/yearly_activity.json?user_id=${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Tinybird] Failed to fetch yearly activity:', response.status);
+      return [];
+    }
+
+    const json = await response.json();
+    return json.data ?? [];
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching yearly activity:', error);
+    return [];
+  }
+}
+
 export async function sendSessionEvent(event: SessionEvent): Promise<void> {
   try {
     const payload = {

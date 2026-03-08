@@ -8,14 +8,16 @@ interface Props {
   title: string;
   hours: number;
   percentChange: number | null;
+  unit?: string;
 }
 
-export default function SummaryCard({ title, hours, percentChange }: Props) {
+export default function SummaryCard({ title, hours, percentChange, unit }: Props) {
   const isPositive = percentChange !== null && percentChange >= 0;
   const changeColor = isPositive ? '#34C759' : '#FF3B5C';
   const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
 
-  const formatHours = (h: number): string => {
+  const formatValue = (h: number): string => {
+    if (unit && unit !== 'hours') return String(Math.round(h));
     if (h === 0) return '0';
     if (h < 1) return `${Math.round(h * 60)}m`;
     return h.toFixed(1);
@@ -25,8 +27,8 @@ export default function SummaryCard({ title, hours, percentChange }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
       <View style={styles.valueRow}>
-        <Text style={styles.bigNumber}>{formatHours(hours)}</Text>
-        {hours >= 1 && <Text style={styles.unit}>hours</Text>}
+        <Text style={styles.bigNumber}>{formatValue(hours)}</Text>
+        {hours >= 1 && <Text style={styles.unit}>{unit || 'hours'}</Text>}
       </View>
       {percentChange !== null && (
         <View style={styles.changeRow}>

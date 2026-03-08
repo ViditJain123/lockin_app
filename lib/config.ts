@@ -18,3 +18,10 @@ export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'normal';
 // - false: Use production 24-hour re-engagement cycle (30 daily notifications)
 // ============================================================
 export const NOTIFICATION_DEV_MODE_ENABLED: boolean = false;
+
+// ============================================================
+// SESSION DEV MODE:
+// - true: Shows a "Dev" button next to the record button that simulates a 4-minute session
+// - false: Production behavior (no dev button)
+// ============================================================
+export const SESSION_DEV_MODE_ENABLED: boolean = true;

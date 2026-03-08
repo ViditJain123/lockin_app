@@ -30,9 +30,9 @@ export function scheduleSleepTimeLock(sleepHour24: number, sleepMinute: number) 
   });
 
   // Schedule repeating daily at sleep time
-  // intervalStart = sleep time, intervalEnd = 5 minutes later (iOS minimum)
-  const endMinute = (sleepMinute + 5) % 60;
-  const endHour = sleepMinute + 5 >= 60 ? (sleepHour24 + 1) % 24 : sleepHour24;
+  // intervalStart = sleep time, intervalEnd = 1 hour later (iOS minimum)
+  const endMinute = sleepMinute;
+  const endHour = (sleepHour24 + 1) % 24;
 
   startMonitoring(
     SLEEP_TIME_ACTIVITY,
