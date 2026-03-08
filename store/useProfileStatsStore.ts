@@ -29,56 +29,25 @@ export function computeGrinds(sessions: LocalSession[]): number {
 }
 
 export function computeStreak(sessions: LocalSession[]): number {
-  if (sessions.length === 0) {
-    console.log('[Streak] No sessions, returning 0');
-    return 0;
-  }
+  if (sessions.length === 0) return 0;
 
-  // Get unique dates sorted descending
+  // Get unique dates sorted descending (most recent first)
   const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort().reverse();
-  if (uniqueDates.length === 0) {
-    console.log('[Streak] No unique dates, returning 0');
-    return 0;
-  }
+  if (uniqueDates.length === 0) return 0;
 
-  // Streak must start from today or yesterday
-  const today = new Date();
-  const todayStr = formatDateStr(today);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = formatDateStr(yesterday);
-
-  console.log('[Streak] Unique dates (desc):', uniqueDates);
-  console.log('[Streak] Today:', todayStr, '| Yesterday:', yesterdayStr);
-  console.log('[Streak] Most recent session date:', uniqueDates[0]);
-
-  if (uniqueDates[0] !== todayStr && uniqueDates[0] !== yesterdayStr) {
-    console.log('[Streak] Most recent date is neither today nor yesterday → streak = 0');
-    return 0;
-  }
-
+  // Count consecutive days from the most recent session date
   let streak = 1;
   for (let i = 1; i < uniqueDates.length; i++) {
     const prev = new Date(uniqueDates[i - 1] + 'T00:00:00');
     const curr = new Date(uniqueDates[i] + 'T00:00:00');
     const diffDays = Math.round((prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
-    console.log(`[Streak] Checking ${uniqueDates[i-1]} → ${uniqueDates[i]}: diff=${diffDays} day(s), streak so far=${streak}`);
     if (diffDays === 1) {
       streak++;
     } else {
-      console.log(`[Streak] Gap detected, stopping`);
       break;
     }
   }
-  console.log('[Streak] Final streak:', streak);
   return streak;
-}
-
-function formatDateStr(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 export const useProfileStatsStore = create<ProfileStatsState>()(

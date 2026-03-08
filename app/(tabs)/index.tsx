@@ -1,38 +1,41 @@
+import * as FileSystem from 'expo-file-system/legacy';
+import { useKeepAwake } from 'expo-keep-awake';
+import { useRouter } from 'expo-router';
+import * as VideoThumbnails from 'expo-video-thumbnails';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, AppState } from 'react-native';
-import { Camera, useCameraDevice, useCameraFormat, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
-import { useFaceDetector } from 'react-native-vision-camera-face-detector';
-import type { Face } from 'react-native-vision-camera-face-detector';
+import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import 'react-native-get-random-values';
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedStyle,
-  withTiming,
+  useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
-  Easing,
+  withTiming
 } from 'react-native-reanimated';
-import { Worklets } from 'react-native-worklets-core';
-import { useKeepAwake } from 'expo-keep-awake';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
-import { Fonts } from '../../constants/Fonts';
+import { Camera, useCameraDevice, useCameraFormat, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
+import type { Face } from 'react-native-vision-camera-face-detector';
+import { useFaceDetector } from 'react-native-vision-camera-face-detector';
+import { Worklets } from 'react-native-worklets-core';
+import { v4 as uuidv4 } from 'uuid';
 import DigicamOverlay from '../../components/DigicamOverlay';
+import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
+import { Fonts } from '../../constants/Fonts';
+import { useAuth } from '../../contexts/AuthContext';
+import { SESSION_DEV_MODE_ENABLED } from '../../lib/config';
+import { getLocalDateString } from '../../lib/dateUtils';
 import * as Haptics from '../../lib/haptics';
 import * as Timelapse from '../../lib/timelapseModule';
-import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
 import { sendSessionEvent } from '../../lib/tinybird';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAppLockStore } from '../../store/useAppLockStore';
+import { useProfileStatsStore } from '../../store/useProfileStatsStore';
 import { useRecordingStore } from '../../store/useRecordingStore';
 import { useSessionStore } from '../../store/useSessionStore';
-import { useProfileStatsStore } from '../../store/useProfileStatsStore';
 import { useVideoGalleryStore } from '../../store/useVideoGalleryStore';
-import { useAppLockStore } from '../../store/useAppLockStore';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as VideoThumbnails from 'expo-video-thumbnails';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
-import { useRouter } from 'expo-router';
-import { getLocalDateString } from '../../lib/dateUtils';
-import { SESSION_DEV_MODE_ENABLED } from '../../lib/config';
 
 const WORKING_COLOR = '#2563EB';
 const PAUSED_COLOR = '#F97316';
@@ -92,6 +95,7 @@ function formatTime(totalSeconds: number): string {
 export default function CameraScreen() {
   useKeepAwake();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const setIsSessionActiveGlobal = useRecordingStore((s) => s.setIsSessionActive);
 
@@ -125,7 +129,19 @@ export default function CameraScreen() {
   const cameraRef = useRef(null);
 
   const [previewVideoUri, setPreviewVideoUri] = useState('');
+  const [previewDuration, setPreviewDuration] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Short session warning modal
+  const [showShortSessionModal, setShowShortSessionModal] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
+  const hideShortSessionWarningRef = useRef(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('@lockin/hideShortSessionWarning').then((val) => {
+      if (val === 'true') hideShortSessionWarningRef.current = true;
+    });
+  }, []);
 
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isWorking, setIsWorking] = useState(false);
@@ -144,6 +160,10 @@ export default function CameraScreen() {
 
   // Idle pink glow pulse animation
   const idleGlowOpacity = useSharedValue(0.8);
+  const buttonScale = useSharedValue(1);
+  const buttonSquish = useSharedValue(1);
+  const buttonTextOpacity = useSharedValue(1);
+  const isAnimatingRef = useRef(false);
 
   useEffect(() => {
     if (!isSessionActive) {
@@ -162,6 +182,19 @@ export default function CameraScreen() {
 
   const idleGlowStyle = useAnimatedStyle(() => ({
     opacity: idleGlowOpacity.value,
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transformOrigin: 'bottom',
+    transform: [
+      { scale: buttonScale.value },
+      { scaleY: buttonSquish.value },
+      { translateY: (1 - buttonScale.value) * 8 },
+    ],
+  }));
+
+  const buttonTextAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: buttonTextOpacity.value,
   }));
 
   // Active session: animate between working (blue) and paused (orange)
@@ -453,6 +486,7 @@ export default function CameraScreen() {
         });
 
         setPreviewVideoUri(permanentUri);
+        setPreviewDuration(lockedInSeconds + distractedSeconds);
         setShowPreview(true);
 
         router.push({
@@ -520,13 +554,54 @@ export default function CameraScreen() {
     });
   }, [user, router]);
 
+  const handleConfirmEndShortSession = useCallback(async () => {
+    if (dontShowAgain) {
+      hideShortSessionWarningRef.current = true;
+      await AsyncStorage.setItem('@lockin/hideShortSessionWarning', 'true');
+    }
+    setShowShortSessionModal(false);
+    setDontShowAgain(false);
+    stopSession();
+  }, [dontShowAgain, stopSession]);
+
   const toggleSession = useCallback(() => {
     if (isSessionActiveRef.current) {
+      const totalSeconds = elapsedSeconds + distractedSecondsRef.current;
+      if (totalSeconds < 3600 && !hideShortSessionWarningRef.current) {
+        setShowShortSessionModal(true);
+        return;
+      }
       stopSession();
     } else {
       startSession();
     }
-  }, [startSession, stopSession]);
+  }, [startSession, stopSession, elapsedSeconds]);
+
+  const animatedToggle = useCallback(() => {
+    if (isAnimatingRef.current) return;
+    isAnimatingRef.current = true;
+
+    // Phase 1: fade text out (0-80ms)
+    buttonTextOpacity.value = withTiming(0, { duration: 80 });
+
+    // Phase 2: squish down (80-230ms)
+    buttonSquish.value = withDelay(
+      80,
+      withTiming(0.08, { duration: 150, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
+    );
+
+    // Phase 3: swap state at 230ms, then pop back up + fade text in
+    setTimeout(() => {
+      toggleSession();
+
+      buttonSquish.value = withTiming(1, { duration: 180, easing: Easing.bezier(0.0, 0, 0.2, 1) });
+      buttonTextOpacity.value = withDelay(70, withTiming(1, { duration: 150 }));
+
+      setTimeout(() => {
+        isAnimatingRef.current = false;
+      }, 300);
+    }, 230);
+  }, [toggleSession, buttonSquish, buttonTextOpacity]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -590,6 +665,12 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
+      {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
+        <Pressable onPress={simulateSession} style={[styles.devButton, { position: 'absolute', top: insets.top + 8, right: 24, zIndex: 10 }]}>
+          <Text style={styles.devButtonText}>Dev</Text>
+        </Pressable>
+      )}
+
       <View style={styles.cameraSection} ref={cameraSectionRef} collapsable={false}>
         {isSessionActive ? (
           // Active session: animated blue/orange glow
@@ -631,37 +712,75 @@ export default function CameraScreen() {
             </Animated.View>
           </Animated.View>
         )}
+
+        {/* Recorder-style start/stop on frame border */}
+        <Animated.View style={[styles.startButtonWrapper, buttonAnimatedStyle]}>
+          <Pressable
+            onPress={animatedToggle}
+            onPressIn={() => { buttonScale.value = withTiming(0.85, { duration: 100 }); }}
+            onPressOut={() => { buttonScale.value = withTiming(1, { duration: 150 }); }}
+            style={styles.startButton}
+          >
+            <Animated.Text style={[styles.startButtonText, buttonTextAnimatedStyle]}>
+              {isSessionActive ? 'stop' : 'start'}
+            </Animated.Text>
+          </Pressable>
+          <View style={styles.startButtonLine} />
+        </Animated.View>
       </View>
 
       <Text style={styles.timer}>{isSessionActive ? formatTime(elapsedSeconds) : '00:00'}</Text>
 
-      {/* Record / Stop Button */}
-      <View style={styles.buttonRow}>
-        <Pressable onPress={toggleSession} style={styles.recordButtonOuter}>
-          <View style={styles.recordArcTop}>
-            <View style={styles.recordArcTopInner} />
-          </View>
-          <Text style={styles.recordButtonText}>
-            {isSessionActive ? 'done' : 'Lock In'}
-          </Text>
-          <View style={styles.recordArcBottom}>
-            <View style={styles.recordArcBottomInner} />
-          </View>
-        </Pressable>
-        {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
-          <Pressable onPress={simulateSession} style={styles.devButton}>
-            <Text style={styles.devButtonText}>Dev</Text>
-          </Pressable>
-        )}
-      </View>
+      <Text style={styles.statusText}>
+        {isSessionActive ? 'Locked in' : "it's time to lock in"}
+      </Text>
 
       <Text style={styles.motivationalText}>{quote}</Text>
 
       <TimelapsePreviewSheet
         visible={showPreview}
         videoUri={previewVideoUri}
+        sessionDurationSeconds={previewDuration}
         onClose={() => setShowPreview(false)}
       />
+
+      {/* Short Session Warning Modal */}
+      <Modal
+        visible={showShortSessionModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowShortSessionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>End Session Early?</Text>
+            <Text style={styles.modalBody}>
+              This session is under 1 hour and won't count as a grind.
+            </Text>
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => setDontShowAgain((prev) => !prev)}
+            >
+              <View style={[styles.checkbox, dontShowAgain && styles.checkboxChecked]}>
+                {dontShowAgain && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>Don't show this again</Text>
+            </Pressable>
+            <Pressable style={styles.modalConfirmButton} onPress={handleConfirmEndShortSession}>
+              <Text style={styles.modalConfirmText}>End Session</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modalCancelButton}
+              onPress={() => {
+                setShowShortSessionModal(false);
+                setDontShowAgain(false);
+              }}
+            >
+              <Text style={styles.modalCancelText}>Keep Going</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -697,15 +816,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
-    shadowRadius: 50,
+    shadowRadius: 15,
     elevation: 20,
   },
   cameraGlow: {
     flex: 1,
     borderRadius: 20,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1.0,
-    shadowRadius: 30,
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
     elevation: 20,
   },
   cameraBorder: {
@@ -717,10 +836,42 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
-  buttonRow: {
-    flexDirection: 'row',
+  startButtonWrapper: {
+    position: 'absolute',
+    top: -24,
+    right: 24,
     alignItems: 'center',
-    gap: 16,
+    zIndex: 10,
+  },
+  startButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+  },
+  startButtonLine: {
+    width: '100%',
+    height: 2.5,
+    backgroundColor: '#FFFFFF',
+    marginTop: 2,
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontFamily: Fonts.bold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  statusText: {
+    fontSize: 26,
+    fontFamily: Fonts.semiBold,
+    color: BRAND_PINK,
+    marginTop: 8,
   },
   devButton: {
     backgroundColor: '#2A2A2A',
@@ -732,52 +883,6 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
     fontSize: 14,
     fontFamily: Fonts.semiBold,
-  },
-  // Record button styles
-  recordButtonOuter: {
-    marginTop: 16,
-    marginBottom: 4,
-    width: 72,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recordArcTop: {
-    position: 'absolute',
-    top: 0,
-    width: 72,
-    height: 24,
-    overflow: 'hidden',
-  },
-  recordArcTopInner: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: BRAND_PINK,
-  },
-  recordArcBottom: {
-    position: 'absolute',
-    bottom: 0,
-    width: 72,
-    height: 24,
-    overflow: 'hidden',
-  },
-  recordArcBottomInner: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
-    borderColor: BRAND_PINK,
-    position: 'absolute',
-    bottom: 0,
-  },
-  recordButtonText: {
-    color: BRAND_PINK,
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    textAlign: 'center',
-    zIndex: 1,
   },
   permissionTitle: {
     fontSize: 24,
@@ -804,5 +909,89 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Fonts.semiBold,
     color: '#FFFFFF',
+  },
+  // Short session warning modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 22,
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  modalBody: {
+    fontFamily: Fonts.regular,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    alignSelf: 'flex-start',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: BRAND_PINK,
+    borderColor: BRAND_PINK,
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Fonts.bold,
+  },
+  checkboxLabel: {
+    fontFamily: Fonts.medium,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  modalConfirmButton: {
+    width: '100%',
+    backgroundColor: BRAND_PINK,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalConfirmText: {
+    fontFamily: Fonts.bold,
+    fontSize: 17,
+    color: '#FFFFFF',
+  },
+  modalCancelButton: {
+    width: '100%',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontFamily: Fonts.medium,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.5)',
   },
 });

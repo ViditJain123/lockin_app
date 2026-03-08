@@ -21,7 +21,11 @@ SQL >
         SELECT
             d,
             row_number() OVER (ORDER BY d DESC) AS rn,
-            dateDiff('day', d, today()) AS diff
+            dateDiff('day', d, (
+                SELECT max(toDate(date))
+                FROM lockin_sessions
+                WHERE user_id = {{String(user_id, 'anonymous')}}
+            )) AS diff
         FROM (
             SELECT DISTINCT toDate(date) AS d
             FROM lockin_sessions

@@ -67,10 +67,14 @@ import { useSessionStore } from '../store/useSessionStore';
 import { getLocalDateString } from '../lib/dateUtils';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import {
+  blockSelection,
   onDeviceActivityMonitorEvent,
   updateShield,
   setFamilyActivitySelectionId,
+  getAppGroupFileDirectory,
 } from 'react-native-device-activity';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Asset } from 'expo-asset';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -205,29 +209,62 @@ function RootLayoutNav() {
     const [h, m] = time24h.split(':').map(Number);
     scheduleSleepTimeLock(h, m);
 
-    // Configure shield appearance
-    updateShield(
-      {
-        title: 'Stay Locked In',
-        subtitle: 'Go to Profile → Settings to claim your screen time',
-        primaryButtonLabel: 'Open LockIn',
-        backgroundColor: { red: 0, green: 0, blue: 0 },
-        titleColor: { red: 255, green: 255, blue: 255 },
-        subtitleColor: { red: 180, green: 180, blue: 180 },
-        primaryButtonLabelColor: { red: 255, green: 255, blue: 255 },
-        primaryButtonBackgroundColor: { red: 255, green: 59, blue: 92 },
-      },
-      {
-        primary: {
-          behavior: 'close',
-          actions: [{ type: 'openApp' }],
+    // Copy logo to app group so the shield extension can display it
+    const copyLogoAndConfigureShield = async () => {
+      let iconPath: string | undefined;
+      try {
+        const appGroupDir = getAppGroupFileDirectory();
+        if (appGroupDir) {
+          const asset = Asset.fromModule(require('../assets/images/logo-no-bg-cropped.png'));
+          await asset.downloadAsync();
+          if (asset.localUri) {
+            const destPath = appGroupDir + '/shield-logo.png';
+            await FileSystem.copyAsync({ from: asset.localUri, to: destPath });
+            iconPath = 'shield-logo.png';
+          }
+        }
+      } catch (e) {
+        console.warn('[Shield] Failed to copy logo to app group:', e);
+      }
+
+      // Configure shield appearance
+      updateShield(
+        {
+          ...(iconPath ? { iconAppGroupRelativePath: iconPath } : { iconSystemName: 'lock.shield.fill' }),
+          title: 'Lock In Club',
+          subtitle: 'Open the app and record a focus session to earn screen time. Tap the button below to start!',
+          backgroundColor: { red: 0, green: 0, blue: 0 },
+          titleColor: { red: 255, green: 255, blue: 255 },
+          subtitleColor: { red: 200, green: 200, blue: 200 },
         },
-      },
-      'appLockInit'
-    );
+        {},
+        'appLockInit'
+      );
+    };
+    copyLogoAndConfigureShield();
 
     // Check if daily reset is needed
     useAppLockStore.getState().resetDaily();
+
+    // Apply any pending settings that are scheduled for today or earlier
+    const applied = useOnboardingStore.getState().applyPendingSettings();
+    if (applied) {
+      if (applied.sleepTime) {
+        const newTime24h = convertSleepTimeTo24h(useOnboardingStore.getState().quizAnswers.sleepTime);
+        const [newH, newM] = newTime24h.split(':').map(Number);
+        scheduleSleepTimeLock(newH, newM);
+      }
+      if (applied.familyActivitySelection !== undefined && applied.familyActivitySelection) {
+        setFamilyActivitySelectionId({ id: 'onboardingSelection', familyActivitySelection: applied.familyActivitySelection });
+        blockSelection({ activitySelectionToken: applied.familyActivitySelection }, 'pendingApply');
+      }
+      if (session?.user?.id) {
+        const sync: Record<string, unknown> = { pending_target_hours: null, pending_sleep_time: null, pending_settings_date: null };
+        if (applied.targetHours !== undefined) sync.target_hours = applied.targetHours;
+        if (applied.sleepTime) sync.sleep_time = convertSleepTimeTo24h(applied.sleepTime);
+        upsertUserRow(session.user.id, sync).catch(console.warn);
+      }
+    }
 
     // Re-apply device-level unlock if target was already completed today
     const appLockState = useAppLockStore.getState();
@@ -252,6 +289,8 @@ function RootLayoutNav() {
       }
       if (event.callbackName === 'intervalDidStart') {
         useAppLockStore.getState().lockAppsForSleep();
+        // Also apply any pending settings at this daily boundary
+        useOnboardingStore.getState().applyPendingSettings();
       }
     });
 

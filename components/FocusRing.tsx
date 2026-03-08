@@ -27,7 +27,7 @@ export default function FocusRing({ currentHours, targetHours, size: sizeProp }:
   // Format display
   const displayCurrent = currentHours < 1
     ? Math.round(currentHours * 60) + 'm'
-    : Math.round(currentHours) + 'h';
+    : currentHours.toFixed(1) + 'h';
   const displayTarget = targetHours + ' hours';
 
   return (

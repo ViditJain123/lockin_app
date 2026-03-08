@@ -5,8 +5,6 @@ import { Alert, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DeviceActivitySelectionView,
-  blockSelection,
-  setFamilyActivitySelectionId,
 } from 'react-native-device-activity';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -14,7 +12,6 @@ import { Fonts } from '../constants/Fonts';
 import { useAppLockStore } from '../store/useAppLockStore';
 import { useOnboardingStore, type SleepTime } from '../store/useOnboardingStore';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
-import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
 import TimePicker from '../components/quiz/TimePicker';
 
 const TARGET_HOURS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -36,6 +33,7 @@ export default function SettingsPageScreen() {
   const sleepTime = useOnboardingStore((s) => s.quizAnswers.sleepTime);
   const targetHours = useOnboardingStore((s) => s.quizAnswers.targetHours);
   const familyActivitySelection = useOnboardingStore((s) => s.quizAnswers.familyActivitySelection);
+  const pendingSettings = useOnboardingStore((s) => s.pendingSettings);
 
   const [showSleepTimePicker, setShowSleepTimePicker] = useState(false);
   const [tempSleepTime, setTempSleepTime] = useState<SleepTime>(sleepTime);
@@ -103,44 +101,47 @@ export default function SettingsPageScreen() {
   };
 
   const handleSaveSleepTime = () => {
-    useOnboardingStore.getState().setAnswer('sleepTime', tempSleepTime);
+    useOnboardingStore.getState().setPendingSetting('sleepTime', tempSleepTime);
     setShowSleepTimePicker(false);
 
-    // Reschedule monitoring
-    const time24h = convertSleepTimeTo24h(tempSleepTime);
-    const [h, m] = time24h.split(':').map(Number);
-    scheduleSleepTimeLock(h, m);
-
-    // Sync to Supabase
+    // Sync pending to Supabase (do NOT reschedule sleep lock yet)
     if (user?.id) {
-      upsertUserRow(user.id, { sleep_time: time24h }).catch((err) =>
-        console.warn('[Settings] Failed to sync sleep time:', err)
+      const time24h = convertSleepTimeTo24h(tempSleepTime);
+      upsertUserRow(user.id, {
+        pending_sleep_time: time24h,
+        pending_settings_date: useOnboardingStore.getState().pendingSettings?.scheduledDate,
+      }).catch((err) =>
+        console.warn('[Settings] Failed to sync pending sleep time:', err)
       );
     }
   };
 
   const handleSelectTargetHours = (hours: number) => {
-    useOnboardingStore.getState().setAnswer('targetHours', hours);
+    useOnboardingStore.getState().setPendingSetting('targetHours', hours);
     setShowTargetPicker(false);
 
+    // Sync pending to Supabase (do NOT change active target yet)
     if (user?.id) {
-      upsertUserRow(user.id, { target_hours: hours }).catch((err) =>
-        console.warn('[Settings] Failed to sync target hours:', err)
+      upsertUserRow(user.id, {
+        pending_target_hours: hours,
+        pending_settings_date: useOnboardingStore.getState().pendingSettings?.scheduledDate,
+      }).catch((err) =>
+        console.warn('[Settings] Failed to sync pending target hours:', err)
       );
     }
   };
 
   const handleAppPickerDone = () => {
-    useOnboardingStore.getState().setAnswer('familyActivitySelection', tempSelection);
+    useOnboardingStore.getState().setPendingSetting('familyActivitySelection', tempSelection);
     setShowAppPicker(false);
 
-    if (tempSelection) {
-      try {
-        setFamilyActivitySelectionId({ id: 'onboardingSelection', familyActivitySelection: tempSelection });
-        blockSelection({ activitySelectionToken: tempSelection }, 'settingsSelection');
-      } catch (error) {
-        console.error('[Settings] Error blocking selection:', error);
-      }
+    // Do NOT block apps yet — deferred to next day
+    if (user?.id) {
+      upsertUserRow(user.id, {
+        pending_settings_date: useOnboardingStore.getState().pendingSettings?.scheduledDate,
+      }).catch((err) =>
+        console.warn('[Settings] Failed to sync pending app selection:', err)
+      );
     }
   };
 
@@ -168,6 +169,9 @@ export default function SettingsPageScreen() {
               <View style={styles.rowTextContainer}>
                 <Text style={styles.rowTitle}>Sleep Time</Text>
                 <Text style={styles.rowSubtitle}>{formatSleepTimeDisplay(sleepTime)}</Text>
+                {pendingSettings?.sleepTime && (
+                  <Text style={styles.pendingText}>Changing to {formatSleepTimeDisplay(pendingSettings.sleepTime)} tomorrow</Text>
+                )}
               </View>
               <Ionicons name="chevron-forward" size={18} color="#666" />
             </Pressable>
@@ -190,6 +194,9 @@ export default function SettingsPageScreen() {
                     ? `${targetHours} ${targetHours === 1 ? 'hour' : 'hours'} — Target reached ✓`
                     : `${targetHours} ${targetHours === 1 ? 'hour' : 'hours'}`}
                 </Text>
+                {pendingSettings?.targetHours !== undefined && (
+                  <Text style={styles.pendingText}>Changing to {pendingSettings.targetHours} {pendingSettings.targetHours === 1 ? 'hour' : 'hours'} tomorrow</Text>
+                )}
               </View>
               {!isFullyUnlocked && <Ionicons name="chevron-forward" size={18} color="#666" />}
             </Pressable>
@@ -204,6 +211,9 @@ export default function SettingsPageScreen() {
               <View style={styles.rowTextContainer}>
                 <Text style={styles.rowTitle}>Blocked Apps</Text>
                 <Text style={styles.rowSubtitle}>{familyActivitySelection ? 'Configured' : 'Not set'}</Text>
+                {pendingSettings?.familyActivitySelection !== undefined && (
+                  <Text style={styles.pendingText}>Change pending — takes effect tomorrow</Text>
+                )}
               </View>
               <Ionicons name="chevron-forward" size={18} color="#666" />
             </Pressable>
@@ -443,6 +453,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Fonts.regular,
     color: '#888',
+    marginTop: 2,
+  },
+  pendingText: {
+    fontSize: 12,
+    fontFamily: Fonts.medium,
+    color: '#eab308',
     marginTop: 2,
   },
   separator: {

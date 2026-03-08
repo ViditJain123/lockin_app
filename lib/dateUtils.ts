@@ -97,6 +97,15 @@ export function getDateRange(start: Date, end: Date): string[] {
 }
 
 /**
+ * Get tomorrow's date string in YYYY-MM-DD format using LOCAL timezone
+ */
+export function getTomorrowDateString(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return getLocalDateString(date);
+}
+
+/**
  * Format a date range for display: "Feb 17 - Feb 23"
  */
 export function formatDateRange(start: Date, end: Date): string {

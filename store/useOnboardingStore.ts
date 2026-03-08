@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { ONBOARDING_DEV_MODE } from '../lib/config';
+import { getLocalDateString, getTomorrowDateString } from '../lib/dateUtils';
 
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
@@ -18,6 +19,16 @@ export interface SleepTime {
 
 // Conversion rate type — kept for backward compat with persisted data, no longer used in quiz flow
 export type ConversionRate = '6:1' | '4:1' | '3:1';
+
+// Pending settings that take effect next day
+export type PendingSettingKey = 'targetHours' | 'sleepTime' | 'familyActivitySelection';
+
+export interface PendingSettings {
+  targetHours?: number;
+  sleepTime?: SleepTime;
+  familyActivitySelection?: string | null;
+  scheduledDate: string; // YYYY-MM-DD — the date these take effect
+}
 
 // Interface for quiz answers
 export interface QuizAnswers {
@@ -45,6 +56,9 @@ interface OnboardingState {
   currentQuestionIndex: number;
   quizAnswers: QuizAnswers;
 
+  // Pending settings (deferred to next day)
+  pendingSettings: PendingSettings | null;
+
   // Timestamp for conflict resolution
   localUpdatedAt: number;
 
@@ -62,6 +76,11 @@ interface OnboardingState {
   setAnswer: <K extends keyof QuizAnswers>(key: K, value: QuizAnswers[K]) => void;
   completeQuizFunnel: () => void;
   exitQuizFunnel: () => void;
+
+  // Pending settings actions
+  setPendingSetting: <K extends PendingSettingKey>(key: K, value: PendingSettings[K]) => void;
+  applyPendingSettings: () => Partial<PendingSettings> | null;
+  cancelPendingSetting: (key: PendingSettingKey) => void;
 
   // Called by sync engine after conflict resolution
   updateFromRemote: (profile: QuizAnswers, hasCompleted: boolean) => void;
@@ -94,6 +113,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       isInQuizFunnel: false,
       currentQuestionIndex: 0,
       quizAnswers: initialQuizAnswers,
+
+      // Pending settings
+      pendingSettings: null,
 
       // Conflict resolution timestamp
       localUpdatedAt: 0,
@@ -206,6 +228,62 @@ export const useOnboardingStore = create<OnboardingState>()(
         });
       },
 
+      // Merge a value into pendingSettings, scheduled for tomorrow
+      setPendingSetting: (key, value) => {
+        set((state) => {
+          const existing = state.pendingSettings ?? { scheduledDate: getTomorrowDateString() };
+          return {
+            pendingSettings: {
+              ...existing,
+              scheduledDate: getTomorrowDateString(),
+              [key]: value,
+            },
+          };
+        });
+      },
+
+      // Apply pending settings if today >= scheduledDate. Returns applied values or null.
+      applyPendingSettings: () => {
+        const { pendingSettings } = get();
+        if (!pendingSettings) return null;
+
+        const today = getLocalDateString();
+        if (today < pendingSettings.scheduledDate) return null;
+
+        // Copy pending values into quizAnswers
+        const applied: Partial<PendingSettings> = {};
+        set((state) => {
+          const updated = { ...state.quizAnswers };
+          if (pendingSettings.targetHours !== undefined) {
+            updated.targetHours = pendingSettings.targetHours;
+            applied.targetHours = pendingSettings.targetHours;
+          }
+          if (pendingSettings.sleepTime !== undefined) {
+            updated.sleepTime = pendingSettings.sleepTime;
+            applied.sleepTime = pendingSettings.sleepTime;
+          }
+          if (pendingSettings.familyActivitySelection !== undefined) {
+            updated.familyActivitySelection = pendingSettings.familyActivitySelection;
+            applied.familyActivitySelection = pendingSettings.familyActivitySelection;
+          }
+          return { quizAnswers: updated, pendingSettings: null };
+        });
+
+        return Object.keys(applied).length > 0 ? applied : null;
+      },
+
+      // Remove a single key from pending settings
+      cancelPendingSetting: (key) => {
+        set((state) => {
+          if (!state.pendingSettings) return state;
+          const updated = { ...state.pendingSettings };
+          delete updated[key];
+          // If only scheduledDate remains, clear entirely
+          const remainingKeys = Object.keys(updated).filter((k) => k !== 'scheduledDate');
+          return { pendingSettings: remainingKeys.length > 0 ? updated : null };
+        });
+      },
+
       // Called by sync engine — sets resolved profile data
       updateFromRemote: (profile: QuizAnswers, hasCompleted: boolean) => {
         set({
@@ -231,6 +309,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         showOnboardingAlways: state.showOnboardingAlways,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         quizAnswers: state.quizAnswers,
+        pendingSettings: state.pendingSettings,
         localUpdatedAt: state.localUpdatedAt,
       }),
       onRehydrateStorage: () => (state) => {

@@ -11,13 +11,17 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DISMISS_THRESHOLD = 150;
 
+const MIN_PLAYABLE_DURATION = 240; // 4 minutes in seconds
+
 interface Props {
   visible: boolean;
   videoUri: string;
+  sessionDurationSeconds?: number;
   onClose: () => void;
 }
 
-export default function TimelapsePreviewSheet({ visible, videoUri, onClose }: Props) {
+export default function TimelapsePreviewSheet({ visible, videoUri, sessionDurationSeconds, onClose }: Props) {
+  const isTooShort = sessionDurationSeconds != null && sessionDurationSeconds < MIN_PLAYABLE_DURATION;
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
 
@@ -87,11 +91,20 @@ export default function TimelapsePreviewSheet({ visible, videoUri, onClose }: Pr
             <Ionicons name="close" size={28} color="#FFFFFF" />
           </Pressable>
 
+          {isTooShort && (
+            <View style={styles.warningBanner}>
+              <Ionicons name="warning" size={16} color="#000" />
+              <Text style={styles.warningText}>
+                Recording under 4 min — timelapse won't play here. Save to gallery to view.
+              </Text>
+            </View>
+          )}
+
           <Video
             source={{ uri: videoUri }}
             style={styles.video}
             isLooping
-            shouldPlay={visible}
+            shouldPlay={visible && !isTooShort}
             resizeMode={ResizeMode.CONTAIN}
           />
 
@@ -158,5 +171,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Fonts.semiBold,
     color: '#FFFFFF',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFD60A',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+    marginHorizontal: 20,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: Fonts.semiBold,
+    color: '#000',
   },
 });

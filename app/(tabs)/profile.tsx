@@ -52,6 +52,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [previewUri, setPreviewUri] = useState('');
+  const [previewDuration, setPreviewDuration] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
 
   const { user } = useAuth();
@@ -110,6 +111,7 @@ export default function ProfileScreen() {
 
   const handleTap = useCallback((rec: Recording) => {
     setPreviewUri(resolveUri(rec.videoUri));
+    setPreviewDuration(rec.sessionDurationSeconds);
     setShowPreview(true);
   }, []);
 
@@ -259,6 +261,7 @@ export default function ProfileScreen() {
       <TimelapsePreviewSheet
         visible={showPreview}
         videoUri={previewUri}
+        sessionDurationSeconds={previewDuration}
         onClose={() => setShowPreview(false)}
       />
     </View>
