@@ -30,6 +30,8 @@ import {
   type DailySessionRow,
 } from '../../lib/tinybird';
 import { useSessionStore, type LocalSession } from '../../store/useSessionStore';
+import { useOnboardingStore } from '../../store/useOnboardingStore';
+import { useProfileStatsStore } from '../../store/useProfileStatsStore';
 import type { AnalyticsTab, BadgeProgressItem, HourlyData, StatItem } from '../../types/analytics';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -312,34 +314,11 @@ export default function AnalyticsScreen() {
     [monthlyActivityByDate],
   );
 
-  // Streak from local sessions
-  const streak = useMemo(() => {
-    const allSessions = useSessionStore.getState().sessions;
-    const datesWithSessions = new Set(allSessions.map((s) => s.date));
-    let count = 0;
-    const d = new Date();
-    // Check today and consecutive past days
-    while (true) {
-      const ds = getLocalDateString(d);
-      if (datesWithSessions.has(ds)) {
-        count++;
-        d.setDate(d.getDate() - 1);
-      } else if (count === 0) {
-        // Today might not have a session yet, check yesterday
-        d.setDate(d.getDate() - 1);
-        const yd = getLocalDateString(d);
-        if (datesWithSessions.has(yd)) {
-          count++;
-          d.setDate(d.getDate() - 1);
-        } else {
-          break;
-        }
-      } else {
-        break;
-      }
-    }
-    return count;
-  }, [dailySessions]); // re-check when sessions change
+  // Use Tinybird-corrected streak from profile stats store
+  const streak = useProfileStatsStore((s) => s.streak);
+
+  // Dynamic target hours from onboarding
+  const targetHours = useOnboardingStore((s) => s.quizAnswers.targetHours);
 
   const periodLabel = useMemo(
     () => getPeriodLabel(selectedTab, selectedDate),
@@ -433,6 +412,7 @@ export default function AnalyticsScreen() {
         {selectedTab === 'daily' && (
           <DailyContent
             totalHours={dailyTotalHours}
+            targetHours={targetHours}
             stats={dailyStats}
             hourlyData={dailyHourly}
             streak={streak}
@@ -466,11 +446,13 @@ export default function AnalyticsScreen() {
 
 function DailyContent({
   totalHours,
+  targetHours,
   stats,
   hourlyData,
   streak,
 }: {
   totalHours: number;
+  targetHours: number;
   stats: StatItem[];
   hourlyData: HourlyData[];
   streak: number;
@@ -479,7 +461,7 @@ function DailyContent({
     <>
       {/* Focus Ring */}
       <View style={styles.section}>
-        <FocusRing currentHours={totalHours} targetHours={4} />
+        <FocusRing currentHours={totalHours} targetHours={targetHours} />
       </View>
 
       {/* Stats Grid */}

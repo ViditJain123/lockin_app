@@ -15,6 +15,7 @@ interface FocusRingProps {
 export default function FocusRing({ currentHours, targetHours, size: sizeProp }: FocusRingProps) {
   // Calculate progress (0 to 1)
   const progress = Math.min(currentHours / targetHours, 1);
+  const isComplete = progress >= 1;
 
   // Ring dimensions
   const size = sizeProp || 100;
@@ -62,19 +63,27 @@ export default function FocusRing({ currentHours, targetHours, size: sizeProp }:
               transform={`rotate(-90 ${size / 2} ${size / 2})`}
             />
           </Svg>
-          {/* Arrow indicator at the end of progress */}
-          <View style={[styles.arrowIndicator, {
-            transform: [
-              { translateX: -12 },
-              { translateY: -12 },
-              { rotate: `${progress * 360 - 90}deg` },
-              { translateX: radius },
-            ]
-          }]}>
-            <View style={styles.arrowCircle}>
-              <Text style={[styles.arrowText, { transform: [{ rotate: '90deg' }] }]}>{'→'}</Text>
+          {/* Indicator: checkmark when complete, arrow when in progress */}
+          {isComplete ? (
+            <View style={styles.checkmarkContainer}>
+              <View style={styles.checkmarkCircle}>
+                <Text style={styles.checkmarkText}>{'✓'}</Text>
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={[styles.arrowIndicator, {
+              transform: [
+                { translateX: -12 },
+                { translateY: -12 },
+                { rotate: `${progress * 360 - 90}deg` },
+                { translateX: radius },
+              ]
+            }]}>
+              <View style={styles.arrowCircle}>
+                <Text style={[styles.arrowText, { transform: [{ rotate: '90deg' }] }]}>{'→'}</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Stats */}
@@ -127,6 +136,28 @@ const styles = StyleSheet.create({
   arrowText: {
     color: 'black',
     fontSize: 14,
+    fontFamily: Fonts.bold,
+  },
+  checkmarkContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: BRAND_PINK,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmarkText: {
+    color: 'white',
+    fontSize: 18,
     fontFamily: Fonts.bold,
   },
   statsContainer: {

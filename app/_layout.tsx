@@ -61,7 +61,10 @@ import { useBadgeStore, usePendingNewBadges } from '../store/useBadgeStore';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 import { useAppLockStore } from '../store/useAppLockStore';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
+import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
+import { useSessionStore } from '../store/useSessionStore';
+import { getLocalDateString } from '../lib/dateUtils';
 import {
   onDeviceActivityMonitorEvent,
   updateShield,
@@ -202,7 +205,7 @@ function RootLayoutNav() {
     updateShield(
       {
         title: 'Stay Locked In',
-        subtitle: 'Complete a focus session to unlock',
+        subtitle: 'Go to Profile → Settings to claim your screen time',
         primaryButtonLabel: 'Open LockIn',
         backgroundColor: { red: 0, green: 0, blue: 0 },
         titleColor: { red: 255, green: 255, blue: 255 },
@@ -221,6 +224,22 @@ function RootLayoutNav() {
 
     // Check if daily reset is needed
     useAppLockStore.getState().resetDaily();
+
+    // Re-apply device-level unlock if target was already completed today
+    const appLockState = useAppLockStore.getState();
+    if (appLockState.isFullyUnlocked) {
+      fullyUnlockAppsManager();
+    } else {
+      // Safety check: compute today's focus from session data (same source as analytics)
+      // If target is met but isFullyUnlocked got out of sync, trigger unlock
+      const todayStr = getLocalDateString();
+      const todaySessions = useSessionStore.getState().sessions.filter(s => s.date === todayStr);
+      const totalFocusSeconds = todaySessions.reduce((sum, s) => sum + s.total_locked_in_seconds, 0);
+      const targetHours = useOnboardingStore.getState().quizAnswers.targetHours;
+      if (totalFocusSeconds >= targetHours * 3600) {
+        useAppLockStore.getState().fullyUnlockApps();
+      }
+    }
 
     // Listen for re-lock events from device activity monitor
     const subscription = onDeviceActivityMonitorEvent((event) => {

@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from '../contexts/AuthContext';
 import { Fonts } from '../constants/Fonts';
+import { useAppLockStore } from '../store/useAppLockStore';
 import { useOnboardingStore, type SleepTime } from '../store/useOnboardingStore';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
@@ -40,6 +41,13 @@ export default function SettingsPageScreen() {
   const [showTargetPicker, setShowTargetPicker] = useState(false);
   const [showAppPicker, setShowAppPicker] = useState(false);
   const [tempSelection, setTempSelection] = useState<string | null>(familyActivitySelection);
+  const [showClaimModal, setShowClaimModal] = useState(false);
+
+  // Screen time claim
+  const availableScreenTime = useAppLockStore((s) => s.getAvailableScreenTime());
+  const isCurrentlyLocked = useAppLockStore((s) => s.isCurrentlyLocked);
+  const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
+  const canClaim = !isFullyUnlocked && isCurrentlyLocked && availableScreenTime >= 60;
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -108,6 +116,89 @@ export default function SettingsPageScreen() {
       </View>
 
       <ScrollView>
+        {/* Screen Time Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>SCREEN TIME</Text>
+          <View style={styles.card}>
+            {/* Sleep Time */}
+            <Pressable style={styles.row} onPress={() => { setTempSleepTime(sleepTime); setShowSleepTimePicker(true); }}>
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+                <Ionicons name="moon" size={20} color="#8b5cf6" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Sleep Time</Text>
+                <Text style={styles.rowSubtitle}>{formatSleepTimeDisplay(sleepTime)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#666" />
+            </Pressable>
+
+            <View style={styles.separator} />
+
+            {/* Daily Target */}
+            <Pressable
+              style={[styles.row, isFullyUnlocked && { opacity: 0.5 }]}
+              onPress={isFullyUnlocked ? undefined : () => setShowTargetPicker(true)}
+              disabled={isFullyUnlocked}
+            >
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(234, 179, 8, 0.15)' }]}>
+                <Ionicons name="flame" size={20} color="#eab308" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Daily Target</Text>
+                <Text style={styles.rowSubtitle}>
+                  {isFullyUnlocked
+                    ? `${targetHours} ${targetHours === 1 ? 'hour' : 'hours'} — Target reached ✓`
+                    : `${targetHours} ${targetHours === 1 ? 'hour' : 'hours'}`}
+                </Text>
+              </View>
+              {!isFullyUnlocked && <Ionicons name="chevron-forward" size={18} color="#666" />}
+            </Pressable>
+
+            <View style={styles.separator} />
+
+            {/* Blocked Apps */}
+            <Pressable style={styles.row} onPress={() => { setTempSelection(familyActivitySelection); setShowAppPicker(true); }}>
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                <Ionicons name="lock-closed" size={20} color="#ef4444" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={styles.rowTitle}>Blocked Apps</Text>
+                <Text style={styles.rowSubtitle}>{familyActivitySelection ? 'Configured' : 'Not set'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#666" />
+            </Pressable>
+
+            {isFullyUnlocked ? (
+              <>
+                <View style={styles.separator} />
+                <View style={styles.row}>
+                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
+                    <Ionicons name="lock-open" size={20} color="#34d399" />
+                  </View>
+                  <View style={styles.rowTextContainer}>
+                    <Text style={[styles.rowTitle, { color: '#34d399' }]}>Apps Unlocked</Text>
+                    <Text style={styles.rowSubtitle}>Unlocked until {formatSleepTimeDisplay(sleepTime)}</Text>
+                  </View>
+                </View>
+              </>
+            ) : canClaim ? (
+              <>
+                <View style={styles.separator} />
+                <Pressable style={styles.row} onPress={() => setShowClaimModal(true)}>
+                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
+                    <Ionicons name="play" size={20} color="#34d399" />
+                  </View>
+                  <View style={styles.rowTextContainer}>
+                    <Text style={[styles.rowTitle, { color: '#34d399' }]}>Claim Screen Time</Text>
+                    <Text style={styles.rowSubtitle}>{Math.floor(availableScreenTime / 60)} minutes available</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#666" />
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </View>
+
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ACCOUNT</Text>
@@ -130,52 +221,6 @@ export default function SettingsPageScreen() {
               </View>
               <View style={styles.rowTextContainer}>
                 <Text style={[styles.rowTitle, { color: '#ec4899' }]}>Log Out</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Screen Time Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SCREEN TIME</Text>
-          <View style={styles.card}>
-            {/* Sleep Time */}
-            <Pressable style={styles.row} onPress={() => { setTempSleepTime(sleepTime); setShowSleepTimePicker(true); }}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                <Ionicons name="moon" size={20} color="#8b5cf6" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>Sleep Time</Text>
-                <Text style={styles.rowSubtitle}>{formatSleepTimeDisplay(sleepTime)}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
-            </Pressable>
-
-            <View style={styles.separator} />
-
-            {/* Daily Target */}
-            <Pressable style={styles.row} onPress={() => setShowTargetPicker(true)}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(234, 179, 8, 0.15)' }]}>
-                <Ionicons name="flame" size={20} color="#eab308" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>Daily Target</Text>
-                <Text style={styles.rowSubtitle}>{targetHours} {targetHours === 1 ? 'hour' : 'hours'}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
-            </Pressable>
-
-            <View style={styles.separator} />
-
-            {/* Blocked Apps */}
-            <Pressable style={styles.row} onPress={() => { setTempSelection(familyActivitySelection); setShowAppPicker(true); }}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                <Ionicons name="lock-closed" size={20} color="#ef4444" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>Blocked Apps</Text>
-                <Text style={styles.rowSubtitle}>{familyActivitySelection ? 'Configured' : 'Not set'}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#666" />
             </Pressable>
@@ -254,6 +299,31 @@ export default function SettingsPageScreen() {
             />
           </View>
         </SafeAreaView>
+      </Modal>
+
+      {/* Claim Screen Time Modal */}
+      <Modal visible={showClaimModal} animationType="fade" transparent onRequestClose={() => setShowClaimModal(false)}>
+        <View style={styles.claimModalOverlay}>
+          <View style={styles.claimModalCard}>
+            <Text style={styles.claimModalTitle}>Start Screen Time?</Text>
+            <Text style={styles.claimModalBody}>
+              You'll be able to use your phone for the next{' '}
+              <Text style={styles.claimModalBold}>{Math.floor(availableScreenTime / 60)} minutes</Text>
+            </Text>
+            <Pressable
+              style={styles.claimModalConfirmButton}
+              onPress={() => {
+                setShowClaimModal(false);
+                useAppLockStore.getState().unlockApps();
+              }}
+            >
+              <Text style={styles.claimModalConfirmText}>Start Timer</Text>
+            </Pressable>
+            <Pressable style={styles.claimModalCancelButton} onPress={() => setShowClaimModal(false)}>
+              <Text style={styles.claimModalCancelText}>Not Now</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -383,5 +453,62 @@ const styles = StyleSheet.create({
   },
   targetOptionTextSelected: {
     color: '#007AFF',
+  },
+  claimModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  claimModalCard: {
+    width: '100%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  claimModalTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 22,
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  claimModalBody: {
+    fontFamily: Fonts.regular,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  claimModalBold: {
+    fontFamily: Fonts.bold,
+    color: '#34d399',
+  },
+  claimModalConfirmButton: {
+    width: '100%',
+    backgroundColor: '#34d399',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  claimModalConfirmText: {
+    fontFamily: Fonts.bold,
+    fontSize: 17,
+    color: '#000',
+  },
+  claimModalCancelButton: {
+    width: '100%',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  claimModalCancelText: {
+    fontFamily: Fonts.medium,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.5)',
   },
 });

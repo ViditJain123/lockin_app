@@ -389,8 +389,8 @@ export default function CameraScreen() {
     // Credit earned screen time (4:1 ratio)
     useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
 
-    // Recompute profile stats from local data
-    useProfileStatsStore.getState().recomputeFromSessions();
+    // Recompute profile stats from local data + fetch streak from Tinybird
+    useProfileStatsStore.getState().recomputeFromSessions(user?.id);
 
     const statsAfter = useProfileStatsStore.getState();
     console.log('[StopSession] Stats after recompute:', {
@@ -460,6 +460,7 @@ export default function CameraScreen() {
           params: {
             videoUri: permanentUri,
             grindDurationSeconds: String(lockedInSeconds + distractedSeconds),
+            lockedInSeconds: String(lockedInSeconds),
           },
         });
       }
@@ -495,7 +496,7 @@ export default function CameraScreen() {
     };
     useSessionStore.getState().addSession(sessionData);
     useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
-    useProfileStatsStore.getState().recomputeFromSessions();
+    useProfileStatsStore.getState().recomputeFromSessions(user?.id);
 
     // Send to Tinybird (fire-and-forget)
     sendSessionEvent({
@@ -512,7 +513,10 @@ export default function CameraScreen() {
 
     router.push({
       pathname: '/grind-complete',
-      params: { grindDurationSeconds: String(totalSeconds) },
+      params: {
+        grindDurationSeconds: String(totalSeconds),
+        lockedInSeconds: String(lockedInSeconds),
+      },
     });
   }, [user, router]);
 

@@ -8,6 +8,7 @@ import {
   Dimensions,
   Pressable,
   ActionSheetIOS,
+  Image,
   Alert,
   Platform,
 } from 'react-native';
@@ -33,6 +34,19 @@ const GRID_GAP = 4;
 const GRID_COLUMNS = 3;
 const GRID_ITEM_SIZE = (SCREEN_WIDTH - 32 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 const PINK = '#FF3B5C';
+
+function formatStat(value: number): string {
+  if (value >= 1_000_000) {
+    const m = value / 1_000_000;
+    return m >= 100 ? `${Math.round(m)}M` : `${parseFloat(m.toFixed(1))}M`;
+  }
+  if (value >= 1_000) {
+    const k = value / 1_000;
+    return k >= 100 ? `${Math.round(k)}K` : `${parseFloat(k.toFixed(1))}K`;
+  }
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2).replace(/\.?0+$/, '');
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -62,7 +76,7 @@ export default function ProfileScreen() {
         await fetchAndStoreBaseline(user.id);
       } else {
         console.log('[Profile] refreshStatsAndBadges: recomputing from', sessions.length, 'local sessions');
-        recomputeFromSessions();
+        recomputeFromSessions(user.id);
       }
 
       const currentStats = useProfileStatsStore.getState();
@@ -171,18 +185,25 @@ export default function ProfileScreen() {
         {/* Avatar + Name */}
         <View style={styles.headerSection}>
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {user?.user_metadata?.full_name
-                  ? user.user_metadata.full_name
-                      .split(' ')
-                      .map((n: string) => n[0])
-                      .join('')
-                      .toUpperCase()
-                      .slice(0, 2)
-                  : '?'}
-              </Text>
-            </View>
+            {user?.user_metadata?.avatar_url ? (
+              <Image
+                source={{ uri: user.user_metadata.avatar_url }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user?.user_metadata?.full_name
+                    ? user.user_metadata.full_name
+                        .split(' ')
+                        .map((n: string) => n[0])
+                        .join('')
+                        .toUpperCase()
+                        .slice(0, 2)
+                    : '?'}
+                </Text>
+              </View>
+            )}
             <View style={styles.streakBadge}>
               <Text style={styles.streakBadgeText}>{hasHydrated && streak != null ? streak : '-'}</Text>
             </View>
@@ -193,12 +214,12 @@ export default function ProfileScreen() {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{hasHydrated && total_hours != null ? (total_hours < 1 ? Math.round(total_hours * 60) : total_hours) : '-'}</Text>
+            <Text style={styles.statNumber}>{hasHydrated && total_hours != null ? (total_hours < 1 ? Math.round(total_hours * 60) : formatStat(total_hours)) : '-'}</Text>
             <Text style={styles.statLabel}>{hasHydrated && total_hours != null && total_hours < 1 ? 'Mins' : 'Hours'}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{hasHydrated && grinds != null ? grinds : '-'}</Text>
+            <Text style={styles.statNumber}>{hasHydrated && grinds != null ? formatStat(grinds) : '-'}</Text>
             <Text style={styles.statLabel}>Grinds</Text>
           </View>
           <View style={styles.statDivider} />

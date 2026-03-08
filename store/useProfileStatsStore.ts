@@ -13,7 +13,7 @@ interface ProfileStatsState {
   baselineFetched: boolean;
   setStats: (stats: { total_hours: number; grinds: number; streak: number }) => void;
   setHasHydrated: (v: boolean) => void;
-  recomputeFromSessions: () => void;
+  recomputeFromSessions: (userId?: string) => void;
   fetchAndStoreBaseline: (userId: string) => Promise<void>;
 }
 
@@ -29,11 +29,17 @@ export function computeGrinds(sessions: LocalSession[]): number {
 }
 
 export function computeStreak(sessions: LocalSession[]): number {
-  if (sessions.length === 0) return 0;
+  if (sessions.length === 0) {
+    console.log('[Streak] No sessions, returning 0');
+    return 0;
+  }
 
   // Get unique dates sorted descending
   const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort().reverse();
-  if (uniqueDates.length === 0) return 0;
+  if (uniqueDates.length === 0) {
+    console.log('[Streak] No unique dates, returning 0');
+    return 0;
+  }
 
   // Streak must start from today or yesterday
   const today = new Date();
@@ -42,7 +48,12 @@ export function computeStreak(sessions: LocalSession[]): number {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = formatDateStr(yesterday);
 
+  console.log('[Streak] Unique dates (desc):', uniqueDates);
+  console.log('[Streak] Today:', todayStr, '| Yesterday:', yesterdayStr);
+  console.log('[Streak] Most recent session date:', uniqueDates[0]);
+
   if (uniqueDates[0] !== todayStr && uniqueDates[0] !== yesterdayStr) {
+    console.log('[Streak] Most recent date is neither today nor yesterday → streak = 0');
     return 0;
   }
 
@@ -51,12 +62,15 @@ export function computeStreak(sessions: LocalSession[]): number {
     const prev = new Date(uniqueDates[i - 1] + 'T00:00:00');
     const curr = new Date(uniqueDates[i] + 'T00:00:00');
     const diffDays = Math.round((prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24));
+    console.log(`[Streak] Checking ${uniqueDates[i-1]} → ${uniqueDates[i]}: diff=${diffDays} day(s), streak so far=${streak}`);
     if (diffDays === 1) {
       streak++;
     } else {
+      console.log(`[Streak] Gap detected, stopping`);
       break;
     }
   }
+  console.log('[Streak] Final streak:', streak);
   return streak;
 }
 
@@ -80,7 +94,7 @@ export const useProfileStatsStore = create<ProfileStatsState>()(
       setStats: (stats) => set(stats),
       setHasHydrated: (v) => set({ hasHydrated: v }),
 
-      recomputeFromSessions: () => {
+      recomputeFromSessions: (userId?: string) => {
         const sessions = useSessionStore.getState().sessions;
         const baseline = get().baselineStats;
 
@@ -104,6 +118,23 @@ export const useProfileStatsStore = create<ProfileStatsState>()(
         });
 
         set(merged);
+
+        // Fetch authoritative streak from Tinybird (async, updates when ready)
+        if (userId) {
+          fetchProfileStats(userId)
+            .then((tinybirdStats) => {
+              const currentStreak = get().streak;
+              const tinybirdStreak = tinybirdStats.streak;
+              console.log('[ProfileStats] Tinybird streak:', tinybirdStreak, '| local streak:', currentStreak);
+              if (tinybirdStreak > currentStreak) {
+                console.log('[ProfileStats] Updating streak from Tinybird:', tinybirdStreak);
+                set({ streak: tinybirdStreak });
+              }
+            })
+            .catch((err) => {
+              console.warn('[ProfileStats] Failed to fetch Tinybird streak, using local:', err);
+            });
+        }
       },
 
       fetchAndStoreBaseline: async (userId: string) => {

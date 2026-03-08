@@ -1,21 +1,21 @@
-import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View, ImageBackground, Dimensions } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Dimensions, ImageBackground, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  useSharedValue,
+  Easing,
   useAnimatedStyle,
-  withTiming,
+  useSharedValue,
   withDelay,
   withSpring,
-  Easing,
+  withTiming,
 } from 'react-native-reanimated';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Fonts } from '../constants/Fonts';
-import Button3D from '../components/Button3D';
-import { useOnboardingStore } from '../store/useOnboardingStore';
-import { useAppLockStore } from '../store/useAppLockStore';
 import Ribbon from '../assets/images/ribbon.svg';
 import TimelapseStar from '../assets/images/timelapse_start.svg';
+import Button3D from '../components/Button3D';
+import { Fonts } from '../constants/Fonts';
+import { useAppLockStore } from '../store/useAppLockStore';
+import { useOnboardingStore } from '../store/useOnboardingStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -46,21 +46,38 @@ function formatDuration(totalSeconds: number): string {
   return `${seconds}s`;
 }
 
+function formatMinutes(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${mins} minute${mins !== 1 ? 's' : ''}`;
+}
+
 export default function GrindCompleteScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { grindDurationSeconds } = useLocalSearchParams<{ videoUri: string; grindDurationSeconds: string }>();
+  const { grindDurationSeconds, lockedInSeconds: lockedInSecondsParam } = useLocalSearchParams<{
+    videoUri: string;
+    grindDurationSeconds: string;
+    lockedInSeconds: string;
+  }>();
   const userName = useOnboardingStore((s) => s.quizAnswers.name);
 
   const durationSeconds = parseInt(grindDurationSeconds || '0', 10);
+  const lockedInSeconds = parseInt(lockedInSecondsParam || grindDurationSeconds || '0', 10);
   const durationText = formatDuration(durationSeconds);
 
-  const earnedSeconds = Math.floor(durationSeconds / 4);
+  const earnedSeconds = Math.floor(lockedInSeconds / 4);
   const earnedText = formatDuration(earnedSeconds);
   const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
   const isCurrentlyLocked = useAppLockStore((s) => s.isCurrentlyLocked);
-  const availableScreenTime = useAppLockStore.getState().getAvailableScreenTime();
-  const canUnlock = !isFullyUnlocked && isCurrentlyLocked && availableScreenTime >= 60;
+  const availableScreenTime = useAppLockStore((s) => s.getAvailableScreenTime());
+  const canClaim = !isFullyUnlocked && availableScreenTime >= 60;
+
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   const motivationalMessage = useMemo(
     () => MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)],
@@ -104,7 +121,6 @@ export default function GrindCompleteScreen() {
 
   const ribbonAnimStyle = useAnimatedStyle(() => ({
     opacity: ribbonOpacity.value,
-    transform: [{ scale: ribbonScale.value }],
   }));
 
   const starAnimStyle = useAnimatedStyle(() => ({
@@ -132,13 +148,23 @@ export default function GrindCompleteScreen() {
     transform: [{ translateY: buttonTranslateY.value }],
   }));
 
+  const handleDone = () => {
+    router.back();
+  };
+
+  const handleClaimConfirm = () => {
+    setShowClaimModal(false);
+    useAppLockStore.getState().unlockApps();
+    router.back();
+  };
+
   return (
     <ImageBackground
       source={require('../assets/images/night-sky-background.jpeg')}
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={[styles.content, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 20 }]}>
+      <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}>
         {/* Ribbon + Star */}
         <View style={styles.badgeArea}>
           <Animated.View style={[styles.ribbonContainer, ribbonAnimStyle]}>
@@ -181,28 +207,46 @@ export default function GrindCompleteScreen() {
         {/* Spacer */}
         <View style={{ flex: 1 }} />
 
-        {/* Unlock button (if eligible) */}
-        {canUnlock && (
-          <Animated.View style={[styles.buttonContainer, buttonAnimStyle, { marginBottom: 12 }]}>
-            <Button3D
-              title="Unlock Apps"
-              variant="blue"
-              onPress={() => {
-                useAppLockStore.getState().unlockApps();
-                router.back();
-              }}
-            />
-          </Animated.View>
-        )}
-
-        {/* Done button */}
+        {/* Buttons */}
         <Animated.View style={[styles.buttonContainer, buttonAnimStyle]}>
-          <Button3D
-            title="Done"
-            onPress={() => router.back()}
-          />
+          {canClaim ? (
+            <View style={styles.buttonRow}>
+              <View style={styles.halfButton}>
+                <Button3D title="Done" onPress={handleDone} />
+              </View>
+              <View style={styles.halfButton}>
+                <Button3D title="Claim" onPress={() => setShowClaimModal(true)} />
+              </View>
+            </View>
+          ) : (
+            <Button3D title="Done" onPress={handleDone} />
+          )}
         </Animated.View>
       </View>
+
+      {/* Claim Confirmation Modal */}
+      <Modal
+        visible={showClaimModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowClaimModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Start Screen Time?</Text>
+            <Text style={styles.modalBody}>
+              You'll be able to use your phone for the next{' '}
+              <Text style={styles.modalBold}>{formatMinutes(availableScreenTime)}</Text>
+            </Text>
+            <Pressable style={styles.modalConfirmButton} onPress={handleClaimConfirm}>
+              <Text style={styles.modalConfirmText}>Start Timer</Text>
+            </Pressable>
+            <Pressable style={styles.modalCancelButton} onPress={() => setShowClaimModal(false)}>
+              <Text style={styles.modalCancelText}>Not Now</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }
@@ -292,5 +336,70 @@ const styles = StyleSheet.create({
   buttonContainer: {
     width: '100%',
     paddingHorizontal: 10,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfButton: {
+    flex: 1,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 22,
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  modalBody: {
+    fontFamily: Fonts.regular,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalBold: {
+    fontFamily: Fonts.bold,
+    color: '#34d399',
+  },
+  modalConfirmButton: {
+    width: '100%',
+    backgroundColor: '#34d399',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalConfirmText: {
+    fontFamily: Fonts.bold,
+    fontSize: 17,
+    color: '#000',
+  },
+  modalCancelButton: {
+    width: '100%',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontFamily: Fonts.medium,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.5)',
   },
 });

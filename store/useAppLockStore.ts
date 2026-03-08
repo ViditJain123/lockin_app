@@ -64,6 +64,12 @@ export const useAppLockStore = create<AppLockState>()(
 
         if (targetMet) {
           get().fullyUnlockApps();
+        } else if (!get().isCurrentlyLocked) {
+          // Already unlocked — restart monitor with updated total so time accumulates
+          const newAvailable = get().getAvailableScreenTime();
+          if (newAvailable >= 60) {
+            unlockAppsWithTimer(newAvailable);
+          }
         }
       },
 
