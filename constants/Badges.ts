@@ -151,7 +151,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 3,
     title: '3 Day Streak',
-    description: 'Maintain a 3 day streak',
+    description: 'You showed up 3 days in a row — momentum is building',
     imageFileName: '3_streak.png',
   },
   {
@@ -159,7 +159,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 5,
     title: '5 Day Streak',
-    description: 'Maintain a 5 day streak',
+    description: 'A full work week of focus — you\'re getting serious',
     imageFileName: '5_streak.png',
   },
   {
@@ -167,7 +167,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 10,
     title: '10 Day Streak',
-    description: 'Maintain a 10 day streak',
+    description: 'Double digits — discipline is becoming your default',
     imageFileName: '10_streak.png',
   },
   {
@@ -175,7 +175,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 21,
     title: 'Habit Formed',
-    description: 'Maintain a 21 day streak',
+    description: '21 days in — they say that\'s when habits stick',
     imageFileName: '21_streak.png',
   },
   {
@@ -183,7 +183,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 30,
     title: 'Monthly Master',
-    description: 'Maintain a 30 day streak',
+    description: 'A full month locked in — you\'re built different',
     imageFileName: '30_streak.png',
   },
   {
@@ -191,7 +191,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 40,
     title: 'Iron Will',
-    description: 'Maintain a 40 day streak',
+    description: '40 days of pure consistency — nothing can break you',
     imageFileName: '40_streak.png',
   },
   {
@@ -199,7 +199,7 @@ export const BADGES: BadgeDefinition[] = [
     category: 'streak',
     threshold: 50,
     title: 'Legendary',
-    description: 'Maintain a 50 day streak',
+    description: '50 days straight — this is what legends are made of',
     imageFileName: '50_streak.png',
   },
 ];

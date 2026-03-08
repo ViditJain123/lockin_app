@@ -638,17 +638,15 @@ export default function CameraScreen() {
       {/* Record / Stop Button */}
       <View style={styles.buttonRow}>
         <Pressable onPress={toggleSession} style={styles.recordButtonOuter}>
-          {isSessionActive ? (
-            // Stop button: pink circle with white square
-            <View style={styles.recordButtonActive}>
-              <View style={styles.stopSquare} />
-            </View>
-          ) : (
-            // Record button: pink circle with inner pink circle
-            <View style={styles.recordButtonIdle}>
-              <View style={styles.recordInnerCircle} />
-            </View>
-          )}
+          <View style={styles.recordArcTop}>
+            <View style={styles.recordArcTopInner} />
+          </View>
+          <Text style={styles.recordButtonText}>
+            {isSessionActive ? 'done' : 'Lock In'}
+          </Text>
+          <View style={styles.recordArcBottom}>
+            <View style={styles.recordArcBottomInner} />
+          </View>
         </Pressable>
         {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
           <Pressable onPress={simulateSession} style={styles.devButton}>
@@ -741,38 +739,45 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     width: 72,
     height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordArcTop: {
+    position: 'absolute',
+    top: 0,
+    width: 72,
+    height: 24,
+    overflow: 'hidden',
+  },
+  recordArcTopInner: {
+    width: 72,
+    height: 72,
     borderRadius: 36,
-    borderWidth: 4,
+    borderWidth: 2,
     borderColor: BRAND_PINK,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  recordButtonIdle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+  recordArcBottom: {
+    position: 'absolute',
+    bottom: 0,
+    width: 72,
+    height: 24,
+    overflow: 'hidden',
   },
-  recordInnerCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: BRAND_PINK,
+  recordArcBottomInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
+    borderColor: BRAND_PINK,
+    position: 'absolute',
+    bottom: 0,
   },
-  recordButtonActive: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: BRAND_PINK,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopSquare: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+  recordButtonText: {
+    color: BRAND_PINK,
+    fontSize: 20,
+    fontFamily: Fonts.semiBold,
+    textAlign: 'center',
+    zIndex: 1,
   },
   permissionTitle: {
     fontSize: 24,

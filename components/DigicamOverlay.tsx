@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
   Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from 'react-native-reanimated';
 
 const FOCUS_BLUE = '#2563EB';
@@ -90,47 +90,6 @@ function BracketCorner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
     </View>
   );
 }
-
-// ── Battery icon (decorative, always full) ──
-function BatteryIcon() {
-  return (
-    <View style={batteryStyles.container}>
-      <View style={batteryStyles.body}>
-        <View style={batteryStyles.fill} />
-      </View>
-      <View style={batteryStyles.tip} />
-    </View>
-  );
-}
-
-const batteryStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  body: {
-    width: 20,
-    height: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 2,
-    padding: 1,
-    justifyContent: 'center',
-  },
-  fill: {
-    flex: 1,
-    backgroundColor: '#4ADE80',
-    borderRadius: 1,
-  },
-  tip: {
-    width: 2,
-    height: 5,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderTopRightRadius: 1,
-    borderBottomRightRadius: 1,
-    marginLeft: 1,
-  },
-});
 
 // ═══════════════════════════════════════
 // Main overlay
@@ -267,15 +226,14 @@ function DigicamOverlay({ isWorking, elapsedSeconds }: DigicamOverlayProps) {
           <Text style={styles.clockText}>{formatClock(now)}</Text>
         </View>
 
-        <View style={styles.bottomRight}>
-          <Image
-            source={require('../assets/images/logo-no-bg.png')}
-            style={styles.brandLogo}
-            resizeMode="contain"
-          />
-          <BatteryIcon />
-        </View>
       </View>
+
+      {/* ── Brand logo (absolute bottom-right) ── */}
+      <Image
+        source={require('../assets/images/logo-no-bg.png')}
+        style={styles.brandLogo}
+        resizeMode="contain"
+      />
     </View>
   );
 }
@@ -390,13 +348,12 @@ const styles = StyleSheet.create({
     color: ACCENT_ORANGE,
     ...TEXT_SHADOW,
   },
-  bottomRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
   brandLogo: {
-    height: 20,
-    width: 60,
-    opacity: 0.7,
+    position: 'absolute',
+    bottom: -20,
+    right: 0,
+    height: 100,
+    width: 84,
+    opacity: 0.85,
   },
 });

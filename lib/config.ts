@@ -24,4 +24,4 @@ export const NOTIFICATION_DEV_MODE_ENABLED: boolean = false;
 // - true: Shows a "Dev" button next to the record button that simulates a 4-minute session
 // - false: Production behavior (no dev button)
 // ============================================================
-export const SESSION_DEV_MODE_ENABLED: boolean = true;
+export const SESSION_DEV_MODE_ENABLED: boolean = false;

@@ -13,7 +13,6 @@ import MonthlyBarChart from '../../components/analytics/MonthlyBarChart';
 import PeriodNavigator from '../../components/analytics/PeriodNavigator';
 import ShareableWatermark from '../../components/analytics/ShareableWatermark';
 import StatsGrid from '../../components/analytics/StatsGrid';
-import StreakDisplay from '../../components/analytics/StreakDisplay';
 import SummaryCard from '../../components/analytics/SummaryCard';
 import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
@@ -31,7 +30,6 @@ import {
 } from '../../lib/tinybird';
 import { useSessionStore, type LocalSession } from '../../store/useSessionStore';
 import { useOnboardingStore } from '../../store/useOnboardingStore';
-import { useProfileStatsStore } from '../../store/useProfileStatsStore';
 import type { AnalyticsTab, BadgeProgressItem, HourlyData, StatItem } from '../../types/analytics';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -275,7 +273,6 @@ export default function AnalyticsScreen() {
   );
 
   // Derived weekly data
-  const weeklyStats = useMemo(() => buildStats(weeklySessions), [weeklySessions]);
   const weeklyTotalHours = useMemo(
     () => weeklySessions.reduce((a, s) => a + s.total_locked_in_seconds, 0) / 3600,
     [weeklySessions],
@@ -313,9 +310,6 @@ export default function AnalyticsScreen() {
       })),
     [monthlyActivityByDate],
   );
-
-  // Use Tinybird-corrected streak from profile stats store
-  const streak = useProfileStatsStore((s) => s.streak);
 
   // Dynamic target hours from onboarding
   const targetHours = useOnboardingStore((s) => s.quizAnswers.targetHours);
@@ -415,16 +409,13 @@ export default function AnalyticsScreen() {
             targetHours={targetHours}
             stats={dailyStats}
             hourlyData={dailyHourly}
-            streak={streak}
           />
         )}
         {selectedTab === 'weekly' && (
           <WeeklyContent
             weekReferenceDate={weekStart}
             totalHours={weeklyTotalHours}
-            stats={weeklyStats}
             dailyActivity={weeklyDailyActivity}
-            streak={streak}
           />
         )}
         {selectedTab === 'monthly' && (
@@ -449,13 +440,11 @@ function DailyContent({
   targetHours,
   stats,
   hourlyData,
-  streak,
 }: {
   totalHours: number;
   targetHours: number;
   stats: StatItem[];
   hourlyData: HourlyData[];
-  streak: number;
 }) {
   return (
     <>
@@ -473,11 +462,6 @@ function DailyContent({
       <View style={styles.section}>
         <HourlyTimeline data={hourlyData} />
       </View>
-
-      {/* Streak */}
-      <View style={styles.section}>
-        <StreakDisplay streak={streak} variant="compact" />
-      </View>
     </>
   );
 }
@@ -487,21 +471,22 @@ function DailyContent({
 function WeeklyContent({
   weekReferenceDate,
   totalHours,
-  stats,
   dailyActivity,
-  streak,
 }: {
   weekReferenceDate: Date;
   totalHours: number;
-  stats: StatItem[];
   dailyActivity: { date: string; totalMinutes: number }[];
-  streak: number;
 }) {
   return (
     <>
       {/* Summary Card */}
       <View style={styles.section}>
         <SummaryCard title="Weekly Focus" hours={totalHours} percentChange={null} />
+      </View>
+
+      {/* Heatmap */}
+      <View style={styles.section}>
+        <ActivityHeatmap data={dailyActivity} />
       </View>
 
       {/* Weekly Bar Chart */}
@@ -511,21 +496,6 @@ function WeeklyContent({
           referenceDate={weekReferenceDate}
           title="Weekly Activity"
         />
-      </View>
-
-      {/* Stats Grid */}
-      <View style={styles.section}>
-        <StatsGrid stats={stats} columns={2} />
-      </View>
-
-      {/* Heatmap */}
-      <View style={styles.section}>
-        <ActivityHeatmap data={dailyActivity} />
-      </View>
-
-      {/* Streak */}
-      <View style={styles.section}>
-        <StreakDisplay streak={streak} variant="full" />
       </View>
     </>
   );

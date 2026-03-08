@@ -26,7 +26,8 @@ function formatSleepTimeDisplay(sleepTime: SleepTime): string {
 
 export default function SettingsPageScreen() {
   const insets = useSafeAreaInsets();
-  const { user, signOut } = useAuth();
+  const { user, signOut, deleteAccount } = useAuth();
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const userName = user?.user_metadata?.full_name || 'User';
   const userEmail = user?.email || '';
@@ -48,6 +49,45 @@ export default function SettingsPageScreen() {
   const isCurrentlyLocked = useAppLockStore((s) => s.isCurrentlyLocked);
   const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
   const canClaim = !isFullyUnlocked && isCurrentlyLocked && availableScreenTime >= 60;
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all associated data. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              'All your sessions, badges, and progress will be permanently lost.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete Permanently',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setIsDeletingAccount(true);
+                    try {
+                      await deleteAccount();
+                    } catch (error) {
+                      setIsDeletingAccount(false);
+                      Alert.alert(
+                        'Error',
+                        error instanceof Error ? error.message : 'Failed to delete account. Please try again.'
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -223,6 +263,20 @@ export default function SettingsPageScreen() {
                 <Text style={[styles.rowTitle, { color: '#ec4899' }]}>Log Out</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#666" />
+            </Pressable>
+
+            <View style={styles.separator} />
+
+            <Pressable style={styles.row} onPress={handleDeleteAccount} disabled={isDeletingAccount}>
+              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                <Ionicons name="trash-outline" size={20} color="#ef4444" />
+              </View>
+              <View style={styles.rowTextContainer}>
+                <Text style={[styles.rowTitle, { color: '#ef4444' }]}>
+                  {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+                </Text>
+              </View>
+              {!isDeletingAccount && <Ionicons name="chevron-forward" size={18} color="#666" />}
             </Pressable>
           </View>
         </View>

@@ -18,6 +18,7 @@ interface AuthContextType {
   isInitialized: boolean;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 // Create context
@@ -319,12 +320,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Delete account permanently via edge function
+  const deleteAccount = async () => {
+    try {
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        throw new Error('No active session');
+      }
+
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const token = currentSession?.access_token || accessToken;
+
+      const response = await supabase.functions.invoke('delete-account', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to delete account');
+      }
+
+      // Clear all local state (same as sign out)
+      isSigningOut.current = true;
+      setSession(null);
+      lastValidSession.current = null;
+      clearAllUserData();
+      await useSubscriptionStore.getState().logoutUser();
+      useSubscriptionStore.getState().reset();
+
+      // Sign out locally to clean up Supabase client state
+      await supabase.auth.signOut();
+    } catch (error) {
+      isSigningOut.current = false;
+      console.error('[Auth] Delete account error:', error);
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     session,
     user: session?.user ?? null,
     isInitialized,
     signInWithApple,
     signOut,
+    deleteAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

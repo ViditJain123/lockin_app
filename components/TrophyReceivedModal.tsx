@@ -4,6 +4,7 @@ import React from 'react';
 import {
   Dimensions,
   Image,
+  ImageBackground,
   Modal,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import { Fonts } from '@/constants/Fonts';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const nightSkyBackground = require('../assets/images/night-sky-background.jpeg');
 const trophyRibbon = require('../assets/images/trophy_ribbon.png');
 
 const RIBBON_WIDTH = SCREEN_WIDTH;
@@ -63,8 +65,13 @@ export default function TrophyReceivedModal({
       transparent={false}
       onRequestClose={onClose}
     >
+      <ImageBackground
+        source={nightSkyBackground}
+        style={styles.container}
+        resizeMode="cover"
+      >
       <LinearGradient
-        colors={['#1a0a3e', '#120625', '#0a0015']}
+        colors={['rgba(26, 10, 62, 0.85)', 'rgba(18, 6, 37, 0.9)', 'rgba(10, 0, 21, 0.95)']}
         style={styles.container}
       >
         {/* Close button */}
@@ -88,7 +95,7 @@ export default function TrophyReceivedModal({
               resizeMode="stretch"
             />
             <View style={styles.badgeOverlay}>
-              <BadgeImage badgeId={badge.id} size={200} showGlow />
+              <BadgeImage badgeId={badge.id} size={200} />
             </View>
           </View>
 
@@ -115,6 +122,7 @@ export default function TrophyReceivedModal({
           </View>
         </View>
       </LinearGradient>
+      </ImageBackground>
     </Modal>
   );
 }

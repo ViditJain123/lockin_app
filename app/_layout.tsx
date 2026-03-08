@@ -65,6 +65,7 @@ import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager
 import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
 import { useSessionStore } from '../store/useSessionStore';
 import { getLocalDateString } from '../lib/dateUtils';
+import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import {
   onDeviceActivityMonitorEvent,
   updateShield,
@@ -134,6 +135,9 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
+  // Initialize notification system
+  useNotificationSetup();
+
   // Force dark mode throughout the app
   const colorScheme = 'dark' as const;
   const { session, isInitialized } = useAuth();

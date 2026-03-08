@@ -204,9 +204,7 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             )}
-            <View style={styles.streakBadge}>
-              <Text style={styles.streakBadgeText}>{hasHydrated && streak != null ? streak : '-'}</Text>
-            </View>
+
           </View>
           <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
         </View>
@@ -315,24 +313,6 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontFamily: Fonts.bold,
     color: 'rgba(255,255,255,0.4)',
-  },
-  streakBadge: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    backgroundColor: PINK,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#000000',
-  },
-  streakBadgeText: {
-    fontSize: 14,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
   },
   userName: {
     fontSize: 24,
