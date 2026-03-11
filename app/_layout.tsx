@@ -44,37 +44,37 @@ import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import SolutionRevealScreen from '../components/quiz/questions/SolutionRevealScreen';
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
 import WorkingScreen from '../components/quiz/questions/WorkingScreen';
-import { useSubscriptionStore, useIsSubscribed } from '../store/useSubscriptionStore';
+import { useIsSubscribed, useSubscriptionStore } from '../store/useSubscriptionStore';
 // Family Controls screens
-import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system/legacy';
+import {
+  blockSelection,
+  getAppGroupFileDirectory,
+  onDeviceActivityMonitorEvent,
+  setFamilyActivitySelectionId,
+  updateShield,
+} from 'react-native-device-activity';
 import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
 import HowItWorksScreen from '../components/quiz/questions/HowItWorksScreen';
 import NotificationPermissionScreen from '../components/quiz/questions/NotificationPermissionScreen';
 import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
+import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 import TrophyReceivedModal from '../components/TrophyReceivedModal';
 import { getBadgeById } from '../constants/Badges';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { useNotificationSetup } from '../hooks/useNotificationSetup';
+import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
+import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
+import { getLocalDateString } from '../lib/dateUtils';
+import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
+import { useAppLockStore } from '../store/useAppLockStore';
 import { useBadgeStore, usePendingNewBadges } from '../store/useBadgeStore';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
-import { useAppLockStore } from '../store/useAppLockStore';
-import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
-import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
-import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
 import { useSessionStore } from '../store/useSessionStore';
-import { getLocalDateString } from '../lib/dateUtils';
-import { useNotificationSetup } from '../hooks/useNotificationSetup';
-import {
-  blockSelection,
-  onDeviceActivityMonitorEvent,
-  updateShield,
-  setFamilyActivitySelectionId,
-  getAppGroupFileDirectory,
-} from 'react-native-device-activity';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Asset } from 'expo-asset';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -231,8 +231,8 @@ function RootLayoutNav() {
       updateShield(
         {
           ...(iconPath ? { iconAppGroupRelativePath: iconPath } : { iconSystemName: 'lock.shield.fill' }),
-          title: 'Lock In Club',
-          subtitle: 'Open the app and record a focus session to earn screen time. Tap the button below to start!',
+          title: 'App is locked',
+          subtitle: 'Profile -> Settings -> Claim to unlock',
           backgroundColor: { red: 0, green: 0, blue: 0 },
           titleColor: { red: 255, green: 255, blue: 255 },
           subtitleColor: { red: 200, green: 200, blue: 200 },

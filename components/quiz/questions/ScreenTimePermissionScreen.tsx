@@ -8,6 +8,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -151,9 +152,9 @@ export default function ScreenTimePermissionScreen({
 
                   {/* Mock buttons */}
                   <View style={styles.dialogButtons}>
-                    <View style={styles.dialogButton}>
+                    <TouchableOpacity style={styles.dialogButton} onPress={handleContinue}>
                       <Text style={styles.dialogButtonText}>Continue</Text>
-                    </View>
+                    </TouchableOpacity>
                     <View style={[styles.dialogButton, styles.dialogButtonSecondary]}>
                       <Text style={styles.dialogButtonTextSecondary}>Don't Allow</Text>
                     </View>
