@@ -26,6 +26,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import AuthScreen from '../components/AuthScreen';
+import TabletContainer from '../components/TabletContainer';
 import HardPaywallScreen from '../components/HardPaywallScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
 import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
@@ -310,6 +311,7 @@ function RootLayoutNav() {
     if (isInQuizFunnel) {
       return (
         <GestureHandlerRootView style={styles.container}>
+          <TabletContainer>
           <StatusBar style="light" />
           {/* Question 1: Name */}
           {currentQuestionIndex === 0 && (
@@ -538,6 +540,7 @@ function RootLayoutNav() {
               }}
             />
           )}
+          </TabletContainer>
         </GestureHandlerRootView>
       );
     }
@@ -545,8 +548,10 @@ function RootLayoutNav() {
     // Show initial onboarding screen
     return (
       <GestureHandlerRootView style={styles.container}>
-        <StatusBar style="light" />
-        <OnboardingScreen onComplete={startQuizFunnel} />
+        <TabletContainer>
+          <StatusBar style="light" />
+          <OnboardingScreen onComplete={startQuizFunnel} />
+        </TabletContainer>
       </GestureHandlerRootView>
     );
   }
@@ -555,8 +560,10 @@ function RootLayoutNav() {
   if (!session) {
     return (
       <GestureHandlerRootView style={styles.container}>
-        <StatusBar style="light" />
-        <AuthScreen />
+        <TabletContainer>
+          <StatusBar style="light" />
+          <AuthScreen />
+        </TabletContainer>
       </GestureHandlerRootView>
     );
   }
@@ -570,14 +577,17 @@ function RootLayoutNav() {
   if (hasCompletedOnboarding && !isSubscribed) {
     return (
       <GestureHandlerRootView style={styles.container}>
-        <StatusBar style="light" />
-        <HardPaywallScreen />
+        <TabletContainer>
+          <StatusBar style="light" />
+          <HardPaywallScreen />
+        </TabletContainer>
       </GestureHandlerRootView>
     );
   }
 
   return (
     <GestureHandlerRootView style={styles.container}>
+      <TabletContainer>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <Stack>
@@ -626,6 +636,7 @@ function RootLayoutNav() {
           onAddToCollection={handleDismissTrophy}
         />
       </ThemeProvider>
+      </TabletContainer>
     </GestureHandlerRootView>
   );
 }

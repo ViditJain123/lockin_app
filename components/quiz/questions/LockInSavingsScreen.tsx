@@ -27,7 +27,8 @@ import { animationReveal } from '../../../lib/haptics';
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 const AURORA_HEIGHT = 350;
 
 // Animation timing

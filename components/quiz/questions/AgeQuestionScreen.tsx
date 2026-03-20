@@ -22,7 +22,8 @@ import { Fonts } from '../../../constants/Fonts';
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
 const ageImage = require('../../../assets/images/age.png');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 
 // Age options with age-appropriate emojis
 const AGE_OPTIONS = [

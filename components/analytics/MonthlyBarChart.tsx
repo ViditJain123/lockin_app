@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function MonthlyBarChart({ referenceDate, activityByDate }: Props) {
-  const screenWidth = Dimensions.get('window').width;
+  const screenWidth = Math.min(Dimensions.get('window').width, 430);
   const chartWidth = screenWidth - 24 - 32;
 
   const CHART_HEIGHT = 120;

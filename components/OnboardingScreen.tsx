@@ -18,7 +18,8 @@ import { Fonts } from '../constants/Fonts';
 const nightSkyBackground = require('../assets/images/night-sky-background.jpeg');
 const logo = require('../assets/images/logo-no-bg.png');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 
 interface OnboardingScreenProps {
   onComplete: () => void;

@@ -33,7 +33,8 @@ const nightSkyBackground = require('../../../assets/images/night-sky-background.
 const featherLeft = require('../../../assets/images/feather-left.png');
 const featherRight = require('../../../assets/images/feather-right.png');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 const AURORA_HEIGHT = 300;
 
 // Animation timing constants

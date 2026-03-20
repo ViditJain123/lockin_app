@@ -17,7 +17,7 @@ import { Fonts } from '../constants/Fonts';
 const nightSkyBackground = require('../assets/images/night-sky-background.jpeg');
 const logo = require('../assets/images/logo-no-bg.png');
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();

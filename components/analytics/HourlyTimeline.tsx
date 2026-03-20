@@ -18,7 +18,7 @@ interface Props {
 }
 
 export default function HourlyTimeline({ data }: Props) {
-  const screenWidth = Dimensions.get('window').width;
+  const screenWidth = Math.min(Dimensions.get('window').width, 430);
   const chartWidth = screenWidth - 24 - 32; // screen padding + card padding
   const CHART_HEIGHT = 80;
   const BAR_GAP = 2;

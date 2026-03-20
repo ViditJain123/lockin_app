@@ -20,7 +20,8 @@ import { Fonts } from '../../../constants/Fonts';
 // Assets
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 
 // Conversion rate options
 type ConversionRate = '6:1' | '4:1' | '3:1';

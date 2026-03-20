@@ -17,7 +17,7 @@ import { Fonts } from '../constants/Fonts';
 import { useAppLockStore } from '../store/useAppLockStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 
 const MOTIVATIONAL_MESSAGES = [
   "You just outworked 99% of people.",

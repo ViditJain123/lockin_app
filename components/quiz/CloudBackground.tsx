@@ -8,7 +8,7 @@ import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 import { BrandColors } from '../../constants/BrandColors';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 
 interface CloudBackgroundProps {
   height?: number;

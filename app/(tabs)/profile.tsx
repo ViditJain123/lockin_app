@@ -29,10 +29,11 @@ import VideoGridItem from '../../components/VideoGridItem';
 import FeaturedBadges from '../../components/FeaturedBadges';
 import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+import { getContentWidth } from '../../lib/responsive';
+
 const GRID_GAP = 4;
 const GRID_COLUMNS = 3;
-const GRID_ITEM_SIZE = (SCREEN_WIDTH - 32 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+const GRID_ITEM_SIZE = (getContentWidth() - 32 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 const PINK = '#FF3B5C';
 
 function formatStat(value: number): string {

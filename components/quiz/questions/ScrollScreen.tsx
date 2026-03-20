@@ -21,7 +21,8 @@ import { Fonts } from '../../../constants/Fonts';
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
 const scrollGif = require('../../../assets/images/scroll.gif');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 
 // Timer constants
 const MINUTE_CYCLE_DURATION = 12720; // 2 seconds to cycle through all numbers

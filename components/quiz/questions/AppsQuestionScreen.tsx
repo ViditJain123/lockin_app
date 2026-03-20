@@ -23,7 +23,8 @@ import { Fonts } from '../../../constants/Fonts';
 const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
 const timerImage = require('../../../assets/images/timer-onboarding.png');
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 
 // Icon size for app icons
 const ICON_SIZE = 20;

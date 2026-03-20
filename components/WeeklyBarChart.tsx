@@ -28,7 +28,7 @@ interface DayData {
 }
 
 export default function WeeklyBarChart({ data, days = 7, referenceDate, title }: WeeklyBarChartProps) {
-  const screenWidth = Dimensions.get('window').width;
+  const screenWidth = Math.min(Dimensions.get('window').width, 430);
   const chartWidth = screenWidth - 24 - 32; // Account for screen padding (12*2) and card padding (16*2)
 
   // Chart dimensions

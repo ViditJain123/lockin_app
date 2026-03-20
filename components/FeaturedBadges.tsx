@@ -6,13 +6,15 @@ import { StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'r
 import BadgeImage from './BadgeImage';
 
 import { Fonts } from '@/constants/Fonts';
+import { MAX_CONTENT_WIDTH } from '@/lib/responsive';
 import { useBadgeStore } from '@/store/useBadgeStore';
 
 const FEATURED_COUNT = 5;
 const HORIZONTAL_PADDING = 20; // Padding on each side of the container
 
 function FeaturedBadges() {
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: rawWidth } = useWindowDimensions();
+  const screenWidth = Math.min(rawWidth, MAX_CONTENT_WIDTH);
   const getRecentlyEarnedBadges = useBadgeStore((s) => s.getRecentlyEarnedBadges);
   const earnedBadges = useBadgeStore((s) => s.earnedBadges);
 

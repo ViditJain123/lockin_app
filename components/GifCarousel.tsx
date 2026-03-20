@@ -17,7 +17,7 @@ const gifs = [
   require('../assets/images/gif5.gif'),
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 
 // Frame dimensions and styling
 const FRAME_WIDTH = 120;

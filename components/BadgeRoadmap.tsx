@@ -8,7 +8,7 @@ import { BadgeCategory, BadgeDefinition, BADGES_BY_CATEGORY } from '@/constants/
 import { useBadgeStore } from '@/store/useBadgeStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 const PATH_WIDTH = SCREEN_WIDTH - 32;
 const ITEM_HEIGHT = 140;
 
