@@ -1,4 +1,7 @@
+import { isTablet } from '@/lib/responsive';
 import { useRecordingStore } from '@/store/useRecordingStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
 
@@ -8,10 +11,65 @@ export default function TabLayout() {
   const isPreparing = useRecordingStore((s) => s.isPreparing);
   const isCountingDown = useRecordingStore((s) => s.isCountingDown);
 
+  const hideTabBar = isSessionActive || isFinishing || isPreparing || isCountingDown;
+
+  if (isTablet()) {
+    return (
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: '#FF3B5C',
+          tabBarInactiveTintColor: '#888',
+          tabBarStyle: {
+            backgroundColor: '#000',
+            display: hideTabBar ? 'none' : 'flex',
+          },
+          headerShown: false,
+        }}
+      >
+        <Tabs.Screen
+          name="analytics"
+          options={{
+            title: 'Analytics',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="analytics-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="tasks"
+          options={{
+            title: 'Tasks',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="checkbox-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="person" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Camera',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="camera" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+    );
+  }
+
   return (
     <NativeTabs
       tintColor="#FF3B5C"
-      tabBarHidden={isSessionActive || isFinishing || isPreparing || isCountingDown}
+      tabBarHidden={hideTabBar}
       backgroundColor="#000000"
       minimizeBehavior="onScrollDown"
     >

@@ -10,7 +10,7 @@
 // - 'force': Always show onboarding (ignores completion state)
 // - 'normal': Production behavior (show onboarding only if not completed)
 // ============================================================
-export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'normal';
+export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'skip';
 
 // ============================================================
 // NOTIFICATION DEV MODE:
@@ -25,3 +25,17 @@ export const NOTIFICATION_DEV_MODE_ENABLED: boolean = false;
 // - false: Production behavior (no dev button)
 // ============================================================
 export const SESSION_DEV_MODE_ENABLED: boolean = false;
+
+// ============================================================
+// ATTRIBUTION DEV MODE:
+// - true: Bypasses fingerprint matching, logs all attribution events to console
+// - false: Production behavior (normal fingerprint-based deferred matching)
+// ============================================================
+export const ATTRIBUTION_DEV_MODE: boolean = false;
+
+// ============================================================
+// PAYWALL SIGN OUT BUTTON:
+// - true: Shows a "Sign Out" button at the bottom of the hard paywall screen
+// - false: Hides the sign out button (users must subscribe to proceed)
+// ============================================================
+export const PAYWALL_SIGN_OUT_ENABLED: boolean = false;

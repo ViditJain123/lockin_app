@@ -17,6 +17,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Stack } from 'expo-router';
+import * as Linking from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { setBackgroundColorAsync } from 'expo-system-ui';
@@ -69,6 +70,7 @@ import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
+import { parseUTMParams, storePendingAttribution } from '../lib/attribution';
 import { preloadAllBadges } from '../lib/badgeAssetCache';
 import { getLocalDateString } from '../lib/dateUtils';
 import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
@@ -176,6 +178,21 @@ function RootLayoutNav() {
       useBadgeStore.getState().markBadgeAsSeen(pendingNewBadges[0]);
     }
   }, [pendingNewBadges]);
+
+  // Deep link listener for UTM attribution
+  useEffect(() => {
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        const params = parseUTMParams(url);
+        if (params) storePendingAttribution(params);
+      }
+    });
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      const params = parseUTMParams(url);
+      if (params) storePendingAttribution(params);
+    });
+    return () => sub.remove();
+  }, []);
 
   // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {

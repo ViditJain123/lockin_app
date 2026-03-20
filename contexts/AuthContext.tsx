@@ -4,6 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
+import { resolveAttribution } from '../lib/attribution';
 import { supabase } from '../lib/supabase';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
 import { useBadgeStore } from '../store/useBadgeStore';
@@ -166,6 +167,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               target_hours: targetHours,
             }).catch((err) =>
               console.warn('[Auth] Failed to upsert user row:', err)
+            );
+            // Resolve attribution (deep link or deferred fingerprint match)
+            resolveAttribution(newSession.user.id).catch((err) =>
+              console.warn('[Auth] Attribution resolution failed:', err)
             );
           }
           return;

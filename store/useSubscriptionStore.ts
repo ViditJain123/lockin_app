@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { scheduleTrialEndNotification, cancelTrialEndNotification } from '../lib/notificationService';
+import { supabase } from '../lib/supabase';
 
 // Storage key
 const SUBSCRIPTION_STORAGE_KEY = 'lockin-subscription-state';
@@ -155,8 +156,16 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           }
 
           // Configure RevenueCat with platform-specific key
+          // Pass appUserID upfront if user is already signed in to avoid
+          // anonymous→identified transfer which causes RECEIPT_ALREADY_IN_USE errors
           if (Platform.OS === 'ios' || Platform.OS === 'android') {
-            Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+            const { data } = await supabase.auth.getSession();
+            const appUserID = data?.session?.user?.id;
+
+            Purchases.configure({
+              apiKey: REVENUECAT_API_KEY,
+              ...(appUserID && { appUserID }),
+            });
           }
 
           // Set up customer info listener for real-time updates
@@ -334,8 +343,46 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             subscriptionInfo,
             isSubscribed: subscriptionInfo.isActive,
           });
-        } catch (error) {
-          console.error('[Subscription] Login error:', error);
+
+          // Tag RevenueCat with attribution data for revenue reporting
+          try {
+            const attributionData = await AsyncStorage.getItem('resolved_attribution');
+            if (attributionData) {
+              const attrs = JSON.parse(attributionData);
+              await Purchases.setAttributes({
+                '$campaign': attrs.utm_campaign || '',
+                '$mediaSource': attrs.utm_source || '',
+                '$adGroup': attrs.utm_medium || '',
+                '$creative': attrs.utm_content || '',
+                '$keyword': attrs.utm_term || '',
+              });
+              console.log('[Subscription] Attribution attributes set on RevenueCat');
+            }
+          } catch (attrError) {
+            console.warn('[Subscription] Failed to set attribution attributes:', attrError);
+          }
+        } catch (error: any) {
+          // Handle RECEIPT_ALREADY_IN_USE (error 7102) gracefully
+          // This happens when the Apple receipt is already linked to a different RevenueCat user
+          if (
+            error?.userInfo?.rc_backend_error_code === 7102 ||
+            error?.code === 'RECEIPT_ALREADY_IN_USE'
+          ) {
+            console.warn('[Subscription] Receipt already in use, restoring purchases...');
+            try {
+              const customerInfo = await Purchases.restorePurchases();
+              const subscriptionInfo = extractSubscriptionInfo(customerInfo);
+              set({
+                customerInfo,
+                subscriptionInfo,
+                isSubscribed: subscriptionInfo.isActive,
+              });
+            } catch (restoreError) {
+              console.error('[Subscription] Restore also failed:', restoreError);
+            }
+          } else {
+            console.error('[Subscription] Login error:', error);
+          }
         }
       },
 

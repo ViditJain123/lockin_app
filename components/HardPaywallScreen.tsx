@@ -10,6 +10,7 @@ import RevenueCatUI from 'react-native-purchases-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '../constants/Fonts';
+import { PAYWALL_SIGN_OUT_ENABLED } from '../lib/config';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -64,15 +65,17 @@ export default function HardPaywallScreen() {
         }}
       />
 
-      {/* Sign Out link at bottom */}
-      <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 20 }]}>
-        <Pressable
-          onPress={handleSignOut}
-          style={({ pressed }) => [pressed && styles.buttonPressed]}
-        >
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </Pressable>
-      </View>
+      {/* Sign Out link at bottom (toggleable via config) */}
+      {PAYWALL_SIGN_OUT_ENABLED && (
+        <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 20 }]}>
+          <Pressable
+            onPress={handleSignOut}
+            style={({ pressed }) => [pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

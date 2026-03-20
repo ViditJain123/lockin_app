@@ -18,6 +18,7 @@
       "appleTeamId": "CCQU7Z66V5",
       "supportsTablet": true,
       "usesAppleSignIn": true,
+      "associatedDomains": ["applinks:lockin.club"],
       "icon": "./assets/images/logo.jpg",
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording",
