@@ -16,6 +16,7 @@ import Button3D from '../components/Button3D';
 import { Fonts } from '../constants/Fonts';
 import { useAppLockStore } from '../store/useAppLockStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
+import { posthog } from '../lib/posthog';
 
 const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
 
@@ -153,6 +154,11 @@ export default function GrindCompleteScreen() {
   };
 
   const handleClaimConfirm = () => {
+    posthog.capture('screen_time_claimed', {
+      available_screen_time_seconds: availableScreenTime,
+      locked_in_seconds: lockedInSeconds,
+      grind_duration_seconds: durationSeconds,
+    });
     setShowClaimModal(false);
     useAppLockStore.getState().unlockApps();
     router.back();

@@ -26,6 +26,7 @@
         "NSPhotoLibraryUsageDescription": "Access your photos to save timelapse videos",
         "NSFamilyControlsUsageDescription": "LockIn uses Screen Time to help you manage app usage and build better habits",
         "NSMotionUsageDescription": "Used to detect device orientation for timer display",
+        "NSLocationWhenInUseUsageDescription": "This app does not use your location",
         "UIBackgroundModes": [
           "remote-notification"
         ]

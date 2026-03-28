@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { resolveAttribution } from '../lib/attribution';
+import { posthog } from '../lib/posthog';
 import { supabase } from '../lib/supabase';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
 import { useBadgeStore } from '../store/useBadgeStore';
@@ -160,6 +161,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
             await useSubscriptionStore.getState().loginUser(newSession.user.id);
             useTaskStore.getState().setUserId(newSession.user.id);
+            // Identify user in PostHog
+            posthog.identify(newSession.user.id, {
+              $set: { email: newSession.user.email },
+              $set_once: { created_at: newSession.user.created_at },
+            });
+            posthog.capture('user_signed_in');
             // Ensure a users row exists in Supabase and sync onboarding data
             const { sleepTime, targetHours } = useOnboardingStore.getState().quizAnswers;
             upsertUserRow(newSession.user.id, {
@@ -300,6 +307,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       isSigningOut.current = true;
 
+      posthog.capture('user_signed_out');
+      posthog.reset();
+
       // Clear UI state immediately → shows AuthScreen (avoids paywall flash)
       setSession(null);
       lastValidSession.current = null;
@@ -345,6 +355,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Clear all local state (same as sign out)
+      posthog.capture('account_deleted');
+      posthog.reset();
       isSigningOut.current = true;
       setSession(null);
       lastValidSession.current = null;

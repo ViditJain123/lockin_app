@@ -1,0 +1,62 @@
+[
+  {
+    "event": "user_signed_in",
+    "description": "User successfully signs in with Apple Sign-In via Supabase",
+    "file": "contexts/AuthContext.tsx"
+  },
+  {
+    "event": "user_signed_out",
+    "description": "User signs out of the app",
+    "file": "contexts/AuthContext.tsx"
+  },
+  {
+    "event": "account_deleted",
+    "description": "User deletes their account via the delete-account edge function",
+    "file": "contexts/AuthContext.tsx"
+  },
+  {
+    "event": "quiz_started",
+    "description": "User begins the onboarding quiz funnel",
+    "file": "app/_layout.tsx"
+  },
+  {
+    "event": "onboarding_completed",
+    "description": "User completes the full onboarding quiz funnel including payment",
+    "file": "app/_layout.tsx"
+  },
+  {
+    "event": "subscription_purchased",
+    "description": "User successfully purchases a subscription (onboarding paywall)",
+    "file": "components/quiz/questions/PaymentScreen.tsx"
+  },
+  {
+    "event": "subscription_purchased_hard_paywall",
+    "description": "User successfully purchases a subscription from the hard paywall (post-onboarding)",
+    "file": "components/HardPaywallScreen.tsx"
+  },
+  {
+    "event": "subscription_restored",
+    "description": "User successfully restores a prior subscription purchase",
+    "file": "components/HardPaywallScreen.tsx"
+  },
+  {
+    "event": "session_started",
+    "description": "User starts a focus recording session",
+    "file": "app/(tabs)/index.tsx"
+  },
+  {
+    "event": "session_completed",
+    "description": "User completes a focus recording session with locked-in time, distracted time, and distraction count",
+    "file": "app/(tabs)/index.tsx"
+  },
+  {
+    "event": "screen_time_claimed",
+    "description": "User claims their earned screen time reward after completing a grind session",
+    "file": "app/grind-complete.tsx"
+  },
+  {
+    "event": "badge_earned",
+    "description": "User earns a new badge shown in the trophy modal",
+    "file": "app/_layout.tsx"
+  }
+]

@@ -27,6 +27,7 @@ import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
 import { Fonts } from '../../constants/Fonts';
 import { useAuth } from '../../contexts/AuthContext';
 import { SESSION_DEV_MODE_ENABLED } from '../../lib/config';
+import { posthog } from '../../lib/posthog';
 import { getLocalDateString } from '../../lib/dateUtils';
 import * as Haptics from '../../lib/haptics';
 import * as Timelapse from '../../lib/timelapseModule';
@@ -352,6 +353,8 @@ export default function CameraScreen() {
     distractedSecondsRef.current = 0;
     wasDistractedRef.current = false;
 
+    posthog.capture('session_started');
+
     try {
       // Use approximate dimensions for the captured view (3:4 aspect)
       await Timelapse.startRecording(720, 960);
@@ -418,6 +421,13 @@ export default function CameraScreen() {
     };
     console.log('[StopSession] Adding session:', sessionData);
     useSessionStore.getState().addSession(sessionData);
+
+    posthog.capture('session_completed', {
+      locked_in_seconds: lockedInSeconds,
+      distracted_seconds: distractedSeconds,
+      distraction_count: distractionCount,
+      duration_seconds: Math.round((sessionEndTime.getTime() - sessionStartTime.getTime()) / 1000),
+    });
 
     // Credit earned screen time (4:1 ratio)
     useAppLockStore.getState().creditEarnedTime(lockedInSeconds);

@@ -8,6 +8,7 @@ import RevenueCatUI from 'react-native-purchases-ui';
 import Purchases from 'react-native-purchases';
 
 import { useSubscriptionStore, useIsSubscribed } from '../../../store/useSubscriptionStore';
+import { posthog } from '../../../lib/posthog';
 
 interface PaymentScreenProps {
   onContinue: () => void;
@@ -30,6 +31,7 @@ export default function PaymentScreen({ onContinue }: PaymentScreenProps) {
   }, [isSubscribed, onContinue]);
 
   const handlePurchaseCompleted = async () => {
+    posthog.capture('subscription_purchased', { source: 'onboarding_paywall' });
     await useSubscriptionStore.getState().checkSubscriptionStatus();
     onContinue();
   };

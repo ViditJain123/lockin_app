@@ -25,6 +25,7 @@ import { useCallback, useEffect } from 'react';
 import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import { PostHogProvider } from 'posthog-react-native';
 
 import AuthScreen from '../components/AuthScreen';
 import TabletContainer from '../components/TabletContainer';
@@ -78,6 +79,7 @@ import { useAppLockStore } from '../store/useAppLockStore';
 import { useBadgeStore, usePendingNewBadges } from '../store/useBadgeStore';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 import { useSessionStore } from '../store/useSessionStore';
+import { posthog } from '../lib/posthog';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -135,9 +137,11 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <PostHogProvider client={posthog}>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </PostHogProvider>
   );
 }
 
@@ -178,6 +182,13 @@ function RootLayoutNav() {
       useBadgeStore.getState().markBadgeAsSeen(pendingNewBadges[0]);
     }
   }, [pendingNewBadges]);
+
+  // Track badge earned events
+  useEffect(() => {
+    if (firstPendingBadge) {
+      posthog.capture('badge_earned', { badge_id: firstPendingBadge.id, badge_name: firstPendingBadge.name });
+    }
+  }, [firstPendingBadge?.id]);
 
   // Deep link listener for UTM attribution
   useEffect(() => {
@@ -553,6 +564,7 @@ function RootLayoutNav() {
                     });
                   }
                 }
+                posthog.capture('onboarding_completed');
                 completeQuizFunnel();
               }}
             />
@@ -567,7 +579,10 @@ function RootLayoutNav() {
       <GestureHandlerRootView style={styles.container}>
         <TabletContainer>
           <StatusBar style="light" />
-          <OnboardingScreen onComplete={startQuizFunnel} />
+          <OnboardingScreen onComplete={() => {
+            posthog.capture('quiz_started');
+            startQuizFunnel();
+          }} />
         </TabletContainer>
       </GestureHandlerRootView>
     );

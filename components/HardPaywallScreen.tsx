@@ -13,6 +13,7 @@ import { Fonts } from '../constants/Fonts';
 import { PAYWALL_SIGN_OUT_ENABLED } from '../lib/config';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useAuth } from '../contexts/AuthContext';
+import { posthog } from '../lib/posthog';
 
 /**
  * HardPaywallScreen - Blocks app access when user has no active subscription.
@@ -25,11 +26,13 @@ export default function HardPaywallScreen() {
   const { signOut } = useAuth();
 
   const handlePurchaseCompleted = async () => {
+    posthog.capture('subscription_purchased', { source: 'hard_paywall' });
     // Refresh subscription state after purchase
     await useSubscriptionStore.getState().checkSubscriptionStatus();
   };
 
   const handleRestoreCompleted = async () => {
+    posthog.capture('subscription_restored');
     // Refresh subscription state after restore
     await useSubscriptionStore.getState().checkSubscriptionStatus();
   };
@@ -76,6 +79,7 @@ export default function HardPaywallScreen() {
           </Pressable>
         </View>
       )}
+
     </View>
   );
 }
