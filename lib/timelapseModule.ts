@@ -7,9 +7,9 @@ const noopString = async () => '';
 
 const isIOS = Platform.OS === 'ios';
 
-export function startRecording(width: number, height: number): Promise<void> {
+export function startRecording(width: number, height: number, orientation?: string): Promise<void> {
   if (!isIOS) return noop();
-  return TimelapseModule.startRecording(width, height);
+  return TimelapseModule.startRecording(width, height, orientation ?? 'portrait');
 }
 
 export function addFrame(base64: string): Promise<void> {

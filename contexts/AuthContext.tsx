@@ -5,6 +5,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
 import { resolveAttribution } from '../lib/attribution';
+import { notifyDiscord } from '../lib/discordNotify';
 import { posthog } from '../lib/posthog';
 import { supabase } from '../lib/supabase';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
@@ -167,11 +168,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               $set_once: { created_at: newSession.user.created_at },
             });
             posthog.capture('user_signed_in');
+            // Notify Discord on new sign-ups (not returning logins)
+            const isNewUser = Date.now() - new Date(newSession.user.created_at).getTime() < 60_000;
+            if (isNewUser) {
+              notifyDiscord('signup', newSession.user.email ?? 'unknown');
+            }
             // Ensure a users row exists in Supabase and sync onboarding data
-            const { sleepTime, targetHours } = useOnboardingStore.getState().quizAnswers;
+            const { sleepTime, targetHours, name } = useOnboardingStore.getState().quizAnswers;
+            const displayName = name || newSession.user.user_metadata?.full_name || null;
             upsertUserRow(newSession.user.id, {
               sleep_time: convertSleepTimeTo24h(sleepTime),
               target_hours: targetHours,
+              display_name: displayName,
             }).catch((err) =>
               console.warn('[Auth] Failed to upsert user row:', err)
             );

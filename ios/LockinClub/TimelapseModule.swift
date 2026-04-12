@@ -18,15 +18,24 @@ class TimelapseModule: NSObject {
     return false
   }
 
-  @objc func startRecording(_ width: Double, height: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc func startRecording(_ width: Double, height: Double, orientation: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
 
       // Clean up any previous session
       self.cleanup()
 
-      self.videoWidth = Int(width)
-      self.videoHeight = Int(height)
+      // Set dimensions based on orientation
+      let isLandscape = orientation == "landscape-left" || orientation == "landscape-right"
+      if isLandscape {
+        // Landscape: wider than tall
+        self.videoWidth = max(Int(width), Int(height))
+        self.videoHeight = min(Int(width), Int(height))
+      } else {
+        // Portrait: taller than wide
+        self.videoWidth = min(Int(width), Int(height))
+        self.videoHeight = max(Int(width), Int(height))
+      }
       // Ensure even dimensions (required by H.264)
       if self.videoWidth % 2 != 0 { self.videoWidth += 1 }
       if self.videoHeight % 2 != 0 { self.videoHeight += 1 }

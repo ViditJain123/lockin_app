@@ -1,96 +1,60 @@
+import CountdownOverlay from '@/components/CountdownOverlay';
+import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholder';
+import GlassIconButton from '@/components/GlassIconButton';
+import GlassRecordButton from '@/components/GlassRecordButton';
+import ShortTimelapseWarningModal from '@/components/ShortTimelapseWarningModal';
+import { Fonts } from '@/constants/Fonts';
+import { useAuth } from '@/contexts/AuthContext';
+import { SESSION_DEV_MODE_ENABLED } from '@/lib/config';
+import { getLocalDateString } from '@/lib/dateUtils';
+import * as Haptics from '@/lib/haptics';
+import { posthog } from '@/lib/posthog';
+import * as Timelapse from '@/lib/timelapseModule';
+import { sendSessionEvent } from '@/lib/tinybird';
+import { useAppLockStore } from '@/store/useAppLockStore';
+import { useProfileStatsStore } from '@/store/useProfileStatsStore';
+import { useOrientationDetection } from '@/hooks/useOrientationDetection';
+import { useRecordingStore } from '@/store/useRecordingStore';
+import { useSessionStore } from '@/store/useSessionStore';
+import { useTaskStore } from '@/store/useTaskStore';
+import { useVideoGalleryStore } from '@/store/useVideoGalleryStore';
+import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useKeepAwake } from 'expo-keep-awake';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Dimensions,
+  LayoutChangeEvent,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import 'react-native-get-random-values';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { captureRef } from 'react-native-view-shot';
-import { Camera, useCameraDevice, useCameraFormat, useCameraPermission, useFrameProcessor } from 'react-native-vision-camera';
-import type { Face } from 'react-native-vision-camera-face-detector';
-import { useFaceDetector } from 'react-native-vision-camera-face-detector';
-import { Worklets } from 'react-native-worklets-core';
 import { v4 as uuidv4 } from 'uuid';
-import DigicamOverlay from '../../components/DigicamOverlay';
-import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
-import { Fonts } from '../../constants/Fonts';
-import { useAuth } from '../../contexts/AuthContext';
-import { SESSION_DEV_MODE_ENABLED } from '../../lib/config';
-import { posthog } from '../../lib/posthog';
-import { getLocalDateString } from '../../lib/dateUtils';
-import * as Haptics from '../../lib/haptics';
-import * as Timelapse from '../../lib/timelapseModule';
-import { sendSessionEvent } from '../../lib/tinybird';
-import { useAppLockStore } from '../../store/useAppLockStore';
-import { useProfileStatsStore } from '../../store/useProfileStatsStore';
-import { useRecordingStore } from '../../store/useRecordingStore';
-import { useSessionStore } from '../../store/useSessionStore';
-import { useVideoGalleryStore } from '../../store/useVideoGalleryStore';
 
-const WORKING_COLOR = '#2563EB';
-const PAUSED_COLOR = '#F97316';
-const BRAND_PINK = '#FF3B5C';
-const EYE_OPEN_THRESHOLD = 0.4;
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CAPTURE_INTERVAL_MS = 12000; // 12 seconds between frames
+const BUTTON_DEFAULT_BOTTOM = 120;
 
-const IDLE_QUOTES = [
-  "ready when you are",
-  "tap to lock in",
-  "let's get this bread",
-  "your villain arc awaits",
-  "time to lock in bestie",
-];
-
-const FOCUSED_QUOTES = [
-  "you're locked in rn fr fr",
-  "main character energy",
-  "no thoughts just grind",
-  "this is your villain arc",
-  "slay the work bestie",
-  "serving focus realness",
-  "literally unstoppable",
-  "the grind never lies",
-  "built different tbh",
-  "giving academic weapon",
-];
-
-const PAUSED_QUOTES = [
-  "bro come back",
-  "the screen misses you",
-  "this is not very slay",
-  "ur giving quitter vibes",
-  "hello?? we had a deal",
-  "the grind doesn't pause itself",
-  "not you leaving mid-sesh",
-  "bestie this ain't it",
-  "you fell off ngl",
-  "main characters don't quit",
-];
-
-function pickRandom(arr: string[]): string {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function formatTime(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  if (hours > 0) {
-    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+function formatDuration(seconds: number): string {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
-  return `${pad(minutes)}:${pad(seconds)}`;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 export default function CameraScreen() {
@@ -98,294 +62,149 @@ export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const setIsSessionActiveGlobal = useRecordingStore((s) => s.setIsSessionActive);
 
-  const [isForeground, setIsForeground] = useState(true);
-  const [isSessionActive, setIsSessionActive] = useState(false);
+  // Camera state
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
 
-  const isForegroundRef = useRef(true);
-  const isSessionActiveRef = useRef(false);
+  // Layout state
+  const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
+  const [previewLayout, setPreviewLayout] = useState({ width: 0, height: 0, top: 0, left: 0 });
 
-  // Session tracking refs
+  // Recording state from store
+  const isSessionActive = useRecordingStore((s) => s.isSessionActive);
+  const isPreparing = useRecordingStore((s) => s.isPreparing);
+  const isFinishing = useRecordingStore((s) => s.isFinishing);
+  const isCountingDown = useRecordingStore((s) => s.isCountingDown);
+  const activeTaskId = useRecordingStore((s) => s.activeTaskId);
+  const timerPosition = useRecordingStore((s) => s.timerPosition);
+  const timerFilter = useRecordingStore((s) => s.timerFilter);
+  const timerScale = useRecordingStore((s) => s.timerScale);
+  const setIsSessionActive = useRecordingStore((s) => s.setIsSessionActive);
+  const setIsPreparing = useRecordingStore((s) => s.setIsPreparing);
+  const setIsFinishing = useRecordingStore((s) => s.setIsFinishing);
+  const setIsCountingDown = useRecordingStore((s) => s.setIsCountingDown);
+  const setTimerPosition = useRecordingStore((s) => s.setTimerPosition);
+  const setTimerFilter = useRecordingStore((s) => s.setTimerFilter);
+  const setTimerScale = useRecordingStore((s) => s.setTimerScale);
+
+  // Device orientation detection (freezes during recording)
+  const deviceOrientation = useOrientationDetection();
+
+  // Active task from Tasks tab
+  const activeTask = useTaskStore((s) =>
+    s.tasks.find((t) => t.id === activeTaskId)
+  );
+
+  // Short warning modal
+  const [showShortWarning, setShowShortWarning] = useState(false);
+
+  // Timer
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const elapsedSecondsRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeRef = useRef<Date | null>(null);
-  const distractionCountRef = useRef(0);
-  const distractedSecondsRef = useRef(0);
-  const distractedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const wasDistractedRef = useRef(false);
+  const isSessionActiveRef = useRef(false);
+  const isForegroundRef = useRef(true);
 
+  // Track foreground/background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       const active = state === 'active';
-      setIsForeground(active);
       isForegroundRef.current = active;
     });
     return () => subscription.remove();
   }, []);
 
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('front');
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1280, height: 720 } },
-  ]);
-  const cameraRef = useRef(null);
-
-  const [previewVideoUri, setPreviewVideoUri] = useState('');
-  const [previewDuration, setPreviewDuration] = useState(0);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Short session warning modal
-  const [showShortSessionModal, setShowShortSessionModal] = useState(false);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
-  const hideShortSessionWarningRef = useRef(false);
-
+  // Timer interval - counts every second while session is active
   useEffect(() => {
-    AsyncStorage.getItem('@lockin/hideShortSessionWarning').then((val) => {
-      if (val === 'true') hideShortSessionWarningRef.current = true;
-    });
-  }, []);
-
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [isWorking, setIsWorking] = useState(false);
-  const [quote, setQuote] = useState(() => pickRandom(IDLE_QUOTES));
-
-  const isWorkingRef = useRef(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cameraSectionRef = useRef<View>(null);
-  const overlayRef = useRef<View>(null);
-
-  // Animated border + glow color
-  const borderProgress = useSharedValue(0);
-  const frameCounter = useSharedValue(0);
-
-  // Idle pink glow pulse animation
-  const idleGlowOpacity = useSharedValue(0.8);
-  const buttonScale = useSharedValue(1);
-  const buttonSquish = useSharedValue(1);
-  const buttonTextOpacity = useSharedValue(1);
-  const isAnimatingRef = useRef(false);
-
-  useEffect(() => {
-    if (!isSessionActive) {
-      idleGlowOpacity.value = withRepeat(
-        withSequence(
-          withTiming(1.0, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.6, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        false,
-      );
+    if (isSessionActive) {
+      intervalRef.current = setInterval(() => {
+        elapsedSecondsRef.current += 1;
+        setElapsedSeconds(elapsedSecondsRef.current);
+      }, 1000);
     } else {
-      idleGlowOpacity.value = withTiming(1.0, { duration: 200 });
-    }
-  }, [isSessionActive, idleGlowOpacity]);
-
-  const idleGlowStyle = useAnimatedStyle(() => ({
-    opacity: idleGlowOpacity.value,
-  }));
-
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transformOrigin: 'bottom',
-    transform: [
-      { scale: buttonScale.value },
-      { scaleY: buttonSquish.value },
-      { translateY: (1 - buttonScale.value) * 8 },
-    ],
-  }));
-
-  const buttonTextAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: buttonTextOpacity.value,
-  }));
-
-  // Active session: animate between working (blue) and paused (orange)
-  const animatedColorStyle = useAnimatedStyle(() => {
-    const r = Math.round(37 + borderProgress.value * (249 - 37));
-    const g = Math.round(99 + borderProgress.value * (115 - 99));
-    const b = Math.round(235 + borderProgress.value * (22 - 235));
-    const color = `rgb(${r}, ${g}, ${b})`;
-    return {
-      borderColor: color,
-      shadowColor: color,
-    };
-  });
-
-  // Static pink style for idle state
-  const pinkGlowStyle = {
-    borderColor: BRAND_PINK,
-    shadowColor: BRAND_PINK,
-  };
-
-  // Start timer interval
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      if (isWorkingRef.current && isSessionActiveRef.current) {
-        setElapsedSeconds((prev) => prev + 1);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
-    }, 1000);
+    }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
     };
-  }, []);
+  }, [isSessionActive]);
 
-  // Cycle motivational quotes
-  useEffect(() => {
-    if (!isSessionActive) {
-      setQuote(pickRandom(IDLE_QUOTES));
-      const id = setInterval(() => setQuote(pickRandom(IDLE_QUOTES)), 10000);
-      return () => clearInterval(id);
-    }
-    const quotes = isWorking ? FOCUSED_QUOTES : PAUSED_QUOTES;
-    setQuote(pickRandom(quotes));
-    const id = setInterval(() => setQuote(pickRandom(quotes)), 10000);
-    return () => clearInterval(id);
-  }, [isWorking, isSessionActive]);
-
-  const updateWorkingState = useCallback((working: boolean) => {
-    if (working) {
-      if (pauseTimeoutRef.current) {
-        clearTimeout(pauseTimeoutRef.current);
-        pauseTimeoutRef.current = null;
-      }
-      if (isWorkingRef.current) return;
-      isWorkingRef.current = true;
-      wasDistractedRef.current = false;
-      setIsWorking(true);
-      borderProgress.value = withTiming(0, { duration: 300 });
-
-      // Stop counting distracted time
-      if (distractedTimerRef.current) {
-        clearInterval(distractedTimerRef.current);
-        distractedTimerRef.current = null;
-      }
-    } else {
-      if (!isWorkingRef.current) return;
-      if (pauseTimeoutRef.current) return;
-      pauseTimeoutRef.current = setTimeout(() => {
-        pauseTimeoutRef.current = null;
-        isWorkingRef.current = false;
-        setIsWorking(false);
-        borderProgress.value = withTiming(1, { duration: 300 });
-
-        // Count this as a new distraction event
-        if (isSessionActiveRef.current && !wasDistractedRef.current) {
-          wasDistractedRef.current = true;
-          distractionCountRef.current += 1;
-        }
-
-        // Start counting distracted time
-        if (isSessionActiveRef.current && !distractedTimerRef.current) {
-          distractedTimerRef.current = setInterval(() => {
-            if (!isWorkingRef.current && isSessionActiveRef.current) {
-              distractedSecondsRef.current += 1;
-            }
-          }, 1000);
-        }
-      }, 300);
-    }
-  }, [borderProgress]);
-
-  const handleFacesDetected = useCallback((faces: Face[]) => {
-    if (faces.length > 0) {
-      const face = faces[0];
-      const eyesOpen =
-        face.leftEyeOpenProbability > EYE_OPEN_THRESHOLD &&
-        face.rightEyeOpenProbability > EYE_OPEN_THRESHOLD;
-      updateWorkingState(eyesOpen);
-    } else {
-      updateWorkingState(false);
-    }
-  }, [updateWorkingState]);
-
-  // Face detection setup
-  const faceDetectionOptions = useMemo(() => ({
-    performanceMode: 'fast' as const,
-    classificationMode: 'all' as const,
-    cameraFacing: 'front' as const,
-  }), []);
-
-  const { detectFaces } = useFaceDetector(faceDetectionOptions);
-
-  const runOnJS = useMemo(
-    () => Worklets.createRunOnJS(handleFacesDetected),
-    [handleFacesDetected]
-  );
-
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    frameCounter.value = frameCounter.value + 1;
-    if (frameCounter.value % 5 !== 0) return;
-    const faces = detectFaces(frame);
-    runOnJS(faces);
-  }, [detectFaces, runOnJS, frameCounter]);
-
-  // Timelapse capture function — two-layer capture + native compositing
+  // Timelapse frame capture
   const captureFrame = useCallback(async () => {
-    if (!cameraRef.current || !overlayRef.current || !isSessionActiveRef.current || !isForegroundRef.current) return;
+    if (!cameraRef.current || !isSessionActiveRef.current || !isForegroundRef.current) return;
     try {
-      // 1. Capture camera frame via VisionCamera's native pipeline (gets the GPU surface)
-      const snapshot = await (cameraRef.current as any).takeSnapshot({ quality: 80 });
-      // 2. Capture overlay (digicam UI elements) with transparent background
-      const overlayBase64 = await captureRef(overlayRef, {
-        format: 'png',
-        quality: 1.0,
-        result: 'base64',
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: true,
       });
-      // 3. Composite natively: camera image + overlay → video frame
-      await Timelapse.addCompositeFrame(snapshot.path, overlayBase64);
+      if (photo?.base64) {
+        await Timelapse.addFrame(photo.base64);
+      }
     } catch (e) {
       console.warn('Timelapse frame capture failed:', e);
     }
   }, []);
 
-  // Session start/stop
+  // Pause/resume capture when app backgrounds
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        if (!captureIntervalRef.current && isSessionActiveRef.current) {
+          captureIntervalRef.current = setInterval(captureFrame, CAPTURE_INTERVAL_MS);
+        }
+      } else {
+        if (captureIntervalRef.current) {
+          clearInterval(captureIntervalRef.current);
+          captureIntervalRef.current = null;
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [isSessionActive, captureFrame]);
+
+  // Start session
   const startSession = useCallback(async () => {
-    setIsSessionActive(true);
-    isSessionActiveRef.current = true;
-    setIsSessionActiveGlobal(true);
     setElapsedSeconds(0);
-    Haptics.sessionStart();
-
-    // Reset session tracking
+    elapsedSecondsRef.current = 0;
     sessionStartTimeRef.current = new Date();
-    distractionCountRef.current = 0;
-    distractedSecondsRef.current = 0;
-    wasDistractedRef.current = false;
+    isSessionActiveRef.current = true;
+    setIsSessionActive(true);
 
+    Haptics.sessionStart();
     posthog.capture('session_started');
 
     try {
-      // Use approximate dimensions for the captured view (3:4 aspect)
-      await Timelapse.startRecording(720, 960);
-
-      // Capture first frame immediately
+      const isLandscape = deviceOrientation !== 'portrait';
+      const videoWidth = isLandscape ? 960 : 720;
+      const videoHeight = isLandscape ? 720 : 960;
+      await Timelapse.startRecording(videoWidth, videoHeight, deviceOrientation);
       setTimeout(() => captureFrame(), 500);
-
-      // Start capture interval
       captureIntervalRef.current = setInterval(captureFrame, CAPTURE_INTERVAL_MS);
     } catch (e) {
       console.warn('Failed to start timelapse recording:', e);
     }
-  }, [captureFrame, setIsSessionActiveGlobal]);
+  }, [captureFrame, setIsSessionActive, deviceOrientation]);
 
+  // Stop session
   const stopSession = useCallback(async () => {
     const sessionEndTime = new Date();
     const sessionStartTime = sessionStartTimeRef.current || sessionEndTime;
-    const lockedInSeconds = elapsedSeconds;
-    const distractedSeconds = distractedSecondsRef.current;
-    const distractionCount = distractionCountRef.current;
+    const lockedInSeconds = elapsedSecondsRef.current;
 
-    setIsSessionActive(false);
     isSessionActiveRef.current = false;
-    setIsSessionActiveGlobal(false);
-    Haptics.sessionStop();
+    setIsSessionActive(false);
+    setIsFinishing(true);
 
-    // Stop distracted timer
-    if (distractedTimerRef.current) {
-      clearInterval(distractedTimerRef.current);
-      distractedTimerRef.current = null;
-    }
+    Haptics.sessionStop();
 
     // Stop capture interval
     if (captureIntervalRef.current) {
@@ -393,153 +212,29 @@ export default function CameraScreen() {
       captureIntervalRef.current = null;
     }
 
-    // Reset face detection state
-    isWorkingRef.current = false;
-    setIsWorking(false);
-    borderProgress.value = withTiming(0, { duration: 300 });
-
-    // Clear any pending pause timeout
-    if (pauseTimeoutRef.current) {
-      clearTimeout(pauseTimeoutRef.current);
-      pauseTimeoutRef.current = null;
-    }
-
-    // Generate a single session ID for both local and Tinybird
+    // Generate session ID
     const sessionId = uuidv4();
     const dateStr = getLocalDateString(sessionStartTime);
 
     // Store session locally first (local-first)
-    const sessionData = {
+    useSessionStore.getState().addSession({
       session_id: sessionId,
       date: dateStr,
       total_locked_in_seconds: lockedInSeconds,
-      total_distracted_seconds: distractedSeconds,
-      distraction_count: distractionCount,
       created_at: sessionEndTime.toISOString(),
       time_started: sessionStartTime.toISOString(),
       time_ended: sessionEndTime.toISOString(),
-    };
-    console.log('[StopSession] Adding session:', sessionData);
-    useSessionStore.getState().addSession(sessionData);
+    });
 
     posthog.capture('session_completed', {
       locked_in_seconds: lockedInSeconds,
-      distracted_seconds: distractedSeconds,
-      distraction_count: distractionCount,
       duration_seconds: Math.round((sessionEndTime.getTime() - sessionStartTime.getTime()) / 1000),
     });
 
     // Credit earned screen time (4:1 ratio)
     useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
 
-    // Recompute profile stats from local data + fetch streak from Tinybird
-    useProfileStatsStore.getState().recomputeFromSessions(user?.id);
-
-    const statsAfter = useProfileStatsStore.getState();
-    console.log('[StopSession] Stats after recompute:', {
-      total_hours: statsAfter.total_hours,
-      grinds: statsAfter.grinds,
-      streak: statsAfter.streak,
-    });
-
-    // Send to Tinybird as backup (fire-and-forget)
-    const tinybirdPayload = {
-      session_id: sessionId,
-      user_id: user?.id ?? 'anonymous',
-      date: dateStr,
-      time_started: sessionStartTime.toISOString(),
-      time_ended: sessionEndTime.toISOString(),
-      distraction_count: distractionCount,
-      total_locked_in_seconds: lockedInSeconds,
-      total_distracted_seconds: distractedSeconds,
-      timestamp: sessionEndTime.toISOString(),
-    };
-    console.log('[StopSession] Sending to Tinybird:', tinybirdPayload);
-    sendSessionEvent(tinybirdPayload).catch((err) => {
-      console.warn('[StopSession] Tinybird send FAILED:', err);
-    });
-
-    try {
-      const videoPath = await Timelapse.stopRecording();
-      if (videoPath) {
-        // Move video from cache to permanent Documents storage
-        const docsDir = FileSystem.documentDirectory + 'timelapses/';
-        await FileSystem.makeDirectoryAsync(docsDir, { intermediates: true });
-        const filename = videoPath.split('/').pop()!;
-        const permanentUri = docsDir + filename;
-        await FileSystem.moveAsync({ from: videoPath, to: permanentUri });
-
-        // Generate thumbnail and save to permanent storage
-        let thumbnailRelPath: string | null = null;
-        const recordingId = sessionId;
-        try {
-          const thumb = await VideoThumbnails.getThumbnailAsync(permanentUri, { time: 0 });
-          const thumbsDir = FileSystem.documentDirectory + 'thumbnails/';
-          await FileSystem.makeDirectoryAsync(thumbsDir, { intermediates: true });
-          const thumbFilename = recordingId + '.jpg';
-          await FileSystem.copyAsync({ from: thumb.uri, to: thumbsDir + thumbFilename });
-          thumbnailRelPath = 'thumbnails/' + thumbFilename;
-        } catch {
-          // Thumbnail generation failed, continue without it
-        }
-
-        // Store relative paths (strip documentDirectory prefix)
-        const videoRelPath = 'timelapses/' + filename;
-
-        // Persist metadata
-        useVideoGalleryStore.getState().addRecording({
-          id: recordingId,
-          videoUri: videoRelPath,
-          thumbnailUri: thumbnailRelPath,
-          sessionDurationSeconds: lockedInSeconds + distractedSeconds,
-          createdAt: new Date().toISOString(),
-        });
-
-        setPreviewVideoUri(permanentUri);
-        setPreviewDuration(lockedInSeconds + distractedSeconds);
-        setShowPreview(true);
-
-        router.push({
-          pathname: '/grind-complete',
-          params: {
-            videoUri: permanentUri,
-            grindDurationSeconds: String(lockedInSeconds + distractedSeconds),
-            lockedInSeconds: String(lockedInSeconds),
-          },
-        });
-      }
-    } catch (e: any) {
-      if (e?.code === 'ERR_EMPTY') {
-        // No frames captured, no video to save — that's fine
-      } else {
-        console.warn('Failed to stop timelapse recording:', e);
-      }
-    }
-  }, [borderProgress, elapsedSeconds, user, setIsSessionActiveGlobal, router]);
-
-  const simulateSession = useCallback(() => {
-    const now = new Date();
-    const sessionId = uuidv4();
-    const dateStr = getLocalDateString(now);
-    const lockedInSeconds = 240; // 4 minutes
-    const distractedSeconds = 30;
-    const distractionCount = 2;
-    const totalSeconds = lockedInSeconds + distractedSeconds;
-
-    const timeStarted = new Date(now.getTime() - totalSeconds * 1000);
-
-    const sessionData = {
-      session_id: sessionId,
-      date: dateStr,
-      total_locked_in_seconds: lockedInSeconds,
-      total_distracted_seconds: distractedSeconds,
-      distraction_count: distractionCount,
-      created_at: now.toISOString(),
-      time_started: timeStarted.toISOString(),
-      time_ended: now.toISOString(),
-    };
-    useSessionStore.getState().addSession(sessionData);
-    useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
+    // Recompute profile stats
     useProfileStatsStore.getState().recomputeFromSessions(user?.id);
 
     // Send to Tinybird (fire-and-forget)
@@ -547,250 +242,322 @@ export default function CameraScreen() {
       session_id: sessionId,
       user_id: user?.id ?? 'anonymous',
       date: dateStr,
+      time_started: sessionStartTime.toISOString(),
+      time_ended: sessionEndTime.toISOString(),
+      total_locked_in_seconds: lockedInSeconds,
+      timestamp: sessionEndTime.toISOString(),
+    }).catch((err) => {
+      console.warn('[StopSession] Tinybird send FAILED:', err);
+    });
+
+    // Process timelapse video
+    try {
+      const videoPath = await Timelapse.stopRecording();
+      if (videoPath) {
+        const docsDir = FileSystem.documentDirectory + 'timelapses/';
+        await FileSystem.makeDirectoryAsync(docsDir, { intermediates: true });
+        const filename = videoPath.split('/').pop()!;
+        const permanentUri = docsDir + filename;
+        await FileSystem.moveAsync({ from: videoPath, to: permanentUri });
+
+        // Generate thumbnail
+        let thumbnailRelPath: string | null = null;
+        try {
+          const thumb = await VideoThumbnails.getThumbnailAsync(permanentUri, { time: 0 });
+          const thumbsDir = FileSystem.documentDirectory + 'thumbnails/';
+          await FileSystem.makeDirectoryAsync(thumbsDir, { intermediates: true });
+          const thumbFilename = sessionId + '.jpg';
+          await FileSystem.copyAsync({ from: thumb.uri, to: thumbsDir + thumbFilename });
+          thumbnailRelPath = 'thumbnails/' + thumbFilename;
+        } catch {
+          // Thumbnail generation failed, continue without it
+        }
+
+        // Persist recording metadata
+        useVideoGalleryStore.getState().addRecording({
+          id: sessionId,
+          videoUri: 'timelapses/' + filename,
+          thumbnailUri: thumbnailRelPath,
+          sessionDurationSeconds: lockedInSeconds,
+          createdAt: new Date().toISOString(),
+        });
+
+        setIsFinishing(false);
+
+        // Navigate to grind-complete
+        router.push({
+          pathname: '/grind-complete',
+          params: {
+            videoUri: permanentUri,
+            grindDurationSeconds: String(lockedInSeconds),
+            lockedInSeconds: String(lockedInSeconds),
+            ...(activeTaskId ? { activeTaskId } : {}),
+          },
+        } as any);
+      } else {
+        setIsFinishing(false);
+      }
+    } catch (e: any) {
+      setIsFinishing(false);
+      if (e?.code !== 'ERR_EMPTY') {
+        console.warn('Failed to stop timelapse recording:', e);
+      }
+    }
+  }, [user, setIsSessionActive, setIsFinishing, router, activeTaskId]);
+
+  // Dev simulate session
+  const simulateSession = useCallback(() => {
+    const now = new Date();
+    const sessionId = uuidv4();
+    const dateStr = getLocalDateString(now);
+    const lockedInSeconds = 240;
+    const timeStarted = new Date(now.getTime() - lockedInSeconds * 1000);
+
+    useSessionStore.getState().addSession({
+      session_id: sessionId,
+      date: dateStr,
+      total_locked_in_seconds: lockedInSeconds,
+      created_at: now.toISOString(),
       time_started: timeStarted.toISOString(),
       time_ended: now.toISOString(),
-      distraction_count: distractionCount,
+    });
+    useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
+    useProfileStatsStore.getState().recomputeFromSessions(user?.id);
+
+    sendSessionEvent({
+      session_id: sessionId,
+      user_id: user?.id ?? 'anonymous',
+      date: dateStr,
+      time_started: timeStarted.toISOString(),
+      time_ended: now.toISOString(),
       total_locked_in_seconds: lockedInSeconds,
-      total_distracted_seconds: distractedSeconds,
       timestamp: now.toISOString(),
     }).catch((err) => console.warn('[DevSession] Tinybird send failed:', err));
 
     router.push({
       pathname: '/grind-complete',
       params: {
-        grindDurationSeconds: String(totalSeconds),
+        grindDurationSeconds: String(lockedInSeconds),
         lockedInSeconds: String(lockedInSeconds),
       },
-    });
+    } as any);
   }, [user, router]);
 
-  const handleConfirmEndShortSession = useCallback(async () => {
-    if (dontShowAgain) {
-      hideShortSessionWarningRef.current = true;
-      await AsyncStorage.setItem('@lockin/hideShortSessionWarning', 'true');
-    }
-    setShowShortSessionModal(false);
-    setDontShowAgain(false);
-    stopSession();
-  }, [dontShowAgain, stopSession]);
+  // Handle record button press
+  const handleRecordPress = useCallback(async () => {
+    if (isPreparing || isFinishing || isCountingDown) return;
 
-  const toggleSession = useCallback(() => {
-    if (isSessionActiveRef.current) {
-      const totalSeconds = elapsedSeconds + distractedSecondsRef.current;
-      if (totalSeconds < 3600 && !hideShortSessionWarningRef.current) {
-        setShowShortSessionModal(true);
+    if (isSessionActive) {
+      // Check short session
+      if (elapsedSecondsRef.current < 60) {
+        // Stop recording first so video is saved, then show warning
+        await stopSession();
+        setShowShortWarning(true);
         return;
       }
-      stopSession();
+      await stopSession();
     } else {
-      startSession();
+      // Start countdown
+      setIsCountingDown(true);
     }
-  }, [startSession, stopSession, elapsedSeconds]);
+  }, [isSessionActive, isPreparing, isFinishing, isCountingDown, stopSession, setIsCountingDown]);
 
-  const animatedToggle = useCallback(() => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
+  // Countdown complete - start recording
+  const handleCountdownComplete = useCallback(async () => {
+    setIsCountingDown(false);
+    await startSession();
+  }, [startSession, setIsCountingDown]);
 
-    // Phase 1: fade text out (0-80ms)
-    buttonTextOpacity.value = withTiming(0, { duration: 80 });
+  // Toggle camera facing
+  const toggleCameraFacing = useCallback(() => {
+    if (isSessionActive) return;
+    const newFacing = facing === 'back' ? 'front' : 'back';
+    if (newFacing === 'front' && flashEnabled) {
+      setFlashEnabled(false);
+    }
+    setFacing(newFacing);
+  }, [isSessionActive, facing, flashEnabled]);
 
-    // Phase 2: squish down (80-230ms)
-    buttonSquish.value = withDelay(
-      80,
-      withTiming(0.08, { duration: 150, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
-    );
+  // Toggle flash
+  const toggleFlash = useCallback(() => {
+    if (facing === 'front') return;
+    setFlashEnabled(!flashEnabled);
+  }, [facing, flashEnabled]);
 
-    // Phase 3: swap state at 230ms, then pop back up + fade text in
-    setTimeout(() => {
-      toggleSession();
+  // Toggle filter type
+  const handleFilterToggle = useCallback(() => {
+    setTimerFilter(timerFilter === 'minimal' ? 'dateStamp' : 'minimal');
+  }, [timerFilter, setTimerFilter]);
 
-      buttonSquish.value = withTiming(1, { duration: 180, easing: Easing.bezier(0.0, 0, 0.2, 1) });
-      buttonTextOpacity.value = withDelay(70, withTiming(1, { duration: 150 }));
+  // Handle container layout
+  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setContainerLayout({ width, height });
 
-      setTimeout(() => {
-        isAnimatingRef.current = false;
-      }, 300);
-    }, 230);
-  }, [toggleSession, buttonSquish, buttonTextOpacity]);
+    const targetAspect = 9 / 16;
+    const previewWidth = width;
+    const previewHeight = width / targetAspect;
+    const tabBarOffset = 49 + insets.bottom;
+    const previewBottomFromScreenBottom = (BUTTON_DEFAULT_BOTTOM + tabBarOffset) / 2;
+    const top = height - previewHeight - previewBottomFromScreenBottom;
+
+    setPreviewLayout({
+      width: previewWidth,
+      height: previewHeight,
+      top: Math.max(0, top),
+      left: 0,
+    });
+  }, [insets.bottom]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (captureIntervalRef.current) {
-        clearInterval(captureIntervalRef.current);
-      }
-      if (distractedTimerRef.current) {
-        clearInterval(distractedTimerRef.current);
-      }
+      if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
       if (isSessionActiveRef.current) {
         Timelapse.cancelRecording().catch(() => {});
       }
     };
   }, []);
 
-  // Pause/resume capture when app backgrounds
-  useEffect(() => {
-    if (!isSessionActive) return;
-
-    if (isForeground) {
-      // Resume capture interval
-      if (!captureIntervalRef.current) {
-        captureIntervalRef.current = setInterval(captureFrame, CAPTURE_INTERVAL_MS);
-      }
-    } else {
-      // Pause capture interval
-      if (captureIntervalRef.current) {
-        clearInterval(captureIntervalRef.current);
-        captureIntervalRef.current = null;
-      }
-    }
-  }, [isForeground, isSessionActive, captureFrame]);
-
-  // Permission not yet granted
-  if (!hasPermission) {
+  // Loading state
+  if (!permission) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.permissionTitle}>Camera Access Needed</Text>
-        <Text style={styles.permissionText}>
-          LockIn needs camera access to detect when you're focused and track your work sessions.
-        </Text>
-        <Pressable style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Camera Access</Text>
-        </Pressable>
+      <View style={styles.centerContainer}>
+        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
+        <ActivityIndicator size="large" color="white" />
       </View>
     );
   }
 
-  // No camera device
-  if (!device) {
+  // Permission not granted
+  if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.permissionTitle}>No Camera Found</Text>
-        <Text style={styles.permissionText}>
-          Could not find a front-facing camera on this device.
-        </Text>
+      <View style={styles.centerContainer}>
+        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
+        <View style={styles.permissionContent}>
+          <Text style={styles.permissionTitle}>Camera Access Required</Text>
+          <Text style={styles.permissionText}>
+            This app needs camera access to capture time-lapse videos.
+          </Text>
+          <GlassIconButton
+            icon="camera"
+            size={64}
+            iconSize={28}
+            onPress={requestPermission}
+          />
+          <Text style={styles.permissionHint}>Tap to enable camera</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={handleContainerLayout}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+
+      {/* Dev button */}
       {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
-        <Pressable onPress={simulateSession} style={[styles.devButton, { position: 'absolute', top: insets.top + 8, right: 24, zIndex: 10 }]}>
+        <Pressable
+          onPress={simulateSession}
+          style={[styles.devButton, { position: 'absolute', top: insets.top + 8, right: 24, zIndex: 20 }]}
+        >
           <Text style={styles.devButtonText}>Dev</Text>
         </Pressable>
       )}
 
-      <View style={styles.cameraSection} ref={cameraSectionRef} collapsable={false}>
-        {isSessionActive ? (
-          // Active session: animated blue/orange glow
-          <Animated.View style={[styles.cameraGlowOuter, animatedColorStyle]}>
-            <Animated.View style={[styles.cameraGlow, animatedColorStyle]}>
-              <Animated.View style={[styles.cameraBorder, animatedColorStyle]}>
-                <Camera
-                  ref={cameraRef}
-                  style={styles.camera}
-                  device={device}
-                  isActive={isForeground}
-                  video={true}
-                  pixelFormat="yuv"
-                  format={format}
-                  frameProcessor={frameProcessor}
-                />
-                <View ref={overlayRef} collapsable={false} style={StyleSheet.absoluteFill}>
-                  <DigicamOverlay isWorking={isWorking} elapsedSeconds={elapsedSeconds} />
-                </View>
-              </Animated.View>
-            </Animated.View>
-          </Animated.View>
-        ) : (
-          // Idle: static pink glow with breathing pulse
-          <Animated.View style={[styles.cameraGlowOuter, pinkGlowStyle, idleGlowStyle]}>
-            <Animated.View style={[styles.cameraGlow, pinkGlowStyle]}>
-              <Animated.View style={[styles.cameraBorder, pinkGlowStyle]}>
-                <Camera
-                  ref={cameraRef}
-                  style={styles.camera}
-                  device={device}
-                  isActive={isForeground}
-                  video={true}
-                  pixelFormat="yuv"
-                  format={format}
-                />
-                <DigicamOverlay isWorking={false} elapsedSeconds={0} />
-              </Animated.View>
-            </Animated.View>
-          </Animated.View>
-        )}
-
-        {/* Recorder-style start/stop on frame border */}
-        <Animated.View style={[styles.startButtonWrapper, buttonAnimatedStyle]}>
-          <Pressable
-            onPress={animatedToggle}
-            onPressIn={() => { buttonScale.value = withTiming(0.85, { duration: 100 }); }}
-            onPressOut={() => { buttonScale.value = withTiming(1, { duration: 150 }); }}
-            style={styles.startButton}
-          >
-            <Animated.Text style={[styles.startButtonText, buttonTextAnimatedStyle]}>
-              {isSessionActive ? 'stop' : 'start'}
-            </Animated.Text>
-          </Pressable>
-          <View style={styles.startButtonLine} />
-        </Animated.View>
+      {/* Camera preview */}
+      <View style={[styles.previewContainer, {
+        width: previewLayout.width,
+        height: previewLayout.height,
+        top: previewLayout.top,
+        left: previewLayout.left,
+      }]}>
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFillObject}
+          facing={facing}
+          enableTorch={flashEnabled && facing === 'back'}
+        />
       </View>
 
-      <Text style={styles.timer}>{isSessionActive ? formatTime(elapsedSeconds) : '00:00'}</Text>
+      {/* Draggable timer placeholder */}
+      {containerLayout.width > 0 && previewLayout.height > 0 && (
+        <DraggableTimerPlaceholder
+          containerWidth={previewLayout.width}
+          containerHeight={previewLayout.height}
+          containerTop={previewLayout.top}
+          containerLeft={previewLayout.left}
+          position={timerPosition}
+          onPositionChange={setTimerPosition}
+          enabled={!isSessionActive && !isPreparing && !isFinishing && !isCountingDown}
+          orientation={deviceOrientation}
+          filterType={timerFilter}
+          onFilterToggle={handleFilterToggle}
+          timerScale={timerScale}
+          onScaleChange={setTimerScale}
+          isRecording={isSessionActive}
+          elapsedSeconds={elapsedSeconds}
+        />
+      )}
 
-      <Text style={styles.statusText}>
-        {isSessionActive ? 'Locked in' : "it's time to lock in"}
-      </Text>
-
-      <Text style={styles.motivationalText}>{quote}</Text>
-
-      <TimelapsePreviewSheet
-        visible={showPreview}
-        videoUri={previewVideoUri}
-        sessionDurationSeconds={previewDuration}
-        onClose={() => setShowPreview(false)}
+      {/* Countdown overlay */}
+      <CountdownOverlay
+        isVisible={isCountingDown}
+        onComplete={handleCountdownComplete}
       />
 
-      {/* Short Session Warning Modal */}
-      <Modal
-        visible={showShortSessionModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowShortSessionModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>End Session Early?</Text>
-            <Text style={styles.modalBody}>
-              This session is under 1 hour and won't count as a grind.
-            </Text>
-            <Pressable
-              style={styles.checkboxRow}
-              onPress={() => setDontShowAgain((prev) => !prev)}
-            >
-              <View style={[styles.checkbox, dontShowAgain && styles.checkboxChecked]}>
-                {dontShowAgain && <Text style={styles.checkmark}>✓</Text>}
-              </View>
-              <Text style={styles.checkboxLabel}>Don't show this again</Text>
-            </Pressable>
-            <Pressable style={styles.modalConfirmButton} onPress={handleConfirmEndShortSession}>
-              <Text style={styles.modalConfirmText}>End Session</Text>
-            </Pressable>
-            <Pressable
-              style={styles.modalCancelButton}
-              onPress={() => {
-                setShowShortSessionModal(false);
-                setDontShowAgain(false);
-              }}
-            >
-              <Text style={styles.modalCancelText}>Keep Going</Text>
-            </Pressable>
-          </View>
+      {/* Top controls - Flash and Flip */}
+      {!isCountingDown && (
+        <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
+          <GlassIconButton
+            icon={flashEnabled ? 'flash' : 'flash-off'}
+            onPress={toggleFlash}
+            isActive={flashEnabled}
+            activeColor="rgba(255, 220, 100, 0.95)"
+            disabled={facing === 'front'}
+          />
+          <GlassIconButton
+            icon="camera-reverse"
+            onPress={toggleCameraFacing}
+            disabled={isSessionActive}
+          />
         </View>
-      </Modal>
+      )}
+
+      {/* Recording duration pill */}
+      {(isSessionActive || isFinishing) && (
+        <View style={[styles.durationContainer, { top: insets.top + 12 }]}>
+          <View style={styles.durationPill}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.durationText}>
+              {formatDuration(elapsedSeconds)}
+            </Text>
+          </View>
+          {activeTask && (
+            <View style={styles.activeTaskPill}>
+              <Ionicons name="checkbox-outline" size={13} color="#FF3B5C" />
+              <Text style={styles.activeTaskText} numberOfLines={1}>
+                {activeTask.title}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Bottom control - Record button */}
+      <View style={styles.bottomControls}>
+        <GlassRecordButton
+          onPress={handleRecordPress}
+          isRecording={isSessionActive || isFinishing}
+          disabled={isPreparing || isFinishing || isCountingDown}
+        />
+      </View>
+
+      {/* Short Timelapse Warning Modal */}
+      <ShortTimelapseWarningModal
+        visible={showShortWarning}
+        onClose={() => setShowShortWarning(false)}
+      />
     </View>
   );
 }
@@ -798,90 +565,108 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000',
+  },
+  centerContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    backgroundColor: '#000',
   },
-  cameraSection: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-    maxHeight: '55%',
-    marginBottom: 16,
-  },
-  timer: {
-    fontSize: 48,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
-  },
-  motivationalText: {
-    fontSize: 16,
-    fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  cameraGlowOuter: {
-    flex: 1,
-    borderRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
-    elevation: 20,
-  },
-  cameraGlow: {
-    flex: 1,
-    borderRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-    elevation: 20,
-  },
-  cameraBorder: {
-    flex: 1,
-    borderWidth: 4,
-    borderRadius: 20,
+  previewContainer: {
+    position: 'absolute',
+    backgroundColor: '#000',
     overflow: 'hidden',
   },
-  camera: {
-    flex: 1,
-  },
-  startButtonWrapper: {
+  topControls: {
     position: 'absolute',
-    top: -24,
-    right: 24,
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  bottomControls: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: BUTTON_DEFAULT_BOTTOM,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  permissionContent: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontFamily: Fonts.semiBold,
+    color: 'rgba(255,255,255,0.95)',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 16,
+    fontFamily: Fonts.regular,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  permissionHint: {
+    fontSize: 14,
+    fontFamily: Fonts.regular,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 16,
+  },
+  durationContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
     zIndex: 10,
   },
-  startButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  durationPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
   },
-  startButtonLine: {
-    width: '100%',
-    height: 2.5,
-    backgroundColor: '#FFFFFF',
-    marginTop: 2,
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
   },
-  startButtonText: {
-    color: '#FFFFFF',
-    fontSize: 8,
-    fontFamily: Fonts.bold,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  statusText: {
-    fontSize: 26,
+  durationText: {
+    color: 'white',
+    fontSize: 18,
     fontFamily: Fonts.semiBold,
-    color: BRAND_PINK,
-    marginTop: 8,
+    fontVariant: ['tabular-nums'],
+  },
+  activeTaskPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginTop: 6,
+    gap: 6,
+    maxWidth: 220,
+  },
+  activeTaskText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontFamily: Fonts.medium,
+    flexShrink: 1,
   },
   devButton: {
     backgroundColor: '#2A2A2A',
@@ -893,115 +678,5 @@ const styles = StyleSheet.create({
     color: '#AAAAAA',
     fontSize: 14,
     fontFamily: Fonts.semiBold,
-  },
-  permissionTitle: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  permissionText: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
-  },
-  permissionButton: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  permissionButtonText: {
-    fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    color: '#FFFFFF',
-  },
-  // Short session warning modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  modalTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 22,
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  modalBody: {
-    fontFamily: Fonts.regular,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    alignSelf: 'flex-start',
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  checkboxChecked: {
-    backgroundColor: BRAND_PINK,
-    borderColor: BRAND_PINK,
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Fonts.bold,
-  },
-  checkboxLabel: {
-    fontFamily: Fonts.medium,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  modalConfirmButton: {
-    width: '100%',
-    backgroundColor: BRAND_PINK,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  modalConfirmText: {
-    fontFamily: Fonts.bold,
-    fontSize: 17,
-    color: '#FFFFFF',
-  },
-  modalCancelButton: {
-    width: '100%',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontFamily: Fonts.medium,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
   },
 });

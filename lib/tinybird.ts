@@ -8,9 +8,7 @@ export interface SessionEvent {
   date: string; // YYYY-MM-DD
   time_started: string; // ISO datetime
   time_ended: string; // ISO datetime
-  distraction_count: number;
   total_locked_in_seconds: number;
-  total_distracted_seconds: number;
   timestamp: string; // ISO datetime
 }
 
@@ -131,9 +129,7 @@ export interface DailySessionRow {
   date: string;
   time_started: string;
   time_ended: string;
-  distraction_count: number;
   total_locked_in_seconds: number;
-  total_distracted_seconds: number;
 }
 
 export async function fetchDailySessions(userId: string, date: string): Promise<DailySessionRow[]> {
@@ -210,6 +206,64 @@ export async function fetchYearlyActivity(userId: string): Promise<YearlyActivit
   } catch (error) {
     console.warn('[Tinybird] Error fetching yearly activity:', error);
     return [];
+  }
+}
+
+// ── Leaderboard ──────────────────────────────────────────────────────
+
+export interface LeaderboardEntry {
+  user_id: string;
+  total_hours: number;
+}
+
+export async function fetchMonthlyLeaderboard(): Promise<LeaderboardEntry[]> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/monthly_leaderboard.json`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Tinybird] Failed to fetch monthly leaderboard:', response.status);
+      return [];
+    }
+
+    const json = await response.json();
+    return json.data ?? [];
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching monthly leaderboard:', error);
+    return [];
+  }
+}
+
+export interface UserRankEntry {
+  user_id: string;
+  total_hours: number;
+  rank: number;
+}
+
+export async function fetchMonthlyUserRank(userId: string): Promise<UserRankEntry | null> {
+  try {
+    const response = await fetch(
+      `${TINYBIRD_HOST}/v0/pipes/monthly_user_rank.json?user_id=${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${TINYBIRD_TOKEN}`,
+        },
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const json = await response.json();
+    return json.data?.[0] ?? null;
+  } catch (error) {
+    console.warn('[Tinybird] Error fetching user rank:', error);
+    return null;
   }
 }
 

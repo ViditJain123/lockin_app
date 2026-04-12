@@ -6,8 +6,6 @@ export interface LocalSession {
   session_id: string;
   date: string; // YYYY-MM-DD
   total_locked_in_seconds: number;
-  total_distracted_seconds: number;
-  distraction_count: number;
   created_at: string; // ISO datetime
   time_started?: string; // ISO datetime (optional for backward compat)
   time_ended?: string;   // ISO datetime (optional for backward compat)

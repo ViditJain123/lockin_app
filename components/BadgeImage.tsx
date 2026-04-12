@@ -12,14 +12,12 @@ interface BadgeImageProps {
   badgeId: string;
   size: number;
   locked?: boolean;
-  showGlow?: boolean;
 }
 
 function BadgeImage({
   badgeId,
   size,
   locked = false,
-  showGlow = false,
 }: BadgeImageProps) {
   const assetModule = getBadgeAssetModule(badgeId);
   const badge = getBadgeById(badgeId);
@@ -54,20 +52,6 @@ function BadgeImage({
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Glow effect for unlocked badges */}
-      {showGlow && !locked && (
-        <View
-          style={[
-            styles.glow,
-            {
-              width: size * 1.2,
-              height: size * 1.2,
-              borderRadius: (size * 1.2) / 2,
-            },
-          ]}
-        />
-      )}
-
       {/* Badge image */}
       {renderBadgeImage()}
 
@@ -75,16 +59,10 @@ function BadgeImage({
       {locked && (
         <View style={[styles.blurContainer, { width: size, height: size }]}>
           <BlurView
-            intensity={20}
+            intensity={30}
             tint="dark"
             style={[styles.blur, { width: size, height: size }]}
           />
-          {/* Lock icon overlay */}
-          <View style={styles.lockIconContainer}>
-            <View style={styles.lockIconBackground}>
-              <Ionicons name="lock-closed" size={size * 0.2} color="white" />
-            </View>
-          </View>
         </View>
       )}
     </View>
@@ -100,15 +78,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  glow: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
-    shadowColor: '#FF3B5C',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
   },
   image: {
     zIndex: 1,
@@ -126,21 +95,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-  },
-  lockIconContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 3,
-  },
-  lockIconBackground: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 100,
-    padding: 8,
   },
 });
 

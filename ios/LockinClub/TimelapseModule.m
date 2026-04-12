@@ -4,6 +4,7 @@
 
 RCT_EXTERN_METHOD(startRecording:(double)width
                   height:(double)height
+                  orientation:(NSString *)orientation
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 

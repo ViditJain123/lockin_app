@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import BadgeRoadmapItem from './BadgeRoadmapItem';
 
@@ -77,23 +77,45 @@ function BadgeRoadmap({ category, onBadgePress }: BadgeRoadmapProps) {
           height={badges.length * ITEM_HEIGHT + 80}
           style={styles.svg}
         >
-          {/* Background path (unfilled) */}
+          <Defs>
+            <LinearGradient id="progressGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
+              <Stop offset="100%" stopColor="rgba(255,255,255,0.12)" />
+            </LinearGradient>
+          </Defs>
+          {/* Background path (dashed trail) */}
           <Path
             d={pathData}
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth={8}
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth={3}
             fill="none"
             strokeLinecap="round"
+            strokeDasharray="8 12"
           />
-          {/* Progress path (filled up to current progress) */}
+          {/* Progress path (gradient fill) */}
           <Path
             d={pathData}
-            stroke="#FF3B5C"
-            strokeWidth={4}
+            stroke="url(#progressGradient)"
+            strokeWidth={2}
             fill="none"
             strokeLinecap="round"
             strokeDasharray={`${(currentProgress / (badges[badges.length - 1]?.threshold || 1)) * (badges.length * ITEM_HEIGHT)} 10000`}
           />
+          {/* Dot nodes at each badge position */}
+          <Circle cx={PATH_WIDTH / 2} cy={40} r={4} fill="rgba(255,255,255,0.25)" />
+          {badges.map((badge, index) => {
+            const y = 40 + (index + 1) * ITEM_HEIGHT;
+            const isEarned = hasBadge(badge.id);
+            return (
+              <Circle
+                key={badge.id}
+                cx={PATH_WIDTH / 2}
+                cy={y}
+                r={4}
+                fill={isEarned ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.1)'}
+              />
+            );
+          })}
         </Svg>
       </View>
 

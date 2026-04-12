@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { notifyDiscord } from '../lib/discordNotify';
 import { scheduleTrialEndNotification, cancelTrialEndNotification } from '../lib/notificationService';
 import { supabase } from '../lib/supabase';
 
@@ -243,6 +244,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 isPurchasing: false,
               });
               handleTrialNotification(subscriptionInfo);
+              // Notify Discord about trial or subscription purchase
+              const email = (await supabase.auth.getSession()).data?.session?.user?.email ?? 'unknown';
+              if (subscriptionInfo.periodType === 'TRIAL') {
+                notifyDiscord('trial_started', email, subscriptionInfo.productIdentifier ?? undefined);
+              } else {
+                notifyDiscord('subscription_purchased', email, subscriptionInfo.productIdentifier ?? undefined);
+              }
               return true;
 
             case PAYWALL_RESULT.NOT_PRESENTED:
@@ -284,6 +292,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 isSubscribed: subscriptionInfo.isActive,
                 isPurchasing: false,
               });
+              // Notify Discord about trial or subscription purchase
+              const emailIfNeeded = (await supabase.auth.getSession()).data?.session?.user?.email ?? 'unknown';
+              if (subscriptionInfo.periodType === 'TRIAL') {
+                notifyDiscord('trial_started', emailIfNeeded, subscriptionInfo.productIdentifier ?? undefined);
+              } else {
+                notifyDiscord('subscription_purchased', emailIfNeeded, subscriptionInfo.productIdentifier ?? undefined);
+              }
               return true;
 
             case PAYWALL_RESULT.NOT_PRESENTED:

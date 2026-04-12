@@ -82,10 +82,9 @@
         }
       ],
       [
-        "react-native-vision-camera",
+        "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to track your focus sessions",
-          "enableFrameProcessors": true
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to capture time-lapse videos"
         }
       ]
     ],

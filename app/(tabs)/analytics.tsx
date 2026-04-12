@@ -41,7 +41,7 @@ function localSessionToRow(s: LocalSession): DailySessionRow {
     ? s.time_started
     : new Date(
         new Date(ended).getTime() -
-          (s.total_locked_in_seconds + s.total_distracted_seconds) * 1000,
+          s.total_locked_in_seconds * 1000,
       ).toISOString();
 
   return {
@@ -49,9 +49,7 @@ function localSessionToRow(s: LocalSession): DailySessionRow {
     date: s.date,
     time_started: startedDate,
     time_ended: ended,
-    distraction_count: s.distraction_count,
     total_locked_in_seconds: s.total_locked_in_seconds,
-    total_distracted_seconds: s.total_distracted_seconds,
   };
 }
 

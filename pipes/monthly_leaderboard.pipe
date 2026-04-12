@@ -1,0 +1,13 @@
+NODE endpoint
+SQL >
+    SELECT
+        user_id,
+        ROUND(SUM(total_locked_in_seconds) / 3600.0, 2) AS total_hours
+    FROM lockin_sessions
+    WHERE toDate(date) >= toStartOfMonth(today())
+      AND toDate(date) <= today()
+      AND user_id != 'anonymous'
+    GROUP BY user_id
+    ORDER BY total_hours DESC
+    LIMIT 100
+TYPE endpoint

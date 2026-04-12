@@ -45,6 +45,15 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="leaderboard"
+          options={{
+            title: 'Leaderboard',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="trophy-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',
@@ -90,6 +99,11 @@ export default function TabLayout() {
       <NativeTabs.Trigger name="tasks">
         <Icon sf="checklist" />
         <Label>Tasks</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="leaderboard">
+        <Icon sf="trophy.fill" />
+        <Label>Leaderboard</Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">

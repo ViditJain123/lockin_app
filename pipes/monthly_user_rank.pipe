@@ -1,0 +1,19 @@
+NODE ranked
+SQL >
+    SELECT
+        user_id,
+        ROUND(SUM(total_locked_in_seconds) / 3600.0, 2) AS total_hours,
+        row_number() OVER (ORDER BY SUM(total_locked_in_seconds) DESC) AS rank
+    FROM lockin_sessions
+    WHERE toDate(date) >= toStartOfMonth(today())
+      AND toDate(date) <= today()
+      AND user_id != 'anonymous'
+    GROUP BY user_id
+
+NODE endpoint
+SQL >
+    %
+    SELECT user_id, total_hours, rank
+    FROM ranked
+    WHERE user_id = {{String(user_id, 'anonymous')}}
+TYPE endpoint

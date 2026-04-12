@@ -79,7 +79,6 @@ function BadgeRoadmapItem({
           badgeId={badge.id}
           size={80}
           locked={!isUnlocked && !isClaimable}
-          showGlow={isUnlocked || isClaimable}
         />
       </Animated.View>
 

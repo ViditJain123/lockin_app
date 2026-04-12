@@ -24,7 +24,7 @@ export function computeTotalHours(sessions: LocalSession[]): number {
 
 export function computeGrinds(sessions: LocalSession[]): number {
   return sessions.filter(
-    (s) => s.total_locked_in_seconds + s.total_distracted_seconds >= 3600
+    (s) => s.total_locked_in_seconds >= 3600
   ).length;
 }
 
