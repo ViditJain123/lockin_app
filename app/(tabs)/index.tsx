@@ -45,7 +45,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { v4 as uuidv4 } from 'uuid';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CAPTURE_INTERVAL_MS = 12000; // 12 seconds between frames
+// Adaptive capture cadence: fast at the start, gradually slowing as the session runs.
+// The native module (TimelapseModule) buffers frames in memory and decimates by halving
+// when the buffer exceeds its cap, so the final video always has uniform temporal density.
+const CAPTURE_SCHEDULE: ReadonlyArray<{ untilSeconds: number; intervalMs: number }> = [
+  { untilSeconds: 30,       intervalMs: 250 },    // 0-30s      @ 4 fps
+  { untilSeconds: 120,      intervalMs: 500 },    // 30s-2min   @ 2 fps
+  { untilSeconds: 600,      intervalMs: 1500 },   // 2-10min    @ ~0.67 fps
+  { untilSeconds: 1800,     intervalMs: 4000 },   // 10-30min   @ 0.25 fps
+  { untilSeconds: Infinity, intervalMs: 10000 },  // 30min+     @ 0.1 fps
+];
+function captureIntervalFor(elapsedSeconds: number): number {
+  for (const step of CAPTURE_SCHEDULE) {
+    if (elapsedSeconds < step.untilSeconds) return step.intervalMs;
+  }
+  return CAPTURE_SCHEDULE[CAPTURE_SCHEDULE.length - 1].intervalMs;
+}
 const BUTTON_DEFAULT_BOTTOM = 120;
 
 function formatDuration(seconds: number): string {
@@ -67,7 +82,6 @@ export default function CameraScreen() {
   // Camera state
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<'front' | 'back'>('back');
-  const [flashEnabled, setFlashEnabled] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   // Layout state
@@ -112,7 +126,7 @@ export default function CameraScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const elapsedSecondsRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartTimeRef = useRef<Date | null>(null);
   const isSessionActiveRef = useRef(false);
   const isForegroundRef = useRef(true);
@@ -161,23 +175,47 @@ export default function CameraScreen() {
     }
   }, []);
 
+  // Adaptive-cadence capture loop: each tick captures a frame then schedules the next
+  // tick based on the current elapsed time, re-reading `captureIntervalFor` every time
+  // so the interval grows as the session runs long.
+  const runCaptureLoop = useCallback(() => {
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current);
+      captureTimeoutRef.current = null;
+    }
+    const tick = async () => {
+      if (!isSessionActiveRef.current || !isForegroundRef.current) {
+        captureTimeoutRef.current = null;
+        return;
+      }
+      await captureFrame();
+      if (!isSessionActiveRef.current || !isForegroundRef.current) {
+        captureTimeoutRef.current = null;
+        return;
+      }
+      const delay = captureIntervalFor(elapsedSecondsRef.current);
+      captureTimeoutRef.current = setTimeout(tick, delay);
+    };
+    tick();
+  }, [captureFrame]);
+
   // Pause/resume capture when app backgrounds
   useEffect(() => {
     if (!isSessionActive) return;
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        if (!captureIntervalRef.current && isSessionActiveRef.current) {
-          captureIntervalRef.current = setInterval(captureFrame, CAPTURE_INTERVAL_MS);
+        if (!captureTimeoutRef.current && isSessionActiveRef.current) {
+          runCaptureLoop();
         }
       } else {
-        if (captureIntervalRef.current) {
-          clearInterval(captureIntervalRef.current);
-          captureIntervalRef.current = null;
+        if (captureTimeoutRef.current) {
+          clearTimeout(captureTimeoutRef.current);
+          captureTimeoutRef.current = null;
         }
       }
     });
     return () => subscription.remove();
-  }, [isSessionActive, captureFrame]);
+  }, [isSessionActive, runCaptureLoop]);
 
   // Start session
   const startSession = useCallback(async () => {
@@ -198,12 +236,13 @@ export default function CameraScreen() {
         videoWidth, videoHeight, deviceOrientation,
         timerPosition.x, timerPosition.y, timerFilter, timerScale
       );
-      setTimeout(() => captureFrame(), 500);
-      captureIntervalRef.current = setInterval(captureFrame, CAPTURE_INTERVAL_MS);
+      // Small warmup delay lets the camera finish exposure ramp before the first frame,
+      // then the adaptive loop takes over.
+      setTimeout(() => runCaptureLoop(), 500);
     } catch (e) {
       console.warn('Failed to start timelapse recording:', e);
     }
-  }, [captureFrame, setIsSessionActive, deviceOrientation, timerPosition, timerFilter, timerScale]);
+  }, [runCaptureLoop, setIsSessionActive, deviceOrientation, timerPosition, timerFilter, timerScale]);
 
   // Stop session
   const stopSession = useCallback(async (skipPreview: boolean = false) => {
@@ -217,10 +256,10 @@ export default function CameraScreen() {
 
     Haptics.sessionStop();
 
-    // Stop capture interval
-    if (captureIntervalRef.current) {
-      clearInterval(captureIntervalRef.current);
-      captureIntervalRef.current = null;
+    // Stop adaptive capture loop
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current);
+      captureTimeoutRef.current = null;
     }
 
     // Generate session ID
@@ -400,18 +439,8 @@ export default function CameraScreen() {
   // Toggle camera facing
   const toggleCameraFacing = useCallback(() => {
     if (isSessionActive) return;
-    const newFacing = facing === 'back' ? 'front' : 'back';
-    if (newFacing === 'front' && flashEnabled) {
-      setFlashEnabled(false);
-    }
-    setFacing(newFacing);
-  }, [isSessionActive, facing, flashEnabled]);
-
-  // Toggle flash
-  const toggleFlash = useCallback(() => {
-    if (facing === 'front') return;
-    setFlashEnabled(!flashEnabled);
-  }, [facing, flashEnabled]);
+    setFacing(facing === 'back' ? 'front' : 'back');
+  }, [isSessionActive, facing]);
 
   // Toggle filter type
   const handleFilterToggle = useCallback(() => {
@@ -441,7 +470,7 @@ export default function CameraScreen() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
+      if (captureTimeoutRef.current) clearTimeout(captureTimeoutRef.current);
       if (isSessionActiveRef.current) {
         Timelapse.cancelRecording().catch(() => {});
       }
@@ -505,7 +534,6 @@ export default function CameraScreen() {
           ref={cameraRef}
           style={StyleSheet.absoluteFillObject}
           facing={facing}
-          enableTorch={flashEnabled && facing === 'back'}
         />
       </View>
 
@@ -535,16 +563,9 @@ export default function CameraScreen() {
         onComplete={handleCountdownComplete}
       />
 
-      {/* Top controls - Flash and Flip */}
+      {/* Top controls - Flip */}
       {!isCountingDown && (
         <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
-          <GlassIconButton
-            icon={flashEnabled ? 'flash' : 'flash-off'}
-            onPress={toggleFlash}
-            isActive={flashEnabled}
-            activeColor="rgba(255, 220, 100, 0.95)"
-            disabled={facing === 'front'}
-          />
           <GlassIconButton
             icon="camera-reverse"
             onPress={toggleCameraFacing}
@@ -621,7 +642,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: 20,
     zIndex: 10,
   },

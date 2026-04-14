@@ -188,6 +188,8 @@ export function DraggableTimerPlaceholder({
 
   const tapGesture = Gesture.Tap()
     .enabled(enabled && !!onFilterToggle)
+    .maxDuration(250)
+    .maxDistance(8)
     .onStart(() => {
       'worklet';
       runOnJS(handleFilterToggle)();
@@ -209,7 +211,10 @@ export function DraggableTimerPlaceholder({
       runOnJS(handleScaleChange)(currentPinchScale.value);
     });
 
-  const combinedGesture = Gesture.Simultaneous(panGesture, tapGesture, pinchGesture);
+  const combinedGesture = Gesture.Exclusive(
+    panGesture,
+    Gesture.Simultaneous(tapGesture, pinchGesture),
+  );
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
