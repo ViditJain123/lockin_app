@@ -3,6 +3,7 @@ import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholde
 import GlassIconButton from '@/components/GlassIconButton';
 import GlassRecordButton from '@/components/GlassRecordButton';
 import ShortTimelapseWarningModal from '@/components/ShortTimelapseWarningModal';
+import TimelapsePreviewSheet from '@/components/TimelapsePreviewSheet';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
 import { SESSION_DEV_MODE_ENABLED } from '@/lib/config';
@@ -101,6 +102,12 @@ export default function CameraScreen() {
   // Short warning modal
   const [showShortWarning, setShowShortWarning] = useState(false);
 
+  // Timelapse preview sheet (shown after a session finishes, before grind-complete)
+  const [previewUri, setPreviewUri] = useState('');
+  const [previewDuration, setPreviewDuration] = useState(0);
+  const [showPreview, setShowPreview] = useState(false);
+  const pendingGrindCompleteParamsRef = useRef<Record<string, string> | null>(null);
+
   // Timer
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const elapsedSecondsRef = useRef(0);
@@ -142,11 +149,12 @@ export default function CameraScreen() {
     if (!cameraRef.current || !isSessionActiveRef.current || !isForegroundRef.current) return;
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 1.0,
         base64: true,
+        shutterSound: false,
       });
       if (photo?.base64) {
-        await Timelapse.addFrame(photo.base64);
+        await Timelapse.addFrame(photo.base64, elapsedSecondsRef.current);
       }
     } catch (e) {
       console.warn('Timelapse frame capture failed:', e);
@@ -184,18 +192,21 @@ export default function CameraScreen() {
 
     try {
       const isLandscape = deviceOrientation !== 'portrait';
-      const videoWidth = isLandscape ? 960 : 720;
-      const videoHeight = isLandscape ? 720 : 960;
-      await Timelapse.startRecording(videoWidth, videoHeight, deviceOrientation);
+      const videoWidth = isLandscape ? 1920 : 1080;
+      const videoHeight = isLandscape ? 1080 : 1920;
+      await Timelapse.startRecording(
+        videoWidth, videoHeight, deviceOrientation,
+        timerPosition.x, timerPosition.y, timerFilter, timerScale
+      );
       setTimeout(() => captureFrame(), 500);
       captureIntervalRef.current = setInterval(captureFrame, CAPTURE_INTERVAL_MS);
     } catch (e) {
       console.warn('Failed to start timelapse recording:', e);
     }
-  }, [captureFrame, setIsSessionActive, deviceOrientation]);
+  }, [captureFrame, setIsSessionActive, deviceOrientation, timerPosition, timerFilter, timerScale]);
 
   // Stop session
-  const stopSession = useCallback(async () => {
+  const stopSession = useCallback(async (skipPreview: boolean = false) => {
     const sessionEndTime = new Date();
     const sessionStartTime = sessionStartTimeRef.current || sessionEndTime;
     const lockedInSeconds = elapsedSecondsRef.current;
@@ -284,16 +295,23 @@ export default function CameraScreen() {
 
         setIsFinishing(false);
 
-        // Navigate to grind-complete
-        router.push({
-          pathname: '/grind-complete',
-          params: {
-            videoUri: permanentUri,
-            grindDurationSeconds: String(lockedInSeconds),
-            lockedInSeconds: String(lockedInSeconds),
-            ...(activeTaskId ? { activeTaskId } : {}),
-          },
-        } as any);
+        const grindCompleteParams: Record<string, string> = {
+          videoUri: permanentUri,
+          grindDurationSeconds: String(lockedInSeconds),
+          lockedInSeconds: String(lockedInSeconds),
+          ...(activeTaskId ? { activeTaskId } : {}),
+        };
+
+        if (skipPreview) {
+          router.push({ pathname: '/grind-complete', params: grindCompleteParams } as any);
+        } else {
+          // Show the same preview sheet used on the profile page, then navigate to
+          // grind-complete once the user dismisses it.
+          pendingGrindCompleteParamsRef.current = grindCompleteParams;
+          setPreviewUri(permanentUri);
+          setPreviewDuration(lockedInSeconds);
+          setShowPreview(true);
+        }
       } else {
         setIsFinishing(false);
       }
@@ -343,6 +361,16 @@ export default function CameraScreen() {
     } as any);
   }, [user, router]);
 
+  // Close preview sheet and continue to the grind-complete screen
+  const handlePreviewClose = useCallback(() => {
+    const params = pendingGrindCompleteParamsRef.current;
+    pendingGrindCompleteParamsRef.current = null;
+    setShowPreview(false);
+    if (params) {
+      router.push({ pathname: '/grind-complete', params } as any);
+    }
+  }, [router]);
+
   // Handle record button press
   const handleRecordPress = useCallback(async () => {
     if (isPreparing || isFinishing || isCountingDown) return;
@@ -350,12 +378,13 @@ export default function CameraScreen() {
     if (isSessionActive) {
       // Check short session
       if (elapsedSecondsRef.current < 60) {
-        // Stop recording first so video is saved, then show warning
-        await stopSession();
+        // Stop recording first so video is saved, then show warning.
+        // Skip the preview sheet — the warning already communicates the issue.
+        await stopSession(true);
         setShowShortWarning(true);
         return;
       }
-      await stopSession();
+      await stopSession(false);
     } else {
       // Start countdown
       setIsCountingDown(true);
@@ -557,6 +586,14 @@ export default function CameraScreen() {
       <ShortTimelapseWarningModal
         visible={showShortWarning}
         onClose={() => setShowShortWarning(false)}
+      />
+
+      {/* Timelapse preview sheet — same component used on the profile grid */}
+      <TimelapsePreviewSheet
+        visible={showPreview}
+        videoUri={previewUri}
+        sessionDurationSeconds={previewDuration}
+        onClose={handlePreviewClose}
       />
     </View>
   );

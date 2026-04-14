@@ -5,10 +5,15 @@
 RCT_EXTERN_METHOD(startRecording:(double)width
                   height:(double)height
                   orientation:(NSString *)orientation
+                  timerX:(double)timerX
+                  timerY:(double)timerY
+                  timerFilter:(NSString *)timerFilter
+                  timerScale:(double)timerScale
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(addFrame:(NSString *)base64ImageData
+                  elapsedSeconds:(double)elapsedSeconds
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 

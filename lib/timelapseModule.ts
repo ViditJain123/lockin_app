@@ -7,14 +7,22 @@ const noopString = async () => '';
 
 const isIOS = Platform.OS === 'ios';
 
-export function startRecording(width: number, height: number, orientation?: string): Promise<void> {
+export function startRecording(
+  width: number,
+  height: number,
+  orientation: string,
+  timerX: number,
+  timerY: number,
+  timerFilter: string,
+  timerScale: number
+): Promise<void> {
   if (!isIOS) return noop();
-  return TimelapseModule.startRecording(width, height, orientation ?? 'portrait');
+  return TimelapseModule.startRecording(width, height, orientation, timerX, timerY, timerFilter, timerScale);
 }
 
-export function addFrame(base64: string): Promise<void> {
+export function addFrame(base64: string, elapsedSeconds: number): Promise<void> {
   if (!isIOS) return noop();
-  return TimelapseModule.addFrame(base64);
+  return TimelapseModule.addFrame(base64, elapsedSeconds);
 }
 
 export function addCompositeFrame(cameraImagePath: string, overlayBase64: string): Promise<void> {

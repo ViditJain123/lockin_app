@@ -13,12 +13,13 @@ class TimelapseModule: NSObject {
   private let processingQueue = DispatchQueue(label: "com.lockin.timelapse", qos: .userInitiated)
   private var videoWidth: Int = 0
   private var videoHeight: Int = 0
+  private var frameOverlay: TimelapseFrameOverlay?
 
   @objc static func requiresMainQueueSetup() -> Bool {
     return false
   }
 
-  @objc func startRecording(_ width: Double, height: Double, orientation: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc func startRecording(_ width: Double, height: Double, orientation: String, timerX: Double, timerY: Double, timerFilter: String, timerScale: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
 
@@ -40,6 +41,15 @@ class TimelapseModule: NSObject {
       if self.videoWidth % 2 != 0 { self.videoWidth += 1 }
       if self.videoHeight % 2 != 0 { self.videoHeight += 1 }
       self.frameCount = 0
+
+      // Initialize frame overlay for timer compositing
+      self.frameOverlay = TimelapseFrameOverlay(
+        timerPosition: CGPoint(x: timerX, y: timerY),
+        filterType: timerFilter,
+        timerScale: CGFloat(timerScale),
+        frameWidth: self.videoWidth,
+        frameHeight: self.videoHeight
+      )
 
       let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
       let timelapsesDir = cachesDir.appendingPathComponent("timelapses", isDirectory: true)
@@ -63,7 +73,7 @@ class TimelapseModule: NSObject {
           AVVideoWidthKey: self.videoWidth,
           AVVideoHeightKey: self.videoHeight,
           AVVideoCompressionPropertiesKey: [
-            AVVideoAverageBitRateKey: 2_000_000,
+            AVVideoAverageBitRateKey: 8_000_000,
             AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
           ]
         ]
@@ -171,7 +181,7 @@ class TimelapseModule: NSObject {
     }
   }
 
-  @objc func addFrame(_ base64ImageData: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc func addFrame(_ base64ImageData: String, elapsedSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
       guard let writer = self.assetWriter, writer.status == .writing else {
@@ -189,7 +199,10 @@ class TimelapseModule: NSObject {
         return
       }
 
-      guard let pixelBuffer = self.pixelBufferFromImage(image) else {
+      // Apply timer overlay to the frame
+      let overlaidImage = self.frameOverlay?.applyOverlay(to: image, elapsedSeconds: Int(elapsedSeconds)) ?? image
+
+      guard let pixelBuffer = self.pixelBufferFromImage(overlaidImage) else {
         reject("ERR_BUFFER", "Failed to create pixel buffer", nil)
         return
       }
@@ -281,10 +294,21 @@ class TimelapseModule: NSObject {
   // MARK: - Private helpers
 
   private func pixelBufferFromImage(_ image: UIImage) -> CVPixelBuffer? {
-    guard let cgImage = image.cgImage else { return nil }
-
     let width = self.videoWidth
     let height = self.videoHeight
+    let targetSize = CGSize(width: width, height: height)
+
+    // Draw UIImage (which respects .imageOrientation) into a correctly-oriented context
+    UIGraphicsBeginImageContextWithOptions(targetSize, true, 1.0)
+    defer { UIGraphicsEndImageContext() }
+
+    let drawRect = aspectFillRect(imageSize: image.size, targetSize: targetSize)
+    image.draw(in: drawRect)
+
+    guard let correctedImage = UIGraphicsGetImageFromCurrentImageContext(),
+          let cgImage = correctedImage.cgImage else {
+      return nil
+    }
 
     let attrs: [String: Any] = [
       kCVPixelBufferCGImageCompatibilityKey as String: true,
@@ -320,10 +344,8 @@ class TimelapseModule: NSObject {
       return nil
     }
 
-    let imageSize = CGSize(width: cgImage.width, height: cgImage.height)
-    let targetSize = CGSize(width: width, height: height)
-    let drawRect = aspectFillRect(imageSize: imageSize, targetSize: targetSize)
-    context.draw(cgImage, in: drawRect)
+    // cgImage is already correctly oriented, draw it filling the entire buffer
+    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
     return buffer
   }
 

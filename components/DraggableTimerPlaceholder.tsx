@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 20,
-    fontFamily: Fonts.semiBold,
+    fontFamily: 'Menlo-Bold',
     color: 'rgba(255, 255, 255, 0.95)',
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
@@ -307,13 +307,13 @@ const styles = StyleSheet.create({
   },
   brandLockin: {
     fontSize: 11,
-    fontFamily: Fonts.semiBold,
+    fontFamily: 'Menlo-Bold',
     color: 'rgba(255, 255, 255, 0.95)',
     letterSpacing: 0.5,
   },
   brandClub: {
     fontSize: 11,
-    fontFamily: Fonts.semiBold,
+    fontFamily: 'Menlo-Bold',
     color: '#FF3B5C',
     letterSpacing: 0.5,
   },
@@ -322,14 +322,14 @@ const styles = StyleSheet.create({
   },
   dateStampTimer: {
     fontSize: 20,
-    fontFamily: Fonts.semiBold,
+    fontFamily: 'Menlo-Bold',
     color: 'rgba(255, 255, 255, 0.95)',
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
   },
   dateStampDate: {
     fontSize: 11,
-    fontFamily: Fonts.semiBold,
+    fontFamily: 'Menlo-Bold',
     color: 'rgba(255, 255, 255, 0.95)',
     letterSpacing: 0.5,
     marginTop: 4,
