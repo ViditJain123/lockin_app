@@ -1,6 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, ImageBackground, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Dimensions,
+  ImageBackground,
+  InteractionManager,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -100,6 +109,12 @@ export default function GrindCompleteScreen() {
   const buttonTranslateY = useSharedValue(30);
 
   useEffect(() => {
+    posthog.capture('grind_complete_mounted', {
+      duration_seconds: durationSeconds,
+      locked_in_seconds: lockedInSeconds,
+      can_claim: canClaim,
+      is_fully_unlocked: isFullyUnlocked,
+    });
     // Staggered entrance animations
     ribbonOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
     ribbonScale.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 100 }));
@@ -150,18 +165,54 @@ export default function GrindCompleteScreen() {
   }));
 
   const handleDone = () => {
-    router.back();
+    posthog.capture('grind_complete_done_tapped', {
+      duration_seconds: durationSeconds,
+      locked_in_seconds: lockedInSeconds,
+    });
+    try {
+      router.back();
+    } catch (err: any) {
+      posthog.capture('grind_complete_error', {
+        phase: 'done',
+        error: err?.message ?? String(err),
+      });
+    }
   };
 
   const handleClaimConfirm = () => {
-    posthog.capture('screen_time_claimed', {
+    posthog.capture('grind_complete_claim_confirm_tapped', {
       available_screen_time_seconds: availableScreenTime,
       locked_in_seconds: lockedInSeconds,
       grind_duration_seconds: durationSeconds,
     });
     setShowClaimModal(false);
-    useAppLockStore.getState().unlockApps();
-    router.back();
+    // Defer the native FamilyControls bridge call off the current event-loop
+    // tick so it doesn't run during the router transition. Avoids contention
+    // with the modal dismiss + navigation happening on the same frame, which
+    // was implicated in the 1h15m session crash report.
+    InteractionManager.runAfterInteractions(() => {
+      try {
+        useAppLockStore.getState().unlockApps();
+        posthog.capture('screen_time_claimed', {
+          available_screen_time_seconds: availableScreenTime,
+          locked_in_seconds: lockedInSeconds,
+          grind_duration_seconds: durationSeconds,
+        });
+      } catch (err: any) {
+        posthog.capture('grind_complete_error', {
+          phase: 'unlock',
+          error: err?.message ?? String(err),
+        });
+      }
+    });
+    try {
+      router.back();
+    } catch (err: any) {
+      posthog.capture('grind_complete_error', {
+        phase: 'claim_back',
+        error: err?.message ?? String(err),
+      });
+    }
   };
 
   return (

@@ -22,7 +22,13 @@ RCT_EXTERN_METHOD(addCompositeFrame:(NSString *)cameraImagePath
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(stopRecording:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(stopRecording:(double)sessionDurationSeconds
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(finalizePendingRecording:(NSString *)pendingDirPath
+                  sessionDurationSeconds:(double)sessionDurationSeconds
+                  resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(cancelRecording:(RCTPromiseResolveBlock)resolve

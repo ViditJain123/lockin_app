@@ -2,7 +2,7 @@ export default ({ config }) => ({
   ...config,
   extra: {
     ...config.extra,
-    posthogProjectToken: process.env.POSTHOG_PROJECT_TOKEN,
-    posthogHost: process.env.POSTHOG_HOST,
+    posthogProjectToken: 'phc_ras6ay4YovSj9hQe3g0PR0Ssq0GhNaGPfXrFEpWv1VH',
+    posthogHost: 'https://us.i.posthog.com',
   },
 });

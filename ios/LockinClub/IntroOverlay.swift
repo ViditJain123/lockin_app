@@ -17,8 +17,10 @@ final class IntroOverlay {
 
     // MARK: - Constants
 
-    /// 2 seconds at 30fps.
-    let introFrameCount: Int = 60
+    /// 2 seconds at 30fps. Static so callers (e.g. TimelapseModule) can
+    /// reference it without instantiating an IntroOverlay.
+    static let introFrameCount: Int = 60
+    var introFrameCount: Int { Self.introFrameCount }
 
     private static let brandRed = UIColor(red: 1.0, green: 0.231, blue: 0.361, alpha: 1.0) // #FF3B5C
 
@@ -171,9 +173,6 @@ final class IntroOverlay {
     }
 
     private func prerenderLogoAndText() {
-        let logoUIImage = UIImage(named: "logo-no-bg-cropped")
-        logoImage = logoUIImage?.cgImage
-
         // Strings
         let durationString = IntroOverlay.formatDuration(duration)
         let dateString = IntroOverlay.formatDate(date)
@@ -220,43 +219,60 @@ final class IntroOverlay {
         dateLabelImage = dateLabelImg
         dateTextImage = dateImg
 
-        // Logo pinned to the bottom of the frame.
-        let logoWidth = videoSize.width * 0.38
-        let logoAspect: CGFloat
-        if let li = logoUIImage, li.size.width > 0 {
-            logoAspect = li.size.height / li.size.width
-        } else {
-            logoAspect = 127.0 / 327.0
-        }
-        let logoHeight = logoWidth * logoAspect
-        let logoBottomMargin = videoSize.height * 0.10
-        logoRect = CGRect(
-            x: (videoSize.width - logoWidth) / 2.0,
-            y: videoSize.height - logoBottomMargin - logoHeight,
-            width: logoWidth,
-            height: logoHeight
-        )
+        // Text logo: "LOCKIN " in white, "CLUB" in brand red — same split as
+        // the existing minimal timer filter in TimelapseFrameOverlay.
+        let logoFontSize = videoSize.width * 0.068
+        let logoFont = monoFont(size: logoFontSize)
+        let logoAttributed = NSMutableAttributedString()
+        logoAttributed.append(NSAttributedString(
+            string: "LOCKIN ",
+            attributes: [
+                .font: logoFont,
+                .foregroundColor: UIColor.white,
+            ]
+        ))
+        logoAttributed.append(NSAttributedString(
+            string: "CLUB",
+            attributes: [
+                .font: logoFont,
+                .foregroundColor: IntroOverlay.brandRed,
+            ]
+        ))
+        let (logoImg, logoSize) = renderAttributedTextImage(logoAttributed)
+        logoImage = logoImg
 
-        // Stats block: tightly grouped label + value pairs, left-aligned
-        // internally and centered as a block in the middle of the frame.
+        // Three entities stacked top-to-bottom: logo, duration pair,
+        // date pair. Each pair (label + value) is tightly grouped with a
+        // small internal gap. The three entities are separated from each
+        // other by a larger gap that is the same between every pair.
         let labelToValueGap = videoSize.height * 0.006
-        let pairGap = videoSize.height * 0.035 // between duration pair and date pair
+        let entityGap = videoSize.height * 0.045
 
-        let statsHeight = durLabelSize.height
-            + labelToValueGap + durSize.height
-            + pairGap
-            + dateLabelSize.height + labelToValueGap + dateSize.height
+        let durationPairHeight = durLabelSize.height + labelToValueGap + durSize.height
+        let datePairHeight = dateLabelSize.height + labelToValueGap + dateSize.height
+
+        let stackHeight = logoSize.height
+            + entityGap + durationPairHeight
+            + entityGap + datePairHeight
 
         // Left edge of the block = block's horizontal center (frame center)
-        // minus half the widest element.
+        // minus half the widest element across all rows.
         let blockMaxWidth = max(
-            max(durLabelSize.width, durSize.width),
+            max(logoSize.width, max(durLabelSize.width, durSize.width)),
             max(dateLabelSize.width, dateSize.width)
         )
         let blockLeftX = (videoSize.width - blockMaxWidth) / 2.0
 
         // Vertically centered in the frame.
-        var y = (videoSize.height - statsHeight) / 2.0
+        var y = (videoSize.height - stackHeight) / 2.0
+
+        logoRect = CGRect(
+            x: blockLeftX,
+            y: y,
+            width: logoSize.width,
+            height: logoSize.height
+        )
+        y += logoSize.height + entityGap
 
         durationLabelRect = CGRect(
             x: blockLeftX,
@@ -272,7 +288,7 @@ final class IntroOverlay {
             width: durSize.width,
             height: durSize.height
         )
-        y += durSize.height + pairGap
+        y += durSize.height + entityGap
 
         dateLabelRect = CGRect(
             x: blockLeftX,
@@ -288,6 +304,23 @@ final class IntroOverlay {
             width: dateSize.width,
             height: dateSize.height
         )
+    }
+
+    private func renderAttributedTextImage(_ attrString: NSAttributedString) -> (CGImage?, CGSize) {
+        let textSize = attrString.size()
+        let padding: CGFloat = 4
+        let paddedSize = CGSize(
+            width: ceil(textSize.width) + padding * 2,
+            height: ceil(textSize.height) + padding * 2
+        )
+
+        UIGraphicsBeginImageContextWithOptions(paddedSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+
+        attrString.draw(in: CGRect(x: padding, y: padding, width: textSize.width, height: textSize.height))
+
+        let image = UIGraphicsGetImageFromCurrentImageContext()?.cgImage
+        return (image, paddedSize)
     }
 
     private func renderTextImage(_ text: String, font: UIFont, color: UIColor, tracking: CGFloat = 0) -> (CGImage?, CGSize) {

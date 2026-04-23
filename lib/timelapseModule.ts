@@ -15,8 +15,8 @@ export function startRecording(
   timerY: number,
   timerFilter: string,
   timerScale: number
-): Promise<void> {
-  if (!isIOS) return noop();
+): Promise<string> {
+  if (!isIOS) return noopString();
   return TimelapseModule.startRecording(width, height, orientation, timerX, timerY, timerFilter, timerScale);
 }
 
@@ -30,9 +30,17 @@ export function addCompositeFrame(cameraImagePath: string, overlayBase64: string
   return TimelapseModule.addCompositeFrame(cameraImagePath, overlayBase64);
 }
 
-export function stopRecording(): Promise<string> {
+export function stopRecording(sessionDurationSeconds: number): Promise<string> {
   if (!isIOS) return noopString();
-  return TimelapseModule.stopRecording();
+  return TimelapseModule.stopRecording(sessionDurationSeconds);
+}
+
+export function finalizePendingRecording(
+  pendingDirPath: string,
+  sessionDurationSeconds: number
+): Promise<string> {
+  if (!isIOS) return noopString();
+  return TimelapseModule.finalizePendingRecording(pendingDirPath, sessionDurationSeconds);
 }
 
 export function cancelRecording(): Promise<void> {

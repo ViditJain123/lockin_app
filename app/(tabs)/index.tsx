@@ -18,7 +18,12 @@ import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useRecordingStore } from '@/store/useRecordingStore';
 import { useSessionStore } from '@/store/useSessionStore';
 import { useTaskStore } from '@/store/useTaskStore';
-import { useVideoGalleryStore } from '@/store/useVideoGalleryStore';
+import {
+  flushGallery,
+  PENDING_RECORDING_KEY,
+  useVideoGalleryStore,
+} from '@/store/useVideoGalleryStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -232,15 +237,34 @@ export default function CameraScreen() {
       const isLandscape = deviceOrientation !== 'portrait';
       const videoWidth = isLandscape ? 1920 : 1080;
       const videoHeight = isLandscape ? 1080 : 1920;
-      await Timelapse.startRecording(
+      const pendingDir = await Timelapse.startRecording(
         videoWidth, videoHeight, deviceOrientation,
         timerPosition.x, timerPosition.y, timerFilter, timerScale
       );
+      // Persist a descriptor of this in-flight session. If the app crashes
+      // mid-recording, startup recovery in useVideoGalleryStore will read
+      // this key and call finalizePendingRecording on pendingDir.
+      if (pendingDir) {
+        try {
+          await AsyncStorage.setItem(
+            PENDING_RECORDING_KEY,
+            JSON.stringify({
+              pendingDir,
+              startedAt: (sessionStartTimeRef.current ?? new Date()).toISOString(),
+            })
+          );
+        } catch (err) {
+          console.warn('[Session] Failed to persist pending descriptor:', err);
+        }
+      }
       // Small warmup delay lets the camera finish exposure ramp before the first frame,
       // then the adaptive loop takes over.
       setTimeout(() => runCaptureLoop(), 500);
     } catch (e) {
       console.warn('Failed to start timelapse recording:', e);
+      posthog.capture('timelapse_start_failed', {
+        error: (e as Error)?.message ?? String(e),
+      });
     }
   }, [runCaptureLoop, setIsSessionActive, deviceOrientation, timerPosition, timerFilter, timerScale]);
 
@@ -300,65 +324,144 @@ export default function CameraScreen() {
       console.warn('[StopSession] Tinybird send FAILED:', err);
     });
 
-    // Process timelapse video
+    // Process timelapse video. Each step is breadcrumbed to PostHog so we can
+    // correlate any future crash to exactly which phase failed. The native
+    // module now writes the .mp4 straight into Documents/timelapses/, so we
+    // no longer need a JS-side moveAsync.
+    let videoPath: string | null = null;
     try {
-      const videoPath = await Timelapse.stopRecording();
-      if (videoPath) {
-        const docsDir = FileSystem.documentDirectory + 'timelapses/';
-        await FileSystem.makeDirectoryAsync(docsDir, { intermediates: true });
-        const filename = videoPath.split('/').pop()!;
-        const permanentUri = docsDir + filename;
-        await FileSystem.moveAsync({ from: videoPath, to: permanentUri });
-
-        // Generate thumbnail
-        let thumbnailRelPath: string | null = null;
-        try {
-          const thumb = await VideoThumbnails.getThumbnailAsync(permanentUri, { time: 0 });
-          const thumbsDir = FileSystem.documentDirectory + 'thumbnails/';
-          await FileSystem.makeDirectoryAsync(thumbsDir, { intermediates: true });
-          const thumbFilename = sessionId + '.jpg';
-          await FileSystem.copyAsync({ from: thumb.uri, to: thumbsDir + thumbFilename });
-          thumbnailRelPath = 'thumbnails/' + thumbFilename;
-        } catch {
-          // Thumbnail generation failed, continue without it
-        }
-
-        // Persist recording metadata
-        useVideoGalleryStore.getState().addRecording({
-          id: sessionId,
-          videoUri: 'timelapses/' + filename,
-          thumbnailUri: thumbnailRelPath,
-          sessionDurationSeconds: lockedInSeconds,
-          createdAt: new Date().toISOString(),
-        });
-
-        setIsFinishing(false);
-
-        const grindCompleteParams: Record<string, string> = {
-          videoUri: permanentUri,
-          grindDurationSeconds: String(lockedInSeconds),
-          lockedInSeconds: String(lockedInSeconds),
-          ...(activeTaskId ? { activeTaskId } : {}),
-        };
-
-        if (skipPreview) {
-          router.push({ pathname: '/grind-complete', params: grindCompleteParams } as any);
-        } else {
-          // Show the same preview sheet used on the profile page, then navigate to
-          // grind-complete once the user dismisses it.
-          pendingGrindCompleteParamsRef.current = grindCompleteParams;
-          setPreviewUri(permanentUri);
-          setPreviewDuration(lockedInSeconds);
-          setShowPreview(true);
-        }
-      } else {
-        setIsFinishing(false);
-      }
+      videoPath = await Timelapse.stopRecording(lockedInSeconds);
+      posthog.capture('timelapse_save_step', { step: 'encode', sessionId, success: true });
     } catch (e: any) {
+      const code = e?.code ?? 'UNKNOWN';
+      posthog.capture('timelapse_save_step', {
+        step: 'encode',
+        sessionId,
+        success: false,
+        error: code,
+      });
       setIsFinishing(false);
-      if (e?.code !== 'ERR_EMPTY') {
+      if (code !== 'ERR_EMPTY') {
         console.warn('Failed to stop timelapse recording:', e);
+        Alert.alert(
+          'Video encoding failed',
+          "We couldn't finalize your timelapse this time, but your session was saved. Please try again."
+        );
       }
+      try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
+      return;
+    }
+
+    if (!videoPath) {
+      setIsFinishing(false);
+      try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
+      return;
+    }
+
+    // Integrity check: the native module guarantees the file is in Documents
+    // and playable on success, but we still verify size>0 as a last line of
+    // defense before we advertise the video to the rest of the app.
+    let fileInfo: FileSystem.FileInfo | null = null;
+    try {
+      fileInfo = await FileSystem.getInfoAsync(videoPath, { size: true } as any);
+    } catch {}
+    if (!fileInfo?.exists || !(((fileInfo as any).size ?? 0) > 0)) {
+      posthog.capture('timelapse_save_step', {
+        step: 'integrity',
+        sessionId,
+        success: false,
+        path: videoPath,
+      });
+      setIsFinishing(false);
+      try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
+      Alert.alert(
+        'Video file missing',
+        "We couldn't find your timelapse file after encoding. We'll try to recover it next time you open the app."
+      );
+      return;
+    }
+
+    const filename = videoPath.split('/').pop()!;
+    const permanentUri = videoPath; // native module writes directly to Documents/timelapses/
+
+    // Thumbnail generation. Non-fatal — gallery entry still gets created
+    // without a thumbnail, and regenerateMissingThumbnails retries on launch.
+    let thumbnailRelPath: string | null = null;
+    try {
+      const thumb = await VideoThumbnails.getThumbnailAsync(permanentUri, { time: 0 });
+      const thumbsDir = FileSystem.documentDirectory + 'thumbnails/';
+      await FileSystem.makeDirectoryAsync(thumbsDir, { intermediates: true });
+      const thumbFilename = sessionId + '.jpg';
+      await FileSystem.copyAsync({ from: thumb.uri, to: thumbsDir + thumbFilename });
+      thumbnailRelPath = 'thumbnails/' + thumbFilename;
+      posthog.capture('timelapse_save_step', { step: 'thumbnail', sessionId, success: true });
+    } catch (err: any) {
+      posthog.capture('timelapse_save_step', {
+        step: 'thumbnail',
+        sessionId,
+        success: false,
+        error: err?.message ?? String(err),
+      });
+    }
+
+    // Persist recording metadata to the in-memory store...
+    try {
+      useVideoGalleryStore.getState().addRecording({
+        id: sessionId,
+        videoUri: 'timelapses/' + filename,
+        thumbnailUri: thumbnailRelPath,
+        sessionDurationSeconds: lockedInSeconds,
+        createdAt: new Date().toISOString(),
+      });
+      posthog.capture('timelapse_save_step', { step: 'addRecording', sessionId, success: true });
+    } catch (err: any) {
+      posthog.capture('timelapse_save_step', {
+        step: 'addRecording',
+        sessionId,
+        success: false,
+        error: err?.message ?? String(err),
+      });
+    }
+
+    // ...and explicitly flush the persisted state to AsyncStorage before
+    // navigating away. Zustand persist writes async on state changes and
+    // doesn't expose a promise to await, so a crash in the ms after
+    // addRecording could lose the metadata. The orphan scanner is the belt;
+    // flushGallery is the suspenders.
+    try {
+      await flushGallery();
+      posthog.capture('timelapse_save_step', { step: 'flush', sessionId, success: true });
+    } catch (err: any) {
+      posthog.capture('timelapse_save_step', {
+        step: 'flush',
+        sessionId,
+        success: false,
+        error: err?.message ?? String(err),
+      });
+    }
+
+    // The session is fully persisted on disk — clear the pending descriptor
+    // so startup recovery doesn't try to re-finalize it.
+    try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
+
+    setIsFinishing(false);
+
+    const grindCompleteParams: Record<string, string> = {
+      videoUri: permanentUri,
+      grindDurationSeconds: String(lockedInSeconds),
+      lockedInSeconds: String(lockedInSeconds),
+      ...(activeTaskId ? { activeTaskId } : {}),
+    };
+
+    if (skipPreview) {
+      router.push({ pathname: '/grind-complete', params: grindCompleteParams } as any);
+    } else {
+      // Show the same preview sheet used on the profile page, then navigate to
+      // grind-complete once the user dismisses it.
+      pendingGrindCompleteParamsRef.current = grindCompleteParams;
+      setPreviewUri(permanentUri);
+      setPreviewDuration(lockedInSeconds);
+      setShowPreview(true);
     }
   }, [user, setIsSessionActive, setIsFinishing, router, activeTaskId]);
 
@@ -473,6 +576,7 @@ export default function CameraScreen() {
       if (captureTimeoutRef.current) clearTimeout(captureTimeoutRef.current);
       if (isSessionActiveRef.current) {
         Timelapse.cancelRecording().catch(() => {});
+        AsyncStorage.removeItem(PENDING_RECORDING_KEY).catch(() => {});
       }
     };
   }, []);

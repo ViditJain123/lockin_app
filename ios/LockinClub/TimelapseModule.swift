@@ -2,23 +2,28 @@ import Foundation
 import AVFoundation
 import UIKit
 
+private enum FrameEncodeResult {
+  case success(Data)
+  case failure(code: String, message: String)
+}
+
 @objc(TimelapseModule)
 class TimelapseModule: NSObject {
 
-  private struct BufferedFrame {
-    let jpegData: Data
-    let elapsedSeconds: Int
-  }
-
-  private var outputURL: URL?
+  // Serial work queue. All mutation of the per-session state and all
+  // file I/O happens here.
   private let processingQueue = DispatchQueue(label: "com.lockin.timelapse", qos: .userInitiated)
+
+  // Per-session state
+  private var sessionDir: URL?
+  private var sessionStartDate: Date?
   private var videoWidth: Int = 0
   private var videoHeight: Int = 0
   private var frameOverlay: TimelapseFrameOverlay?
-  private var frameBuffer: [BufferedFrame] = []
+  private var frameURLs: [URL] = []
   private var isRecording: Bool = false
-  private var sessionStartDate: Date?
 
+  // Config
   private let maxBufferFrames = 600
   private let jpegQuality: CGFloat = 0.85
 
@@ -31,11 +36,7 @@ class TimelapseModule: NSObject {
       object: nil,
       queue: nil
     ) { [weak self] _ in
-      guard let self = self else { return }
-      self.processingQueue.async {
-        guard self.isRecording else { return }
-        self.decimateBuffer()
-      }
+      NSLog("[Timelapse] didReceiveMemoryWarning (recording=\(self?.isRecording ?? false))")
     }
   }
 
@@ -49,14 +50,41 @@ class TimelapseModule: NSObject {
     return false
   }
 
+  // MARK: - Path helpers
+
+  private static func timelapsesDir() -> URL {
+    let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+    let dir = docs.appendingPathComponent("timelapses", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir
+  }
+
+  private static func newSessionDir() -> URL {
+    let ts = Int(Date().timeIntervalSince1970 * 1000)
+    let dir = timelapsesDir().appendingPathComponent("pending_\(ts)", isDirectory: true)
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir
+  }
+
+  private static func metaURL(in sessionDir: URL) -> URL {
+    return sessionDir.appendingPathComponent("meta.json")
+  }
+
+  private static func frameURL(in sessionDir: URL, index: Int) -> URL {
+    let name = String(format: "frame_%07d.jpg", index)
+    return sessionDir.appendingPathComponent(name)
+  }
+
+  // MARK: - Start
+
   @objc func startRecording(_ width: Double, height: Double, orientation: String, timerX: Double, timerY: Double, timerFilter: String, timerScale: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
 
-      // Clean up any previous session
-      self.cleanup()
+      // Clean up any previous session (files + instance state).
+      self.discardCurrentSession()
 
-      // Set dimensions based on orientation
+      // Dimensions
       let isLandscape = orientation == "landscape-left" || orientation == "landscape-right"
       if isLandscape {
         self.videoWidth = max(Int(width), Int(height))
@@ -65,7 +93,6 @@ class TimelapseModule: NSObject {
         self.videoWidth = min(Int(width), Int(height))
         self.videoHeight = max(Int(width), Int(height))
       }
-      // Ensure even dimensions (required by H.264)
       if self.videoWidth % 2 != 0 { self.videoWidth += 1 }
       if self.videoHeight % 2 != 0 { self.videoHeight += 1 }
 
@@ -77,244 +104,418 @@ class TimelapseModule: NSObject {
         frameHeight: self.videoHeight
       )
 
-      self.frameBuffer.removeAll(keepingCapacity: true)
-      self.outputURL = nil
       self.sessionStartDate = Date()
+      self.frameURLs.removeAll(keepingCapacity: true)
+
+      let dir = Self.newSessionDir()
+      self.sessionDir = dir
       self.isRecording = true
-      resolve(nil)
+
+      // Persist enough metadata that a crash-recovered session can
+      // reconstruct everything it needs at finalize time.
+      let meta: [String: Any] = [
+        "videoWidth": self.videoWidth,
+        "videoHeight": self.videoHeight,
+        "orientation": orientation,
+        "timerX": timerX,
+        "timerY": timerY,
+        "timerFilter": timerFilter,
+        "timerScale": timerScale,
+        "sessionStartDateMs": Int((self.sessionStartDate ?? Date()).timeIntervalSince1970 * 1000),
+      ]
+      if let data = try? JSONSerialization.data(withJSONObject: meta, options: []) {
+        try? data.write(to: Self.metaURL(in: dir), options: .atomic)
+      }
+
+      resolve(dir.absoluteString)
+    }
+  }
+
+  // MARK: - Add frame
+
+  @objc func addFrame(_ base64ImageData: String, elapsedSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    processingQueue.async { [weak self] in
+      guard let self = self else { return }
+      guard self.isRecording, let dir = self.sessionDir else {
+        reject("ERR_STATE", "Not recording", nil)
+        return
+      }
+
+      // The first IntroOverlay.introFrameCount frames must be stored raw so
+      // the intro card can render over clean pixels at finalize time.
+      // decimateDiskBuffer() preserves this prefix across long sessions.
+      let isIntroCandidate = self.frameURLs.count < IntroOverlay.introFrameCount
+
+      let jpegResult: FrameEncodeResult = autoreleasepool {
+        guard let imageData = Data(base64Encoded: base64ImageData, options: .ignoreUnknownCharacters) else {
+          return .failure(code: "ERR_DECODE", message: "Failed to decode base64 image")
+        }
+        // Intro-candidate frames have no timer overlay and don't need
+        // resizing (the assembler scales them at encode time), so we can
+        // skip the decompress+recompress cycle entirely and store the
+        // original bytes. Saves a full CPU round-trip on every frame in
+        // the initial 4fps capture burst.
+        if isIntroCandidate {
+          return .success(imageData)
+        }
+        guard let image = UIImage(data: imageData) else {
+          return .failure(code: "ERR_DECODE", message: "Failed to decode image data")
+        }
+        let overlaid = self.frameOverlay?.applyOverlay(to: image, elapsedSeconds: Int(elapsedSeconds)) ?? image
+        guard let jpeg = overlaid.jpegData(compressionQuality: self.jpegQuality) else {
+          return .failure(code: "ERR_ENCODE", message: "Failed to encode frame as JPEG")
+        }
+        return .success(jpeg)
+      }
+
+      switch jpegResult {
+      case .failure(let code, let message):
+        reject(code, message, nil)
+      case .success(let jpeg):
+        self.persistFrame(jpeg: jpeg, in: dir, resolve: resolve, reject: reject)
+      }
     }
   }
 
   @objc func addCompositeFrame(_ cameraImagePath: String, overlayBase64: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
-      guard self.isRecording else {
+      guard self.isRecording, let dir = self.sessionDir else {
         reject("ERR_STATE", "Not recording", nil)
         return
       }
 
-      let cleanPath = cameraImagePath.replacingOccurrences(of: "file://", with: "")
-      guard let cameraImage = UIImage(contentsOfFile: cleanPath) else {
-        reject("ERR_DECODE", "Failed to load camera image from path: \(cleanPath)", nil)
-        return
+      let jpegResult: FrameEncodeResult = autoreleasepool {
+        let cleanPath = cameraImagePath.replacingOccurrences(of: "file://", with: "")
+        guard let cameraImage = UIImage(contentsOfFile: cleanPath) else {
+          return .failure(code: "ERR_DECODE", message: "Failed to load camera image from path: \(cleanPath)")
+        }
+        guard let overlayData = Data(base64Encoded: overlayBase64, options: .ignoreUnknownCharacters),
+              let overlayImage = UIImage(data: overlayData) else {
+          return .failure(code: "ERR_DECODE", message: "Failed to decode overlay base64 image")
+        }
+
+        let size = CGSize(width: self.videoWidth, height: self.videoHeight)
+        UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
+        let cameraRect = self.aspectFillRect(imageSize: cameraImage.size, targetSize: size)
+        cameraImage.draw(in: cameraRect)
+        let overlayRect = self.aspectFillRect(imageSize: overlayImage.size, targetSize: size)
+        overlayImage.draw(in: overlayRect)
+        let composited = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+
+        guard let finalImage = composited,
+              let jpeg = finalImage.jpegData(compressionQuality: self.jpegQuality) else {
+          return .failure(code: "ERR_COMPOSITE", message: "Failed to composite / encode frame")
+        }
+        try? FileManager.default.removeItem(atPath: cleanPath)
+        return .success(jpeg)
       }
 
-      guard let overlayData = Data(base64Encoded: overlayBase64, options: .ignoreUnknownCharacters),
-            let overlayImage = UIImage(data: overlayData) else {
-        reject("ERR_DECODE", "Failed to decode overlay base64 image", nil)
-        return
+      switch jpegResult {
+      case .failure(let code, let message):
+        reject(code, message, nil)
+      case .success(let jpeg):
+        self.persistFrame(jpeg: jpeg, in: dir, resolve: resolve, reject: reject)
       }
-
-      let size = CGSize(width: self.videoWidth, height: self.videoHeight)
-      UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
-      let cameraRect = self.aspectFillRect(imageSize: cameraImage.size, targetSize: size)
-      cameraImage.draw(in: cameraRect)
-      let overlayRect = self.aspectFillRect(imageSize: overlayImage.size, targetSize: size)
-      overlayImage.draw(in: overlayRect)
-      let composited = UIGraphicsGetImageFromCurrentImageContext()
-      UIGraphicsEndImageContext()
-
-      guard let finalImage = composited,
-            let jpeg = finalImage.jpegData(compressionQuality: self.jpegQuality) else {
-        reject("ERR_COMPOSITE", "Failed to composite / encode frame", nil)
-        return
-      }
-
-      try? FileManager.default.removeItem(atPath: cleanPath)
-
-      self.frameBuffer.append(BufferedFrame(jpegData: jpeg, elapsedSeconds: 0))
-      if self.frameBuffer.count > self.maxBufferFrames {
-        self.decimateBuffer()
-      }
-      resolve(nil)
     }
   }
 
-  @objc func addFrame(_ base64ImageData: String, elapsedSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    processingQueue.async { [weak self] in
-      guard let self = self else { return }
-      guard self.isRecording else {
-        reject("ERR_STATE", "Not recording", nil)
-        return
-      }
-
-      guard let imageData = Data(base64Encoded: base64ImageData, options: .ignoreUnknownCharacters),
-            let image = UIImage(data: imageData) else {
-        reject("ERR_DECODE", "Failed to decode base64 image", nil)
-        return
-      }
-
-      // Apply timer overlay to the frame (unchanged from prior behavior)
-      let overlaidImage = self.frameOverlay?.applyOverlay(to: image, elapsedSeconds: Int(elapsedSeconds)) ?? image
-
-      guard let jpeg = overlaidImage.jpegData(compressionQuality: self.jpegQuality) else {
-        reject("ERR_ENCODE", "Failed to encode overlaid frame as JPEG", nil)
-        return
-      }
-
-      self.frameBuffer.append(BufferedFrame(jpegData: jpeg, elapsedSeconds: Int(elapsedSeconds)))
-      if self.frameBuffer.count > self.maxBufferFrames {
-        self.decimateBuffer()
-      }
-      resolve(nil)
+  /// Shared tail for addFrame / addCompositeFrame: writes the encoded JPEG
+  /// to the session directory and advances the frame counter. Must be
+  /// called from the processingQueue.
+  private func persistFrame(jpeg: Data, in dir: URL, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    let index = frameURLs.count
+    let url = Self.frameURL(in: dir, index: index)
+    do {
+      try jpeg.write(to: url, options: .atomic)
+    } catch {
+      reject("ERR_WRITE", "Failed to write frame to disk: \(error.localizedDescription)", error)
+      return
     }
+    frameURLs.append(url)
+
+    if frameURLs.count > maxBufferFrames {
+      decimateDiskBuffer()
+    }
+    resolve(nil)
   }
 
-  @objc func stopRecording(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  // MARK: - Decimation
+
+  /// Halves the on-disk frame buffer in place, preserving the raw intro
+  /// prefix. Called when frame count exceeds maxBufferFrames. Both the
+  /// in-memory URL list and the underlying disk files are pruned.
+  private func decimateDiskBuffer() {
+    let preservePrefix = IntroOverlay.introFrameCount
+    guard frameURLs.count > preservePrefix + 1 else { return }
+
+    var kept: [URL] = []
+    kept.reserveCapacity(preservePrefix + (frameURLs.count - preservePrefix + 1) / 2)
+    kept.append(contentsOf: frameURLs.prefix(preservePrefix))
+
+    // Walk the suffix, keeping even offsets and deleting odd ones. Doing the
+    // delete inline (instead of a second pass with a Set) avoids building any
+    // auxiliary data structure and cuts the work in half.
+    var i = preservePrefix
+    while i < frameURLs.count {
+      kept.append(frameURLs[i])
+      let dropIdx = i + 1
+      if dropIdx < frameURLs.count {
+        try? FileManager.default.removeItem(at: frameURLs[dropIdx])
+      }
+      i += 2
+    }
+
+    frameURLs = kept
+  }
+
+  // MARK: - Stop
+
+  @objc func stopRecording(_ sessionDurationSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
-      guard self.isRecording else {
+      guard self.isRecording, let dir = self.sessionDir else {
         reject("ERR_STATE", "No active recording", nil)
         return
       }
       self.isRecording = false
 
-      if self.frameBuffer.isEmpty {
-        self.cleanup()
-        reject("ERR_EMPTY", "No frames were captured", nil)
+      let capturedURLs = self.frameURLs
+      let startDate = self.sessionStartDate ?? Date()
+      let width = self.videoWidth
+      let height = self.videoHeight
+
+      self.assembleAndFinalize(
+        frameURLs: capturedURLs,
+        width: width,
+        height: height,
+        sessionStartDate: startDate,
+        sessionDurationSeconds: sessionDurationSeconds,
+        pendingDir: dir,
+        clearInstanceState: true,
+        resolve: resolve,
+        reject: reject
+      )
+    }
+  }
+
+  /// Invoked from JS on app start when a pending session directory was left
+  /// behind by a prior crashed/killed process. Rebuilds the output .mp4 from
+  /// the on-disk frames and meta.json.
+  @objc func finalizePendingRecording(_ pendingDirPath: String, sessionDurationSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    processingQueue.async { [weak self] in
+      guard let self = self else { return }
+      if self.isRecording {
+        reject("ERR_STATE", "A recording is currently in progress", nil)
         return
       }
 
-      let cachesDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-      let timelapsesDir = cachesDir.appendingPathComponent("timelapses", isDirectory: true)
-      try? FileManager.default.createDirectory(at: timelapsesDir, withIntermediateDirectories: true)
-      let fileName = "timelapse_\(Int(Date().timeIntervalSince1970)).mp4"
-      let url = timelapsesDir.appendingPathComponent(fileName)
-      try? FileManager.default.removeItem(at: url)
-      self.outputURL = url
+      let cleanPath = pendingDirPath.replacingOccurrences(of: "file://", with: "")
+      let dir = URL(fileURLWithPath: cleanPath, isDirectory: true)
 
-      do {
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+      guard FileManager.default.fileExists(atPath: dir.path) else {
+        reject("ERR_NO_DIR", "Pending session directory does not exist: \(dir.path)", nil)
+        return
+      }
 
-        let videoSettings: [String: Any] = [
-          AVVideoCodecKey: AVVideoCodecType.h264,
-          AVVideoWidthKey: self.videoWidth,
-          AVVideoHeightKey: self.videoHeight,
-          AVVideoCompressionPropertiesKey: [
-            AVVideoAverageBitRateKey: 8_000_000,
-            AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-          ]
-        ]
+      let meta = Self.metaURL(in: dir)
+      guard FileManager.default.fileExists(atPath: meta.path),
+            let metaData = try? Data(contentsOf: meta),
+            let json = try? JSONSerialization.jsonObject(with: metaData) as? [String: Any],
+            let width = json["videoWidth"] as? Int,
+            let height = json["videoHeight"] as? Int,
+            let startMs = json["sessionStartDateMs"] as? Int else {
+        try? FileManager.default.removeItem(at: dir)
+        reject("ERR_META", "Failed to read meta.json — pending session is unrecoverable", nil)
+        return
+      }
+      let startDate = Date(timeIntervalSince1970: TimeInterval(startMs) / 1000.0)
 
-        let input = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-        input.expectsMediaDataInRealTime = false
+      let contents = (try? FileManager.default.contentsOfDirectory(
+        at: dir,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+      )) ?? []
 
-        let sourcePixelBufferAttributes: [String: Any] = [
-          kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
-          kCVPixelBufferWidthKey as String: self.videoWidth,
-          kCVPixelBufferHeightKey as String: self.videoHeight,
-        ]
+      let frameURLs = contents
+        .filter { $0.pathExtension.lowercased() == "jpg" && $0.lastPathComponent.hasPrefix("frame_") }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
-        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
-          assetWriterInput: input,
-          sourcePixelBufferAttributes: sourcePixelBufferAttributes
-        )
+      if frameURLs.isEmpty {
+        try? FileManager.default.removeItem(at: dir)
+        reject("ERR_EMPTY", "No frames in pending session", nil)
+        return
+      }
 
-        writer.add(input)
+      self.assembleAndFinalize(
+        frameURLs: frameURLs,
+        width: width,
+        height: height,
+        sessionStartDate: startDate,
+        sessionDurationSeconds: sessionDurationSeconds,
+        pendingDir: dir,
+        clearInstanceState: false,
+        resolve: resolve,
+        reject: reject
+      )
+    }
+  }
 
-        guard writer.startWriting() else {
-          reject("ERR_WRITER", "Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")", writer.error)
-          self.cleanup()
-          return
+  /// Encodes the pending session's on-disk frames into a single .mp4 inside
+  /// Documents/timelapses/. Each iteration is wrapped in autoreleasepool so
+  /// long sessions don't accumulate Core Graphics temporaries and OOM.
+  ///
+  /// Called from stopRecording (live session) and finalizePendingRecording
+  /// (crash recovery). The clearInstanceState flag controls whether the
+  /// in-progress session state on `self` gets wiped — live path yes, recovery
+  /// path no (don't clobber any concurrently-started session).
+  private func assembleAndFinalize(
+    frameURLs: [URL],
+    width: Int,
+    height: Int,
+    sessionStartDate: Date,
+    sessionDurationSeconds: Double,
+    pendingDir: URL,
+    clearInstanceState: Bool,
+    resolve: @escaping RCTPromiseResolveBlock,
+    reject: @escaping RCTPromiseRejectBlock
+  ) {
+    let clearStateIfNeeded: () -> Void = { [weak self] in
+      guard clearInstanceState, let self = self else { return }
+      self.clearInstanceState()
+    }
+
+    if frameURLs.isEmpty {
+      try? FileManager.default.removeItem(at: pendingDir)
+      clearStateIfNeeded()
+      reject("ERR_EMPTY", "No frames were captured", nil)
+      return
+    }
+
+    let outDir = Self.timelapsesDir()
+    let fileName = "timelapse_\(Int(Date().timeIntervalSince1970)).mp4"
+    let outURL = outDir.appendingPathComponent(fileName)
+    try? FileManager.default.removeItem(at: outURL)
+
+    let writer: AVAssetWriter
+    do {
+      writer = try AVAssetWriter(outputURL: outURL, fileType: .mp4)
+    } catch {
+      try? FileManager.default.removeItem(at: pendingDir)
+      clearStateIfNeeded()
+      reject("ERR_INIT", "Failed to initialize AVAssetWriter: \(error.localizedDescription)", error)
+      return
+    }
+
+    let videoSettings: [String: Any] = [
+      AVVideoCodecKey: AVVideoCodecType.h264,
+      AVVideoWidthKey: width,
+      AVVideoHeightKey: height,
+      AVVideoCompressionPropertiesKey: [
+        AVVideoAverageBitRateKey: 8_000_000,
+        AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+      ]
+    ]
+
+    let input = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+    input.expectsMediaDataInRealTime = false
+
+    let sourcePixelBufferAttributes: [String: Any] = [
+      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+      kCVPixelBufferWidthKey as String: width,
+      kCVPixelBufferHeightKey as String: height,
+    ]
+
+    let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+      assetWriterInput: input,
+      sourcePixelBufferAttributes: sourcePixelBufferAttributes
+    )
+
+    writer.add(input)
+
+    guard writer.startWriting() else {
+      try? FileManager.default.removeItem(at: outURL)
+      try? FileManager.default.removeItem(at: pendingDir)
+      clearStateIfNeeded()
+      reject("ERR_WRITER", "Failed to start writing: \(writer.error?.localizedDescription ?? "unknown")", writer.error)
+      return
+    }
+
+    writer.startSession(atSourceTime: .zero)
+
+    // Intro overlay is rendered at finalize time because it depends on the
+    // total session duration, which is only known once recording stops.
+    let introInputs = IntroOverlayInputs(
+      sessionDurationSeconds: sessionDurationSeconds,
+      sessionStartDate: sessionStartDate,
+      videoSize: CGSize(width: width, height: height)
+    )
+    let introOverlay = IntroOverlay(inputs: introInputs)
+    let introCount = min(IntroOverlay.introFrameCount, frameURLs.count)
+
+    var appendedCount = 0
+    for (i, frameURL) in frameURLs.enumerated() {
+      autoreleasepool {
+        guard let image = UIImage(contentsOfFile: frameURL.path) else { return }
+
+        let pixelBuffer: CVPixelBuffer?
+        if i < introCount {
+          pixelBuffer = self.pixelBufferFromImage(image, width: width, height: height) {
+            introOverlay.draw(frameIndex: i)
+          }
+        } else {
+          pixelBuffer = self.pixelBufferFromImage(image, width: width, height: height)
         }
 
-        writer.startSession(atSourceTime: .zero)
+        guard let pb = pixelBuffer else { return }
 
-        // Build the intro overlay once. Static pieces (black, gradients,
-        // logo, text) are pre-rendered inside the initializer so per-frame
-        // draws are just alpha-blended CGImage blits.
-        let totalSessionSeconds = TimeInterval(self.frameBuffer.last?.elapsedSeconds ?? 0)
-        let introInputs = IntroOverlayInputs(
-          sessionDurationSeconds: totalSessionSeconds,
-          sessionStartDate: self.sessionStartDate ?? Date(),
-          videoSize: CGSize(width: self.videoWidth, height: self.videoHeight)
-        )
-        let introOverlay = IntroOverlay(inputs: introInputs)
-        let introFrameCount = introOverlay.introFrameCount
-
-        var appendedCount = 0
-        for (_, entry) in self.frameBuffer.enumerated() {
-          guard let image = UIImage(data: entry.jpegData) else { continue }
-
-          let outputFrameIndex = appendedCount
-          let pixelBuffer: CVPixelBuffer?
-          if outputFrameIndex < introFrameCount {
-            pixelBuffer = self.pixelBufferFromImage(image) {
-              introOverlay.draw(frameIndex: outputFrameIndex)
-            }
-          } else {
-            pixelBuffer = self.pixelBufferFromImage(image)
-          }
-
-          guard let pb = pixelBuffer else { continue }
-
-          var retries = 0
-          while !input.isReadyForMoreMediaData && retries < 200 {
-            Thread.sleep(forTimeInterval: 0.005)
-            retries += 1
-          }
-          if !input.isReadyForMoreMediaData { continue }
-
-          let frameTime = CMTime(value: CMTimeValue(appendedCount), timescale: 30)
-          if adaptor.append(pb, withPresentationTime: frameTime) {
-            appendedCount += 1
-          }
+        var retries = 0
+        while !input.isReadyForMoreMediaData && retries < 200 {
+          Thread.sleep(forTimeInterval: 0.005)
+          retries += 1
         }
+        if !input.isReadyForMoreMediaData { return }
 
-        self.frameBuffer.removeAll(keepingCapacity: false)
-
-        if appendedCount == 0 {
-          writer.cancelWriting()
-          try? FileManager.default.removeItem(at: url)
-          self.cleanupSession()
-          reject("ERR_EMPTY", "No frames were appended to the writer", nil)
-          return
+        let frameTime = CMTime(value: CMTimeValue(appendedCount), timescale: 30)
+        if adaptor.append(pb, withPresentationTime: frameTime) {
+          appendedCount += 1
         }
+      }
+    }
 
-        input.markAsFinished()
-        writer.finishWriting { [weak self] in
-          guard let self = self else { return }
-          if writer.status == .completed {
-            let filePath = url.absoluteString
-            self.cleanupSession()
-            resolve(filePath)
-          } else {
-            try? FileManager.default.removeItem(at: url)
-            self.cleanupSession()
-            reject("ERR_FINISH", "Failed to finish writing: \(writer.error?.localizedDescription ?? "unknown")", writer.error)
-          }
-        }
-      } catch {
-        self.cleanup()
-        reject("ERR_INIT", "Failed to initialize AVAssetWriter: \(error.localizedDescription)", error)
+    if appendedCount == 0 {
+      writer.cancelWriting()
+      try? FileManager.default.removeItem(at: outURL)
+      try? FileManager.default.removeItem(at: pendingDir)
+      clearStateIfNeeded()
+      reject("ERR_EMPTY", "No frames were appended to the writer", nil)
+      return
+    }
+
+    input.markAsFinished()
+    writer.finishWriting {
+      if writer.status == .completed {
+        try? FileManager.default.removeItem(at: pendingDir)
+        clearStateIfNeeded()
+        resolve(outURL.absoluteString)
+      } else {
+        try? FileManager.default.removeItem(at: outURL)
+        try? FileManager.default.removeItem(at: pendingDir)
+        clearStateIfNeeded()
+        reject("ERR_FINISH", "Failed to finish writing: \(writer.error?.localizedDescription ?? "unknown")", writer.error)
       }
     }
   }
+
+  // MARK: - Cancel
 
   @objc func cancelRecording(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
     processingQueue.async { [weak self] in
       guard let self = self else { return }
-      self.isRecording = false
-      if let url = self.outputURL {
-        try? FileManager.default.removeItem(at: url)
-      }
-      self.cleanupSession()
+      self.discardCurrentSession()
       resolve(nil)
     }
-  }
-
-  // MARK: - Buffer decimation
-
-  /// Keeps every other entry (indices 0, 2, 4, ...), halving the buffer in place.
-  /// Called when the buffer exceeds `maxBufferFrames`, or on memory-warning.
-  private func decimateBuffer() {
-    guard frameBuffer.count > 1 else { return }
-    var kept: [BufferedFrame] = []
-    kept.reserveCapacity((frameBuffer.count + 1) / 2)
-    for (index, entry) in frameBuffer.enumerated() where index % 2 == 0 {
-      kept.append(entry)
-    }
-    frameBuffer = kept
   }
 
   // MARK: - Aspect-fill helper
@@ -323,7 +524,7 @@ class TimelapseModule: NSObject {
   private func aspectFillRect(imageSize: CGSize, targetSize: CGSize) -> CGRect {
     let widthRatio = targetSize.width / imageSize.width
     let heightRatio = targetSize.height / imageSize.height
-    let scale = max(widthRatio, heightRatio) // fill, not fit
+    let scale = max(widthRatio, heightRatio)
     let scaledW = imageSize.width * scale
     let scaledH = imageSize.height * scale
     let x = (targetSize.width - scaledW) / 2
@@ -331,11 +532,9 @@ class TimelapseModule: NSObject {
     return CGRect(x: x, y: y, width: scaledW, height: scaledH)
   }
 
-  // MARK: - Private helpers
+  // MARK: - Pixel buffer
 
-  private func pixelBufferFromImage(_ image: UIImage, postDraw: (() -> Void)? = nil) -> CVPixelBuffer? {
-    let width = self.videoWidth
-    let height = self.videoHeight
+  private func pixelBufferFromImage(_ image: UIImage, width: Int, height: Int, postDraw: (() -> Void)? = nil) -> CVPixelBuffer? {
     let targetSize = CGSize(width: width, height: height)
 
     UIGraphicsBeginImageContextWithOptions(targetSize, true, 1.0)
@@ -389,20 +588,26 @@ class TimelapseModule: NSObject {
     return buffer
   }
 
-  /// Resets per-session state. Does not delete the output file (used on success).
-  private func cleanupSession() {
-    outputURL = nil
-    frameOverlay = nil
-    frameBuffer.removeAll(keepingCapacity: false)
+  // MARK: - State resets
+
+  /// Resets the in-memory per-session state without touching disk. Called
+  /// after a successful finalize (live path) or from cancelRecording's
+  /// discardCurrentSession.
+  private func clearInstanceState() {
+    sessionDir = nil
     sessionStartDate = nil
+    frameOverlay = nil
+    frameURLs.removeAll(keepingCapacity: false)
     isRecording = false
   }
 
-  /// Full cleanup: deletes the output file (if any) and resets session state.
-  private func cleanup() {
-    if let url = outputURL {
-      try? FileManager.default.removeItem(at: url)
+  /// Full cleanup: deletes the current pending session directory and clears
+  /// instance state. Called from startRecording (wipe stale session) and
+  /// cancelRecording (user bailed).
+  private func discardCurrentSession() {
+    if let dir = sessionDir {
+      try? FileManager.default.removeItem(at: dir)
     }
-    cleanupSession()
+    clearInstanceState()
   }
 }
