@@ -1,18 +1,14 @@
+import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
 import { buttonPress, optionSelect } from '@/lib/haptics';
 import { useRecordingStore } from '@/store/useRecordingStore';
 import { Task, useTaskStore } from '@/store/useTaskStore';
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useRef } from 'react';
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 
 interface TaskCardProps {
   task: Task;
@@ -22,17 +18,21 @@ export default function TaskCard({ task }: TaskCardProps) {
   const toggleTask = useTaskStore((s) => s.toggleTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const setActiveTaskId = useRecordingStore((s) => s.setActiveTaskId);
+  const activeTaskId = useRecordingStore((s) => s.activeTaskId);
+  const isSessionActive = useRecordingStore((s) => s.isSessionActive);
   const swipeableRef = useRef<Swipeable>(null);
+
+  const isActive = activeTaskId === task.id && isSessionActive;
 
   const handleToggle = useCallback(() => {
     optionSelect();
     toggleTask(task.id);
   }, [task.id, toggleTask]);
 
-  const handleCameraPress = useCallback(() => {
+  const handleGrindPress = useCallback(() => {
     buttonPress();
     setActiveTaskId(task.id);
-    router.navigate('/(tabs)');
+    router.navigate('/(tabs)' as any);
   }, [task.id, setActiveTaskId]);
 
   const handleDelete = useCallback(() => {
@@ -42,10 +42,56 @@ export default function TaskCard({ task }: TaskCardProps) {
 
   const renderRightActions = () => (
     <TouchableOpacity style={styles.deleteAction} onPress={handleDelete}>
-      <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6M5 6l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14"
+          stroke="#fff"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
     </TouchableOpacity>
   );
 
+  // ── Completed: minimal strikethrough row ──────────────────────────────
+  if (task.isCompleted) {
+    return (
+      <Animated.View entering={FadeIn.duration(300)}>
+        <Swipeable
+          ref={swipeableRef}
+          renderRightActions={renderRightActions}
+          overshootRight={false}
+        >
+          <View style={[styles.card, styles.cardCompleted]}>
+            <View style={styles.inner}>
+              <TouchableOpacity onPress={handleToggle} style={styles.checkBox}>
+                <View style={styles.checkBoxDone}>
+                  <Svg width={12} height={12} viewBox="0 0 12 12">
+                    <Path
+                      d="M2 6l3 3 5-6"
+                      stroke={LC.bg}
+                      strokeWidth={2}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+              </TouchableOpacity>
+              <View style={styles.textContainer}>
+                <Text style={styles.titleDone} numberOfLines={1}>
+                  {task.title}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Swipeable>
+      </Animated.View>
+    );
+  }
+
+  // ── Open task ─────────────────────────────────────────────────────────
   return (
     <Animated.View entering={FadeIn.duration(300)}>
       <Swipeable
@@ -53,47 +99,67 @@ export default function TaskCard({ task }: TaskCardProps) {
         renderRightActions={renderRightActions}
         overshootRight={false}
       >
-        <View style={[styles.card, task.isCompleted && styles.cardCompleted]}>
-          {/* Checkbox */}
-          <TouchableOpacity onPress={handleToggle} style={styles.checkbox}>
-            <Ionicons
-              name={task.isCompleted ? 'checkmark-circle' : 'ellipse-outline'}
-              size={26}
-              color={task.isCompleted ? '#34C759' : 'rgba(255,255,255,0.4)'}
-            />
-          </TouchableOpacity>
+        <View style={[styles.card, isActive && styles.cardActive]}>
+          {isActive && <View style={styles.activeStripe} />}
 
-          {/* Title + Description */}
-          <View style={styles.textContainer}>
-            <View style={styles.titleRow}>
-              <Text
-                style={[styles.title, task.isCompleted && styles.titleCompleted]}
-                numberOfLines={1}
-              >
+          <View style={styles.inner}>
+            <TouchableOpacity onPress={handleToggle} style={styles.checkBox}>
+              <View
+                style={[
+                  styles.checkBoxEmpty,
+                  isActive && styles.checkBoxActive,
+                ]}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.textContainer}>
+              <Text style={styles.title} numberOfLines={1}>
                 {task.title}
               </Text>
-              {task.isDaily && (
-                <View style={styles.dailyBadge}>
-                  <Text style={styles.dailyBadgeText}>Daily</Text>
-                </View>
-              )}
+              <View style={styles.metaRow}>
+                {task.isDaily && (
+                  <>
+                    <Text style={styles.metaTag}>DAILY</Text>
+                    {(task.description !== '' || isActive) && (
+                      <View style={styles.metaDot} />
+                    )}
+                  </>
+                )}
+                {isActive ? (
+                  <Text style={styles.metaActive}>● GRINDING</Text>
+                ) : task.description !== '' ? (
+                  <Text style={styles.metaDesc} numberOfLines={1}>
+                    {task.description}
+                  </Text>
+                ) : null}
+              </View>
             </View>
-            {task.description !== '' && (
-              <Text
-                style={[styles.description, task.isCompleted && styles.descriptionCompleted]}
-                numberOfLines={2}
-              >
-                {task.description}
-              </Text>
-            )}
           </View>
 
-          {/* Camera button */}
-          {!task.isCompleted && (
-            <TouchableOpacity onPress={handleCameraPress} style={styles.cameraButton}>
-              <Ionicons name="camera" size={22} color="rgba(255,255,255,0.6)" />
-            </TouchableOpacity>
-          )}
+          {/* GRIND / PAUSE rail button */}
+          <TouchableOpacity
+            onPress={handleGrindPress}
+            style={[styles.grindBtn, isActive && styles.grindBtnActive]}
+            accessibilityRole="button"
+            accessibilityLabel={isActive ? 'Pause grind' : 'Start grind for this task'}
+          >
+            {isActive ? (
+              <>
+                <View style={styles.pauseIcon}>
+                  <View style={styles.pauseBar} />
+                  <View style={styles.pauseBar} />
+                </View>
+                <Text style={styles.grindLabelActive}>PAUSE</Text>
+              </>
+            ) : (
+              <>
+                <Svg width={10} height={14} viewBox="0 0 10 14">
+                  <Path d="M1 1l8 6-8 6V1z" fill={LC.text} />
+                </Svg>
+                <Text style={styles.grindLabel}>GRIND</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </Swipeable>
     </Animated.View>
@@ -102,76 +168,150 @@ export default function TaskCard({ task }: TaskCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
+    borderRadius: 14,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
+    marginBottom: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardActive: {
+    backgroundColor: 'rgba(255,59,48,0.06)',
+    borderColor: 'rgba(255,59,48,0.3)',
   },
   cardCompleted: {
-    opacity: 0.6,
+    backgroundColor: 'transparent',
+    opacity: 0.55,
   },
-  checkbox: {
-    marginRight: 12,
-    padding: 2,
+  activeStripe: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    backgroundColor: LC.red,
+    zIndex: 1,
+  },
+  inner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  checkBox: { padding: 2 },
+  checkBoxEmpty: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: LC.borderStrong,
+    backgroundColor: 'transparent',
+  },
+  checkBoxActive: {
+    borderColor: LC.red,
+  },
+  checkBoxDone: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: LC.green,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   textContainer: {
     flex: 1,
-    marginRight: 8,
+    minWidth: 0,
   },
-  titleRow: {
+  title: {
+    fontFamily: Fonts.interMedium,
+    fontSize: 14,
+    color: LC.text,
+  },
+  titleDone: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 14,
+    color: LC.textDim,
+    textDecorationLine: 'line-through',
+  },
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginTop: 3,
   },
-  title: {
-    fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    color: '#FFFFFF',
+  metaTag: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  metaDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: LC.textMute,
+  },
+  metaDesc: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 12,
+    color: LC.textDim,
     flexShrink: 1,
   },
-  titleCompleted: {
-    textDecorationLine: 'line-through',
-    color: 'rgba(255,255,255,0.5)',
+  metaActive: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: LC.red,
+    textTransform: 'uppercase',
   },
-  description: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 4,
-  },
-  descriptionCompleted: {
-    textDecorationLine: 'line-through',
-    color: 'rgba(255,255,255,0.3)',
-  },
-  dailyBadge: {
-    backgroundColor: 'rgba(255, 59, 92, 0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  dailyBadgeText: {
-    fontSize: 11,
-    fontFamily: Fonts.medium,
-    color: '#FF3B5C',
-  },
-  cameraButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  // Grind rail
+  grindBtn: {
+    width: 56,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderLeftWidth: 1,
+    borderLeftColor: LC.border,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
   },
+  grindBtnActive: {
+    backgroundColor: LC.red,
+    borderLeftColor: 'rgba(0,0,0,0.15)',
+  },
+  grindLabel: {
+    fontFamily: Fonts.monoSemiBold,
+    fontSize: 8,
+    color: LC.textDim,
+    letterSpacing: 1,
+  },
+  grindLabelActive: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 8,
+    color: '#fff',
+    letterSpacing: 1,
+  },
+  pauseIcon: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  pauseBar: {
+    width: 3,
+    height: 12,
+    backgroundColor: '#fff',
+  },
+  // Delete swipe action
   deleteAction: {
-    backgroundColor: '#FF3B5C',
-    borderRadius: 16,
+    backgroundColor: LC.red,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 70,
-    marginBottom: 10,
+    width: 60,
+    marginBottom: 8,
     marginLeft: 8,
   },
 });

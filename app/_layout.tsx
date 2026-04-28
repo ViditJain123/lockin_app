@@ -1,3 +1,4 @@
+import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -5,6 +6,12 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 import {
   Quicksand_300Light,
   Quicksand_400Regular,
@@ -116,6 +123,12 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
+    // Lockin Club redesign — display + mono
+    BebasNeue_400Regular,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
   });
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -660,6 +673,8 @@ function RootLayoutNav() {
           />
           <Stack.Screen name="trophies-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="settings-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="stopwatch" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
         </Stack>
         <TrophyReceivedModal
           visible={!!firstPendingBadge}

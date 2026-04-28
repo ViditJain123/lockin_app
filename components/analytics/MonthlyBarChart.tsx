@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
 import {
   getDateRange,
@@ -10,30 +10,28 @@ import {
   getMonthStartDate,
 } from '@/lib/dateUtils';
 
-const BRAND_PINK = '#FF3B5C';
+const CHART_HEIGHT = 120;
+const MAX_BAR_HEIGHT = 96; // leaves ~24px top headroom
 
 interface Props {
   referenceDate: Date;
   activityByDate: Record<string, number>;
 }
 
+interface DayDatum {
+  dateStr: string;
+  minutes: number;
+  day: number;
+  isToday: boolean;
+}
+
 export default function MonthlyBarChart({ referenceDate, activityByDate }: Props) {
-  const screenWidth = Math.min(Dimensions.get('window').width, 430);
-  const chartWidth = screenWidth - 24 - 32;
-
-  const CHART_HEIGHT = 120;
-  const TOP_PADDING = 20;
-  const BOTTOM_PADDING = 4;
-  const LEFT_PADDING = 28;
-  const RIGHT_PADDING = 4;
-
   const today = getLocalDateString();
 
-  const monthData = useMemo(() => {
+  const monthData = useMemo<DayDatum[]>(() => {
     const start = getMonthStartDate(referenceDate);
     const end = getMonthEndDate(referenceDate);
     const dates = getDateRange(start, end);
-
     return dates.map((ds) => ({
       dateStr: ds,
       minutes: activityByDate[ds] || 0,
@@ -42,145 +40,136 @@ export default function MonthlyBarChart({ referenceDate, activityByDate }: Props
     }));
   }, [referenceDate, activityByDate, today]);
 
-  const daysInMonth = monthData.length;
-  const barAreaWidth = chartWidth - LEFT_PADDING - RIGHT_PADDING;
-  const barGap = 1;
-  const barWidth = (barAreaWidth - barGap * (daysInMonth - 1)) / daysInMonth;
-  const maxBarHeight = CHART_HEIGHT - TOP_PADDING - BOTTOM_PADDING;
-
-  const maxMinutes = useMemo(() => {
-    return Math.max(...monthData.map((d) => d.minutes), 1);
-  }, [monthData]);
-
-  // Compute nice max for grid
-  const maxHours = maxMinutes / 60;
-  const niceMax =
-    maxHours <= 1 ? 1 : maxHours <= 2 ? 2 : maxHours <= 4 ? 4 : Math.ceil(maxHours / 2) * 2;
-  const gridValues = [0, niceMax];
-
-  const getBarHeight = (minutes: number): number => {
-    if (minutes === 0) return 0;
-    return Math.max((minutes / (niceMax * 60)) * maxBarHeight, 2);
-  };
-
-  const getBarY = (minutes: number): number => {
-    return TOP_PADDING + maxBarHeight - getBarHeight(minutes);
-  };
-
-  const getGridY = (value: number): number => {
-    return TOP_PADDING + maxBarHeight - (value / niceMax) * maxBarHeight;
-  };
-
+  const maxMinutes = useMemo(
+    () => Math.max(...monthData.map((d) => d.minutes), 1),
+    [monthData],
+  );
   const hasActivity = monthData.some((d) => d.minutes > 0);
 
-  // X-axis label positions: 1, 5, 10, 15, 20, 25, last
+  if (!hasActivity) {
+    return (
+      <View style={styles.emptyBox}>
+        <Text style={styles.emptyLabel}>no activity this month</Text>
+      </View>
+    );
+  }
+
+  const daysInMonth = monthData.length;
   const labelDays = [1, 5, 10, 15, 20, 25, daysInMonth];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Monthly Overview</Text>
+    <View>
+      <View style={styles.chart}>
+        {[0.5, 1].map((p) => (
+          <View
+            key={p}
+            pointerEvents="none"
+            style={[styles.gridLine, { bottom: p * CHART_HEIGHT }]}
+          />
+        ))}
 
-      <View style={styles.chartContainer}>
-        <Svg width={chartWidth} height={CHART_HEIGHT}>
-          {/* Grid lines */}
-          {gridValues.map((value) => (
-            <Line
-              key={`grid-${value}`}
-              x1={LEFT_PADDING}
-              y1={getGridY(value)}
-              x2={chartWidth - RIGHT_PADDING}
-              y2={getGridY(value)}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth={1}
-            />
-          ))}
-
-          {/* Y-axis labels */}
-          {gridValues
-            .filter((v) => v > 0)
-            .map((value) => (
-              <SvgText
-                key={`label-${value}`}
-                x={LEFT_PADDING - 6}
-                y={getGridY(value) + 4}
-                fill="rgba(255,255,255,0.4)"
-                fontSize={10}
-                textAnchor="end"
-              >
-                {value}h
-              </SvgText>
-            ))}
-
-          {/* Bars */}
-          {monthData.map((d, i) => {
-            const x = LEFT_PADDING + i * (barWidth + barGap);
-            return d.minutes > 0 ? (
-              <Rect
-                key={d.dateStr}
-                x={x}
-                y={getBarY(d.minutes)}
-                width={barWidth}
-                height={getBarHeight(d.minutes)}
-                rx={1}
-                ry={1}
-                fill={d.isToday ? BRAND_PINK : 'rgba(255,59,92,0.55)'}
+        {monthData.map((d) => {
+          if (d.minutes <= 0) {
+            return <View key={d.dateStr} style={styles.slot} />;
+          }
+          const pct = d.minutes / maxMinutes;
+          const barHeight = Math.max(Math.round(pct * MAX_BAR_HEIGHT), 3);
+          return (
+            <View key={d.dateStr} style={styles.slot}>
+              <View
+                style={[
+                  styles.bar,
+                  {
+                    height: barHeight,
+                    backgroundColor: d.isToday
+                      ? LC.red
+                      : 'rgba(244,241,234,0.55)',
+                  },
+                  d.isToday && styles.todayBarGlow,
+                ]}
               />
-            ) : null;
-          })}
-        </Svg>
-
-        {/* X-axis labels */}
-        <View style={[styles.dayLabelsRow, { paddingLeft: LEFT_PADDING }]}>
-          {labelDays.map((day) => {
-            const index = day - 1;
-            const x = index * (barWidth + barGap);
-            return (
-              <Text
-                key={day}
-                style={[styles.dayLabel, { position: 'absolute', left: x }]}
-              >
-                {day}
-              </Text>
-            );
-          })}
-        </View>
+            </View>
+          );
+        })}
       </View>
 
-      {!hasActivity && (
-        <Text style={styles.emptyText}>No activity this month</Text>
-      )}
+      <View style={styles.labelsRow}>
+        {labelDays.map((day) => {
+          const leftPct = ((day - 1) / daysInMonth) * 100;
+          return (
+            <Text
+              key={day}
+              style={[styles.dayLabel, { left: `${leftPct}%` }]}
+            >
+              {day}
+            </Text>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#1c1c1e',
-    borderRadius: 16,
-    padding: 16,
-  },
-  title: {
-    fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    color: 'white',
-    marginBottom: 12,
-  },
-  chartContainer: {},
-  dayLabelsRow: {
+  chart: {
+    height: CHART_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: LC.border,
     position: 'relative',
-    height: 18,
-    marginTop: 6,
+  },
+  gridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: LC.border,
+    opacity: 0.5,
+  },
+  slot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  bar: {
+    width: '100%',
+    borderTopLeftRadius: 1.5,
+    borderTopRightRadius: 1.5,
+  },
+  todayBarGlow: {
+    shadowColor: LC.red,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  labelsRow: {
+    position: 'relative',
+    height: 14,
+    marginTop: 8,
   },
   dayLabel: {
-    fontSize: 10,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.4)',
+    position: 'absolute',
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    color: LC.textMute,
+    letterSpacing: 1,
   },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.4)',
-    textAlign: 'center',
-    marginTop: 8,
+  emptyBox: {
+    height: CHART_HEIGHT + 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: LC.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
   },
 });

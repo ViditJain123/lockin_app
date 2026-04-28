@@ -1,24 +1,36 @@
-import React, { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Fonts } from '../../constants/Fonts';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLeaderboardStore, type LeaderboardUser } from '../../store/useLeaderboardStore';
 
-const PINK = '#FF3B5C';
-const CARD_BG = '#1C1C1E';
+import { LC } from '@/constants/BrandColors';
+import { Fonts } from '@/constants/Fonts';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  useLeaderboardStore,
+  type LeaderboardUser,
+} from '@/store/useLeaderboardStore';
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'JANUARY',
+  'FEBRUARY',
+  'MARCH',
+  'APRIL',
+  'MAY',
+  'JUNE',
+  'JULY',
+  'AUGUST',
+  'SEPTEMBER',
+  'OCTOBER',
+  'NOVEMBER',
+  'DECEMBER',
 ];
 
 function getCurrentMonthLabel(): string {
@@ -26,87 +38,292 @@ function getCurrentMonthLabel(): string {
   return `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
 }
 
-function formatHours(hours: number): string {
-  if (hours >= 100) return `${Math.round(hours)}h`;
-  if (hours >= 10) return `${hours.toFixed(1)}h`;
-  return `${hours.toFixed(2)}h`;
+function formatHoursColon(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '0:00';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}:${m.toString().padStart(2, '0')}`;
 }
 
-function getRankColor(rank: number): string {
-  if (rank === 1) return '#FFD700';
-  if (rank === 2) return '#C0C0C0';
-  if (rank === 3) return '#CD7F32';
-  return 'rgba(255,255,255,0.5)';
+function padRank(rank: number): string {
+  return rank < 10 ? `0${rank}` : String(rank);
 }
 
-// ── Current User Card ──────────────────────────────────────────────────
+// ─── Podium (#1) ──────────────────────────────────────────────────────────
 
-function CurrentUserCard({
-  rank,
-  hours,
-  displayName,
+function PodiumCard({
+  entry,
+  isYou,
 }: {
-  rank: number | null;
-  hours: number | null;
-  displayName: string;
+  entry: LeaderboardUser;
+  isYou: boolean;
 }) {
   return (
-    <View style={styles.currentUserCard}>
-      <View style={styles.currentUserRankBadge}>
-        <Text style={styles.currentUserRankText}>
-          {rank != null ? `#${rank}` : '—'}
+    <View style={[podium.wrap, isYou && podium.youWrap]}>
+      <Text style={podium.watermark} numberOfLines={1}>
+        01
+      </Text>
+      <View style={podium.row}>
+        <Text style={podium.rank}>01</Text>
+        <View style={podium.nameBlock}>
+          <Text style={podium.name} numberOfLines={1}>
+            {(entry.display_name || 'Anonymous').toUpperCase()}
+          </Text>
+          {isYou ? <Text style={podium.youTag}>YOU</Text> : null}
+        </View>
+        <View style={podium.hoursBlock}>
+          <Text style={podium.hoursValue}>{formatHoursColon(entry.total_hours)}</Text>
+          <Text style={podium.hoursLabel}>HOURS</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const podium = StyleSheet.create({
+  wrap: {
+    position: 'relative',
+    padding: 18,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,59,48,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.35)',
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  youWrap: {
+    backgroundColor: 'rgba(255,59,48,0.14)',
+    borderColor: 'rgba(255,59,48,0.5)',
+  },
+  watermark: {
+    position: 'absolute',
+    right: -8,
+    top: -24,
+    fontFamily: Fonts.display,
+    fontSize: 180,
+    lineHeight: 160,
+    color: 'rgba(255,59,48,0.07)',
+    letterSpacing: -4,
+  },
+  row: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rank: {
+    fontFamily: Fonts.display,
+    fontSize: 56,
+    lineHeight: 66,
+    color: LC.red,
+    letterSpacing: -2,
+    includeFontPadding: false,
+  },
+  nameBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  name: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: LC.text,
+    letterSpacing: 0.5,
+    includeFontPadding: false,
+  },
+  youTag: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    color: LC.red,
+    letterSpacing: 1.5,
+    marginTop: 2,
+  },
+  hoursBlock: {
+    alignItems: 'flex-end',
+  },
+  hoursValue: {
+    fontFamily: Fonts.display,
+    fontSize: 24,
+    lineHeight: 30,
+    color: LC.text,
+    letterSpacing: 0.5,
+    includeFontPadding: false,
+  },
+  hoursLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    color: LC.textMute,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+});
+
+// ─── Elevated row (#2, #3) ────────────────────────────────────────────────
+
+function ElevatedRow({
+  entry,
+  isYou,
+}: {
+  entry: LeaderboardUser;
+  isYou: boolean;
+}) {
+  return (
+    <View style={[elevated.row, isYou && elevated.youRow]}>
+      <Text style={elevated.rank}>{padRank(entry.rank)}</Text>
+      <View style={elevated.nameBlock}>
+        <Text
+          style={[elevated.name, isYou && elevated.nameYou]}
+          numberOfLines={1}
+        >
+          {entry.display_name || 'Anonymous'}
+        </Text>
+        {isYou ? <Text style={elevated.youSub}>YOU</Text> : null}
+      </View>
+      <Text style={elevated.hours}>{formatHoursColon(entry.total_hours)}</Text>
+    </View>
+  );
+}
+
+const elevated = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
+    marginBottom: 6,
+  },
+  youRow: {
+    backgroundColor: 'rgba(255,59,48,0.1)',
+    borderColor: 'rgba(255,59,48,0.4)',
+  },
+  rank: {
+    fontFamily: Fonts.display,
+    fontSize: 26,
+    lineHeight: 34,
+    color: LC.text,
+    width: 36,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    includeFontPadding: false,
+  },
+  nameBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  name: {
+    fontFamily: Fonts.interMedium,
+    fontSize: 14,
+    color: LC.text,
+  },
+  nameYou: {
+    fontFamily: Fonts.interBold,
+    color: LC.text,
+  },
+  youSub: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    color: LC.red,
+    letterSpacing: 1.2,
+    marginTop: 2,
+  },
+  hours: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 13,
+    color: LC.text,
+    letterSpacing: 0.5,
+  },
+});
+
+// ─── Plain row (#4+) ──────────────────────────────────────────────────────
+
+function PlainRow({
+  entry,
+  isYou,
+}: {
+  entry: LeaderboardUser;
+  isYou: boolean;
+}) {
+  return (
+    <View style={[plain.row, isYou && plain.youRow]}>
+      <Text style={[plain.rank, isYou && plain.rankYou]}>
+        {isYou ? `#${entry.rank}` : String(entry.rank)}
+      </Text>
+      <View style={plain.nameBlock}>
+        <Text
+          style={[plain.name, isYou && plain.nameYou]}
+          numberOfLines={1}
+        >
+          {entry.display_name || 'Anonymous'}
         </Text>
       </View>
-      <View style={styles.currentUserInfo}>
-        <Text style={styles.currentUserName} numberOfLines={1}>
-          {displayName}
-        </Text>
-        <Text style={styles.currentUserLabel}>You</Text>
-      </View>
-      <Text style={styles.currentUserHours}>
-        {hours != null ? formatHours(hours) : '0h'}
+      <Text style={[plain.hours, isYou && plain.hoursYou]}>
+        {formatHoursColon(entry.total_hours)}
       </Text>
     </View>
   );
 }
 
-// ── Leaderboard Row ────────────────────────────────────────────────────
+const plain = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 2,
+  },
+  youRow: {
+    backgroundColor: 'rgba(255,59,48,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.4)',
+  },
+  rank: {
+    fontFamily: Fonts.monoRegular,
+    fontSize: 12,
+    color: LC.textDim,
+    width: 40,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  rankYou: {
+    fontFamily: Fonts.monoBold,
+    color: LC.red,
+  },
+  nameBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  name: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 13,
+    color: LC.textDim,
+  },
+  nameYou: {
+    fontFamily: Fonts.interBold,
+    color: LC.text,
+  },
+  hours: {
+    fontFamily: Fonts.monoRegular,
+    fontSize: 11,
+    color: LC.textDim,
+  },
+  hoursYou: {
+    color: LC.text,
+    fontFamily: Fonts.monoMedium,
+  },
+});
 
-function LeaderboardRow({
-  item,
-  isCurrentUser,
-}: {
-  item: LeaderboardUser;
-  isCurrentUser: boolean;
-}) {
-  const rankColor = getRankColor(item.rank);
+// ─── Screen ───────────────────────────────────────────────────────────────
 
-  return (
-    <View
-      style={[
-        styles.row,
-        isCurrentUser && styles.rowHighlighted,
-      ]}
-    >
-      <View style={styles.rankContainer}>
-        <Text style={[styles.rankText, { color: rankColor }]}>
-          {item.rank}
-        </Text>
-      </View>
-      <View style={styles.nameContainer}>
-        <Text style={styles.nameText} numberOfLines={1}>
-          {item.display_name || 'Anonymous'}
-        </Text>
-        {isCurrentUser && (
-          <Text style={styles.youBadge}>You</Text>
-        )}
-      </View>
-      <Text style={styles.hoursText}>{formatHours(item.total_hours)}</Text>
-    </View>
-  );
-}
-
-// ── Main Screen ────────────────────────────────────────────────────────
+const VISIBLE_PLAIN_MAX_RANK = 6;
 
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
@@ -119,16 +336,14 @@ export default function LeaderboardScreen() {
   const isLoading = useLeaderboardStore((s) => s.isLoading);
   const fetchLeaderboard = useLeaderboardStore((s) => s.fetchLeaderboard);
 
-  // Find current user's display name from the entries
   const currentUserEntry = entries.find((e) => e.user_id === userId);
   const displayName =
     currentUserEntry?.display_name ||
-    user?.user_metadata?.full_name ||
+    (user?.user_metadata?.full_name as string | undefined) ||
     'You';
 
   const refresh = useCallback(() => {
     if (!userId) return;
-    // Reset throttle so pull-to-refresh always works
     useLeaderboardStore.setState({ lastFetched: null });
     fetchLeaderboard(userId);
   }, [userId, fetchLeaderboard]);
@@ -136,221 +351,226 @@ export default function LeaderboardScreen() {
   useFocusEffect(
     useCallback(() => {
       if (userId) fetchLeaderboard(userId);
-    }, [userId, fetchLeaderboard])
+    }, [userId, fetchLeaderboard]),
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: LeaderboardUser }) => (
-      <LeaderboardRow item={item} isCurrentUser={item.user_id === userId} />
-    ),
-    [userId]
-  );
+  // Resolve the user's effective rank: prefer the server-reported rank, but fall
+  // back to their position inside `entries` (found via user_id) when the store
+  // doesn't have it yet. Some accounts only surface through the full leaderboard
+  // list, not the per-user rank query.
+  const effectiveUserRank =
+    currentUserRank ?? currentUserEntry?.rank ?? null;
+  const effectiveUserHours =
+    currentUserHours ?? currentUserEntry?.total_hours ?? null;
 
-  const keyExtractor = useCallback(
-    (item: LeaderboardUser) => item.user_id,
-    []
-  );
+  // Partition the entries for render. The top 1-N rows come from `entries`;
+  // if the current user sits below that, we show an ellipsis + sticky YOU row.
+  const layout = useMemo(() => {
+    const podiumEntry = entries.find((e) => e.rank === 1) || null;
+    const row2 = entries.find((e) => e.rank === 2) || null;
+    const row3 = entries.find((e) => e.rank === 3) || null;
+    const plainEntries = entries
+      .filter((e) => e.rank >= 4 && e.rank <= VISIBLE_PLAIN_MAX_RANK)
+      .sort((a, b) => a.rank - b.rank);
+
+    const userInTopVisible =
+      effectiveUserRank != null && effectiveUserRank <= VISIBLE_PLAIN_MAX_RANK;
+
+    const showStickyYou = !userInTopVisible && effectiveUserRank != null;
+
+    // Synthetic "you" entry for the sticky row when the current user isn't in
+    // the fetched top entries.
+    const stickyYouEntry: LeaderboardUser | null = showStickyYou
+      ? {
+          user_id: userId ?? 'you',
+          display_name: displayName,
+          total_hours: effectiveUserHours ?? 0,
+          rank: effectiveUserRank ?? 0,
+        }
+      : null;
+
+    return {
+      podiumEntry,
+      row2,
+      row3,
+      plainEntries,
+      showEllipsis: showStickyYou,
+      stickyYouEntry,
+    };
+  }, [entries, effectiveUserRank, effectiveUserHours, userId, displayName]);
+
+  const totalCount = entries.length;
+  const eyebrowText = (() => {
+    if (effectiveUserRank != null && totalCount > 0) {
+      return `${getCurrentMonthLabel()} · #${effectiveUserRank} OF ${totalCount}`;
+    }
+    return getCurrentMonthLabel();
+  })();
+
+  const hasEntries = entries.length > 0;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Leaderboard</Text>
-        <Text style={styles.monthLabel}>{getCurrentMonthLabel()}</Text>
+        <Text style={styles.eyebrow}>{eyebrowText}</Text>
+        <Text style={styles.title}>THE RANKS.</Text>
       </View>
 
-      {/* Current User Card */}
-      {userId && (
-        <CurrentUserCard
-          rank={currentUserRank}
-          hours={currentUserHours}
-          displayName={displayName}
-        />
-      )}
-
-      {/* List */}
-      {isLoading && entries.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color={PINK} size="large" />
+      {/* Body */}
+      {isLoading && !hasEntries ? (
+        <View style={styles.centerState}>
+          <ActivityIndicator color={LC.red} size="large" />
         </View>
-      ) : entries.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No sessions this month yet</Text>
-          <Text style={styles.emptySubtext}>
-            Start a focus session to appear on the leaderboard
+      ) : !hasEntries ? (
+        <View style={styles.centerState}>
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyLabel}>no ranks yet</Text>
+          </View>
+          <Text style={styles.emptySub}>
+            Start a grind to appear on the board.
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={entries}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isLoading}
-              onRefresh={refresh}
-              tintColor={PINK}
-            />
-          }
-        />
+        <>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.scroll,
+              { paddingBottom: layout.stickyYouEntry ? 220 : 140 },
+            ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading}
+                onRefresh={refresh}
+                tintColor={LC.red}
+              />
+            }
+          >
+            {layout.podiumEntry ? (
+              <PodiumCard
+                entry={layout.podiumEntry}
+                isYou={layout.podiumEntry.user_id === userId}
+              />
+            ) : null}
+
+            {layout.row2 ? (
+              <ElevatedRow
+                entry={layout.row2}
+                isYou={layout.row2.user_id === userId}
+              />
+            ) : null}
+            {layout.row3 ? (
+              <ElevatedRow
+                entry={layout.row3}
+                isYou={layout.row3.user_id === userId}
+              />
+            ) : null}
+
+            {layout.plainEntries.map((entry) => (
+              <PlainRow
+                key={entry.user_id}
+                entry={entry}
+                isYou={entry.user_id === userId}
+              />
+            ))}
+
+            {layout.showEllipsis ? (
+              <Text style={styles.ellipsis}>···</Text>
+            ) : null}
+          </ScrollView>
+
+          {/* Sticky YOU row */}
+          {layout.stickyYouEntry ? (
+            <View
+              style={[
+                styles.stickyWrap,
+                { bottom: insets.bottom + 110 },
+              ]}
+              pointerEvents="none"
+            >
+              <PlainRow entry={layout.stickyYouEntry} isYou />
+            </View>
+          ) : null}
+        </>
       )}
     </View>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: LC.bg,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  eyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
   },
   title: {
-    fontSize: 34,
-    fontFamily: Fonts.bold,
-    color: '#fff',
-  },
-  monthLabel: {
-    fontSize: 14,
-    fontFamily: Fonts.interMedium,
-    color: 'rgba(255,255,255,0.5)',
+    fontFamily: Fonts.display,
+    fontSize: 42,
+    lineHeight: 50,
+    color: LC.text,
+    letterSpacing: 0.5,
     marginTop: 2,
   },
-
-  // Current user card
-  currentUserCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 59, 92, 0.3)',
-  },
-  currentUserRankBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: PINK,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  currentUserRankText: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: '#fff',
-  },
-  currentUserInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  currentUserName: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: '#fff',
-  },
-  currentUserLabel: {
-    fontSize: 12,
-    fontFamily: Fonts.interMedium,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 2,
-  },
-  currentUserHours: {
-    fontSize: 20,
-    fontFamily: Fonts.interBold,
-    color: '#fff',
-  },
-
-  // List rows
-  listContent: {
+  scroll: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 32,
+    paddingTop: 2,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 8,
-  },
-  rowHighlighted: {
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
-  },
-  rankContainer: {
-    width: 36,
-    alignItems: 'center',
-  },
-  rankText: {
+  ellipsis: {
+    textAlign: 'center',
+    fontFamily: Fonts.monoBold,
     fontSize: 16,
-    fontFamily: Fonts.bold,
+    color: LC.textMute,
+    letterSpacing: 4,
+    paddingVertical: 10,
   },
-  nameContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
+  // Sticky YOU row
+  stickyWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
   },
-  nameText: {
-    fontSize: 15,
-    fontFamily: Fonts.medium,
-    color: '#fff',
-    flexShrink: 1,
-  },
-  youBadge: {
-    fontSize: 11,
-    fontFamily: Fonts.interSemiBold,
-    color: PINK,
-    marginLeft: 8,
-    backgroundColor: 'rgba(255, 59, 92, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  hoursText: {
-    fontSize: 15,
-    fontFamily: Fonts.interSemiBold,
-    color: 'rgba(255,255,255,0.7)',
-    marginLeft: 8,
-  },
-
   // States
-  loadingContainer: {
+  centerState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+    paddingBottom: 120,
   },
-  emptyContainer: {
-    flex: 1,
+  emptyBox: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: LC.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
   },
-  emptyText: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
+  emptyLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
   },
-  emptySubtext: {
-    fontSize: 14,
+  emptySub: {
     fontFamily: Fonts.interRegular,
-    color: 'rgba(255,255,255,0.3)',
+    fontSize: 13,
+    color: LC.textMute,
     textAlign: 'center',
-    marginTop: 8,
   },
 });

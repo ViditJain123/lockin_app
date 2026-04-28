@@ -1,844 +1,737 @@
-import CountdownOverlay from '@/components/CountdownOverlay';
-import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholder';
-import GlassIconButton from '@/components/GlassIconButton';
-import GlassRecordButton from '@/components/GlassRecordButton';
-import ShortTimelapseWarningModal from '@/components/ShortTimelapseWarningModal';
-import TimelapsePreviewSheet from '@/components/TimelapsePreviewSheet';
-import { Fonts } from '@/constants/Fonts';
-import { useAuth } from '@/contexts/AuthContext';
-import { SESSION_DEV_MODE_ENABLED } from '@/lib/config';
-import { getLocalDateString } from '@/lib/dateUtils';
-import * as Haptics from '@/lib/haptics';
-import { posthog } from '@/lib/posthog';
-import * as Timelapse from '@/lib/timelapseModule';
-import { sendSessionEvent } from '@/lib/tinybird';
-import { useAppLockStore } from '@/store/useAppLockStore';
-import { useProfileStatsStore } from '@/store/useProfileStatsStore';
-import { useOrientationDetection } from '@/hooks/useOrientationDetection';
-import { useRecordingStore } from '@/store/useRecordingStore';
-import { useSessionStore } from '@/store/useSessionStore';
-import { useTaskStore } from '@/store/useTaskStore';
-import {
-  flushGallery,
-  PENDING_RECORDING_KEY,
-  useVideoGalleryStore,
-} from '@/store/useVideoGalleryStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as FileSystem from 'expo-file-system/legacy';
-import { useKeepAwake } from 'expo-keep-awake';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import * as VideoThumbnails from 'expo-video-thumbnails';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  AppState,
-  Dimensions,
-  LayoutChangeEvent,
   Pressable,
-  StatusBar,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import 'react-native-get-random-values';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { v4 as uuidv4 } from 'uuid';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-// Adaptive capture cadence: fast at the start, gradually slowing as the session runs.
-// The native module (TimelapseModule) buffers frames in memory and decimates by halving
-// when the buffer exceeds its cap, so the final video always has uniform temporal density.
-const CAPTURE_SCHEDULE: ReadonlyArray<{ untilSeconds: number; intervalMs: number }> = [
-  { untilSeconds: 30,       intervalMs: 250 },    // 0-30s      @ 4 fps
-  { untilSeconds: 120,      intervalMs: 500 },    // 30s-2min   @ 2 fps
-  { untilSeconds: 600,      intervalMs: 1500 },   // 2-10min    @ ~0.67 fps
-  { untilSeconds: 1800,     intervalMs: 4000 },   // 10-30min   @ 0.25 fps
-  { untilSeconds: Infinity, intervalMs: 10000 },  // 30min+     @ 0.1 fps
-];
-function captureIntervalFor(elapsedSeconds: number): number {
-  for (const step of CAPTURE_SCHEDULE) {
-    if (elapsedSeconds < step.untilSeconds) return step.intervalMs;
-  }
-  return CAPTURE_SCHEDULE[CAPTURE_SCHEDULE.length - 1].intervalMs;
-}
-const BUTTON_DEFAULT_BOTTOM = 120;
+import { LC } from '@/constants/BrandColors';
+import { Fonts } from '@/constants/Fonts';
+import { getLocalDateString } from '@/lib/dateUtils';
+import { useOnboardingStore } from '@/store/useOnboardingStore';
+import { useProfileStatsStore } from '@/store/useProfileStatsStore';
+import { useSessionStore } from '@/store/useSessionStore';
+import { useTaskStore } from '@/store/useTaskStore';
 
-function formatDuration(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  if (hrs > 0) {
-    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
+// ─── Tiny SVG icons ────────────────────────────────────────────────────────
 
-export default function CameraScreen() {
-  useKeepAwake();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-
-  // Camera state
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing, setFacing] = useState<'front' | 'back'>('back');
-  const cameraRef = useRef<CameraView>(null);
-
-  // Layout state
-  const [containerLayout, setContainerLayout] = useState({ width: 0, height: 0 });
-  const [previewLayout, setPreviewLayout] = useState({ width: 0, height: 0, top: 0, left: 0 });
-
-  // Recording state from store
-  const isSessionActive = useRecordingStore((s) => s.isSessionActive);
-  const isPreparing = useRecordingStore((s) => s.isPreparing);
-  const isFinishing = useRecordingStore((s) => s.isFinishing);
-  const isCountingDown = useRecordingStore((s) => s.isCountingDown);
-  const activeTaskId = useRecordingStore((s) => s.activeTaskId);
-  const timerPosition = useRecordingStore((s) => s.timerPosition);
-  const timerFilter = useRecordingStore((s) => s.timerFilter);
-  const timerScale = useRecordingStore((s) => s.timerScale);
-  const setIsSessionActive = useRecordingStore((s) => s.setIsSessionActive);
-  const setIsPreparing = useRecordingStore((s) => s.setIsPreparing);
-  const setIsFinishing = useRecordingStore((s) => s.setIsFinishing);
-  const setIsCountingDown = useRecordingStore((s) => s.setIsCountingDown);
-  const setTimerPosition = useRecordingStore((s) => s.setTimerPosition);
-  const setTimerFilter = useRecordingStore((s) => s.setTimerFilter);
-  const setTimerScale = useRecordingStore((s) => s.setTimerScale);
-
-  // Device orientation detection (freezes during recording)
-  const deviceOrientation = useOrientationDetection();
-
-  // Active task from Tasks tab
-  const activeTask = useTaskStore((s) =>
-    s.tasks.find((t) => t.id === activeTaskId)
-  );
-
-  // Short warning modal
-  const [showShortWarning, setShowShortWarning] = useState(false);
-
-  // Timelapse preview sheet (shown after a session finishes, before grind-complete)
-  const [previewUri, setPreviewUri] = useState('');
-  const [previewDuration, setPreviewDuration] = useState(0);
-  const [showPreview, setShowPreview] = useState(false);
-  const pendingGrindCompleteParamsRef = useRef<Record<string, string> | null>(null);
-
-  // Timer
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const elapsedSecondsRef = useRef(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const captureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sessionStartTimeRef = useRef<Date | null>(null);
-  const isSessionActiveRef = useRef(false);
-  const isForegroundRef = useRef(true);
-
-  // Track foreground/background
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      const active = state === 'active';
-      isForegroundRef.current = active;
-    });
-    return () => subscription.remove();
-  }, []);
-
-  // Timer interval - counts every second while session is active
-  useEffect(() => {
-    if (isSessionActive) {
-      intervalRef.current = setInterval(() => {
-        elapsedSecondsRef.current += 1;
-        setElapsedSeconds(elapsedSecondsRef.current);
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isSessionActive]);
-
-  // Timelapse frame capture
-  const captureFrame = useCallback(async () => {
-    if (!cameraRef.current || !isSessionActiveRef.current || !isForegroundRef.current) return;
-    try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 1.0,
-        base64: true,
-        shutterSound: false,
-      });
-      if (photo?.base64) {
-        await Timelapse.addFrame(photo.base64, elapsedSecondsRef.current);
-      }
-    } catch (e) {
-      console.warn('Timelapse frame capture failed:', e);
-    }
-  }, []);
-
-  // Adaptive-cadence capture loop: each tick captures a frame then schedules the next
-  // tick based on the current elapsed time, re-reading `captureIntervalFor` every time
-  // so the interval grows as the session runs long.
-  const runCaptureLoop = useCallback(() => {
-    if (captureTimeoutRef.current) {
-      clearTimeout(captureTimeoutRef.current);
-      captureTimeoutRef.current = null;
-    }
-    const tick = async () => {
-      if (!isSessionActiveRef.current || !isForegroundRef.current) {
-        captureTimeoutRef.current = null;
-        return;
-      }
-      await captureFrame();
-      if (!isSessionActiveRef.current || !isForegroundRef.current) {
-        captureTimeoutRef.current = null;
-        return;
-      }
-      const delay = captureIntervalFor(elapsedSecondsRef.current);
-      captureTimeoutRef.current = setTimeout(tick, delay);
-    };
-    tick();
-  }, [captureFrame]);
-
-  // Pause/resume capture when app backgrounds
-  useEffect(() => {
-    if (!isSessionActive) return;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        if (!captureTimeoutRef.current && isSessionActiveRef.current) {
-          runCaptureLoop();
-        }
-      } else {
-        if (captureTimeoutRef.current) {
-          clearTimeout(captureTimeoutRef.current);
-          captureTimeoutRef.current = null;
-        }
-      }
-    });
-    return () => subscription.remove();
-  }, [isSessionActive, runCaptureLoop]);
-
-  // Start session
-  const startSession = useCallback(async () => {
-    setElapsedSeconds(0);
-    elapsedSecondsRef.current = 0;
-    sessionStartTimeRef.current = new Date();
-    isSessionActiveRef.current = true;
-    setIsSessionActive(true);
-
-    Haptics.sessionStart();
-    posthog.capture('session_started');
-
-    try {
-      const isLandscape = deviceOrientation !== 'portrait';
-      const videoWidth = isLandscape ? 1920 : 1080;
-      const videoHeight = isLandscape ? 1080 : 1920;
-      const pendingDir = await Timelapse.startRecording(
-        videoWidth, videoHeight, deviceOrientation,
-        timerPosition.x, timerPosition.y, timerFilter, timerScale
-      );
-      // Persist a descriptor of this in-flight session. If the app crashes
-      // mid-recording, startup recovery in useVideoGalleryStore will read
-      // this key and call finalizePendingRecording on pendingDir.
-      if (pendingDir) {
-        try {
-          await AsyncStorage.setItem(
-            PENDING_RECORDING_KEY,
-            JSON.stringify({
-              pendingDir,
-              startedAt: (sessionStartTimeRef.current ?? new Date()).toISOString(),
-            })
-          );
-        } catch (err) {
-          console.warn('[Session] Failed to persist pending descriptor:', err);
-        }
-      }
-      // Small warmup delay lets the camera finish exposure ramp before the first frame,
-      // then the adaptive loop takes over.
-      setTimeout(() => runCaptureLoop(), 500);
-    } catch (e) {
-      console.warn('Failed to start timelapse recording:', e);
-      posthog.capture('timelapse_start_failed', {
-        error: (e as Error)?.message ?? String(e),
-      });
-    }
-  }, [runCaptureLoop, setIsSessionActive, deviceOrientation, timerPosition, timerFilter, timerScale]);
-
-  // Stop session
-  const stopSession = useCallback(async (skipPreview: boolean = false) => {
-    const sessionEndTime = new Date();
-    const sessionStartTime = sessionStartTimeRef.current || sessionEndTime;
-    const lockedInSeconds = elapsedSecondsRef.current;
-
-    isSessionActiveRef.current = false;
-    setIsSessionActive(false);
-    setIsFinishing(true);
-
-    Haptics.sessionStop();
-
-    // Stop adaptive capture loop
-    if (captureTimeoutRef.current) {
-      clearTimeout(captureTimeoutRef.current);
-      captureTimeoutRef.current = null;
-    }
-
-    // Generate session ID
-    const sessionId = uuidv4();
-    const dateStr = getLocalDateString(sessionStartTime);
-
-    // Store session locally first (local-first)
-    useSessionStore.getState().addSession({
-      session_id: sessionId,
-      date: dateStr,
-      total_locked_in_seconds: lockedInSeconds,
-      created_at: sessionEndTime.toISOString(),
-      time_started: sessionStartTime.toISOString(),
-      time_ended: sessionEndTime.toISOString(),
-    });
-
-    posthog.capture('session_completed', {
-      locked_in_seconds: lockedInSeconds,
-      duration_seconds: Math.round((sessionEndTime.getTime() - sessionStartTime.getTime()) / 1000),
-    });
-
-    // Credit earned screen time (4:1 ratio)
-    useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
-
-    // Recompute profile stats
-    useProfileStatsStore.getState().recomputeFromSessions(user?.id);
-
-    // Send to Tinybird (fire-and-forget)
-    sendSessionEvent({
-      session_id: sessionId,
-      user_id: user?.id ?? 'anonymous',
-      date: dateStr,
-      time_started: sessionStartTime.toISOString(),
-      time_ended: sessionEndTime.toISOString(),
-      total_locked_in_seconds: lockedInSeconds,
-      timestamp: sessionEndTime.toISOString(),
-    }).catch((err) => {
-      console.warn('[StopSession] Tinybird send FAILED:', err);
-    });
-
-    // Process timelapse video. Each step is breadcrumbed to PostHog so we can
-    // correlate any future crash to exactly which phase failed. The native
-    // module now writes the .mp4 straight into Documents/timelapses/, so we
-    // no longer need a JS-side moveAsync.
-    let videoPath: string | null = null;
-    try {
-      videoPath = await Timelapse.stopRecording(lockedInSeconds);
-      posthog.capture('timelapse_save_step', { step: 'encode', sessionId, success: true });
-    } catch (e: any) {
-      const code = e?.code ?? 'UNKNOWN';
-      posthog.capture('timelapse_save_step', {
-        step: 'encode',
-        sessionId,
-        success: false,
-        error: code,
-      });
-      setIsFinishing(false);
-      if (code !== 'ERR_EMPTY') {
-        console.warn('Failed to stop timelapse recording:', e);
-        Alert.alert(
-          'Video encoding failed',
-          "We couldn't finalize your timelapse this time, but your session was saved. Please try again."
-        );
-      }
-      try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
-      return;
-    }
-
-    if (!videoPath) {
-      setIsFinishing(false);
-      try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
-      return;
-    }
-
-    // Integrity check: the native module guarantees the file is in Documents
-    // and playable on success, but we still verify size>0 as a last line of
-    // defense before we advertise the video to the rest of the app.
-    let fileInfo: FileSystem.FileInfo | null = null;
-    try {
-      fileInfo = await FileSystem.getInfoAsync(videoPath, { size: true } as any);
-    } catch {}
-    if (!fileInfo?.exists || !(((fileInfo as any).size ?? 0) > 0)) {
-      posthog.capture('timelapse_save_step', {
-        step: 'integrity',
-        sessionId,
-        success: false,
-        path: videoPath,
-      });
-      setIsFinishing(false);
-      try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
-      Alert.alert(
-        'Video file missing',
-        "We couldn't find your timelapse file after encoding. We'll try to recover it next time you open the app."
-      );
-      return;
-    }
-
-    const filename = videoPath.split('/').pop()!;
-    const permanentUri = videoPath; // native module writes directly to Documents/timelapses/
-
-    // Thumbnail generation. Non-fatal — gallery entry still gets created
-    // without a thumbnail, and regenerateMissingThumbnails retries on launch.
-    let thumbnailRelPath: string | null = null;
-    try {
-      const thumb = await VideoThumbnails.getThumbnailAsync(permanentUri, { time: 0 });
-      const thumbsDir = FileSystem.documentDirectory + 'thumbnails/';
-      await FileSystem.makeDirectoryAsync(thumbsDir, { intermediates: true });
-      const thumbFilename = sessionId + '.jpg';
-      await FileSystem.copyAsync({ from: thumb.uri, to: thumbsDir + thumbFilename });
-      thumbnailRelPath = 'thumbnails/' + thumbFilename;
-      posthog.capture('timelapse_save_step', { step: 'thumbnail', sessionId, success: true });
-    } catch (err: any) {
-      posthog.capture('timelapse_save_step', {
-        step: 'thumbnail',
-        sessionId,
-        success: false,
-        error: err?.message ?? String(err),
-      });
-    }
-
-    // Persist recording metadata to the in-memory store...
-    try {
-      useVideoGalleryStore.getState().addRecording({
-        id: sessionId,
-        videoUri: 'timelapses/' + filename,
-        thumbnailUri: thumbnailRelPath,
-        sessionDurationSeconds: lockedInSeconds,
-        createdAt: new Date().toISOString(),
-      });
-      posthog.capture('timelapse_save_step', { step: 'addRecording', sessionId, success: true });
-    } catch (err: any) {
-      posthog.capture('timelapse_save_step', {
-        step: 'addRecording',
-        sessionId,
-        success: false,
-        error: err?.message ?? String(err),
-      });
-    }
-
-    // ...and explicitly flush the persisted state to AsyncStorage before
-    // navigating away. Zustand persist writes async on state changes and
-    // doesn't expose a promise to await, so a crash in the ms after
-    // addRecording could lose the metadata. The orphan scanner is the belt;
-    // flushGallery is the suspenders.
-    try {
-      await flushGallery();
-      posthog.capture('timelapse_save_step', { step: 'flush', sessionId, success: true });
-    } catch (err: any) {
-      posthog.capture('timelapse_save_step', {
-        step: 'flush',
-        sessionId,
-        success: false,
-        error: err?.message ?? String(err),
-      });
-    }
-
-    // The session is fully persisted on disk — clear the pending descriptor
-    // so startup recovery doesn't try to re-finalize it.
-    try { await AsyncStorage.removeItem(PENDING_RECORDING_KEY); } catch {}
-
-    setIsFinishing(false);
-
-    const grindCompleteParams: Record<string, string> = {
-      videoUri: permanentUri,
-      grindDurationSeconds: String(lockedInSeconds),
-      lockedInSeconds: String(lockedInSeconds),
-      ...(activeTaskId ? { activeTaskId } : {}),
-    };
-
-    if (skipPreview) {
-      router.push({ pathname: '/grind-complete', params: grindCompleteParams } as any);
-    } else {
-      // Show the same preview sheet used on the profile page, then navigate to
-      // grind-complete once the user dismisses it.
-      pendingGrindCompleteParamsRef.current = grindCompleteParams;
-      setPreviewUri(permanentUri);
-      setPreviewDuration(lockedInSeconds);
-      setShowPreview(true);
-    }
-  }, [user, setIsSessionActive, setIsFinishing, router, activeTaskId]);
-
-  // Dev simulate session
-  const simulateSession = useCallback(() => {
-    const now = new Date();
-    const sessionId = uuidv4();
-    const dateStr = getLocalDateString(now);
-    const lockedInSeconds = 240;
-    const timeStarted = new Date(now.getTime() - lockedInSeconds * 1000);
-
-    useSessionStore.getState().addSession({
-      session_id: sessionId,
-      date: dateStr,
-      total_locked_in_seconds: lockedInSeconds,
-      created_at: now.toISOString(),
-      time_started: timeStarted.toISOString(),
-      time_ended: now.toISOString(),
-    });
-    useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
-    useProfileStatsStore.getState().recomputeFromSessions(user?.id);
-
-    sendSessionEvent({
-      session_id: sessionId,
-      user_id: user?.id ?? 'anonymous',
-      date: dateStr,
-      time_started: timeStarted.toISOString(),
-      time_ended: now.toISOString(),
-      total_locked_in_seconds: lockedInSeconds,
-      timestamp: now.toISOString(),
-    }).catch((err) => console.warn('[DevSession] Tinybird send failed:', err));
-
-    router.push({
-      pathname: '/grind-complete',
-      params: {
-        grindDurationSeconds: String(lockedInSeconds),
-        lockedInSeconds: String(lockedInSeconds),
-      },
-    } as any);
-  }, [user, router]);
-
-  // Close preview sheet and continue to the grind-complete screen
-  const handlePreviewClose = useCallback(() => {
-    const params = pendingGrindCompleteParamsRef.current;
-    pendingGrindCompleteParamsRef.current = null;
-    setShowPreview(false);
-    if (params) {
-      router.push({ pathname: '/grind-complete', params } as any);
-    }
-  }, [router]);
-
-  // Handle record button press
-  const handleRecordPress = useCallback(async () => {
-    if (isPreparing || isFinishing || isCountingDown) return;
-
-    if (isSessionActive) {
-      // Check short session
-      if (elapsedSecondsRef.current < 60) {
-        // Stop recording first so video is saved, then show warning.
-        // Skip the preview sheet — the warning already communicates the issue.
-        await stopSession(true);
-        setShowShortWarning(true);
-        return;
-      }
-      await stopSession(false);
-    } else {
-      // Start countdown
-      setIsCountingDown(true);
-    }
-  }, [isSessionActive, isPreparing, isFinishing, isCountingDown, stopSession, setIsCountingDown]);
-
-  // Countdown complete - start recording
-  const handleCountdownComplete = useCallback(async () => {
-    setIsCountingDown(false);
-    await startSession();
-  }, [startSession, setIsCountingDown]);
-
-  // Toggle camera facing
-  const toggleCameraFacing = useCallback(() => {
-    if (isSessionActive) return;
-    setFacing(facing === 'back' ? 'front' : 'back');
-  }, [isSessionActive, facing]);
-
-  // Toggle filter type
-  const handleFilterToggle = useCallback(() => {
-    setTimerFilter(timerFilter === 'minimal' ? 'dateStamp' : 'minimal');
-  }, [timerFilter, setTimerFilter]);
-
-  // Handle container layout
-  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setContainerLayout({ width, height });
-
-    const targetAspect = 9 / 16;
-    const previewWidth = width;
-    const previewHeight = width / targetAspect;
-    const tabBarOffset = 49 + insets.bottom;
-    const previewBottomFromScreenBottom = (BUTTON_DEFAULT_BOTTOM + tabBarOffset) / 2;
-    const top = height - previewHeight - previewBottomFromScreenBottom;
-
-    setPreviewLayout({
-      width: previewWidth,
-      height: previewHeight,
-      top: Math.max(0, top),
-      left: 0,
-    });
-  }, [insets.bottom]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (captureTimeoutRef.current) clearTimeout(captureTimeoutRef.current);
-      if (isSessionActiveRef.current) {
-        Timelapse.cancelRecording().catch(() => {});
-        AsyncStorage.removeItem(PENDING_RECORDING_KEY).catch(() => {});
-      }
-    };
-  }, []);
-
-  // Loading state
-  if (!permission) {
-    return (
-      <View style={styles.centerContainer}>
-        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
-        <ActivityIndicator size="large" color="white" />
-      </View>
-    );
-  }
-
-  // Permission not granted
-  if (!permission.granted) {
-    return (
-      <View style={styles.centerContainer}>
-        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
-        <View style={styles.permissionContent}>
-          <Text style={styles.permissionTitle}>Camera Access Required</Text>
-          <Text style={styles.permissionText}>
-            This app needs camera access to capture time-lapse videos.
-          </Text>
-          <GlassIconButton
-            icon="camera"
-            size={64}
-            iconSize={28}
-            onPress={requestPermission}
-          />
-          <Text style={styles.permissionHint}>Tap to enable camera</Text>
-        </View>
-      </View>
-    );
-  }
-
+function RingClockIcon({ size = 54 }: { size?: number }) {
+  const cx = size / 2;
+  const r = size * 0.39;
   return (
-    <View style={styles.container} onLayout={handleContainerLayout}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-
-      {/* Dev button */}
-      {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
-        <Pressable
-          onPress={simulateSession}
-          style={[styles.devButton, { position: 'absolute', top: insets.top + 8, right: 24, zIndex: 20 }]}
-        >
-          <Text style={styles.devButtonText}>Dev</Text>
-        </Pressable>
-      )}
-
-      {/* Camera preview */}
-      <View style={[styles.previewContainer, {
-        width: previewLayout.width,
-        height: previewLayout.height,
-        top: previewLayout.top,
-        left: previewLayout.left,
-      }]}>
-        <CameraView
-          ref={cameraRef}
-          style={StyleSheet.absoluteFillObject}
-          facing={facing}
-        />
-      </View>
-
-      {/* Draggable timer placeholder */}
-      {containerLayout.width > 0 && previewLayout.height > 0 && (
-        <DraggableTimerPlaceholder
-          containerWidth={previewLayout.width}
-          containerHeight={previewLayout.height}
-          containerTop={previewLayout.top}
-          containerLeft={previewLayout.left}
-          position={timerPosition}
-          onPositionChange={setTimerPosition}
-          enabled={!isSessionActive && !isPreparing && !isFinishing && !isCountingDown}
-          orientation={deviceOrientation}
-          filterType={timerFilter}
-          onFilterToggle={handleFilterToggle}
-          timerScale={timerScale}
-          onScaleChange={setTimerScale}
-          isRecording={isSessionActive}
-          elapsedSeconds={elapsedSeconds}
-        />
-      )}
-
-      {/* Countdown overlay */}
-      <CountdownOverlay
-        isVisible={isCountingDown}
-        onComplete={handleCountdownComplete}
+    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <Circle cx={cx} cy={cx} r={r} stroke={LC.border} strokeWidth={1} fill="none" />
+      <Circle
+        cx={cx}
+        cy={cx}
+        r={r}
+        stroke={LC.red}
+        strokeWidth={2}
+        strokeDasharray={2 * Math.PI * r}
+        strokeDashoffset={2 * Math.PI * r * 0.62}
+        strokeLinecap="round"
+        fill="none"
+        transform={`rotate(-90 ${cx} ${cx})`}
       />
-
-      {/* Top controls - Flip */}
-      {!isCountingDown && (
-        <View style={[styles.topControls, { marginTop: insets.top + 12 }]}>
-          <GlassIconButton
-            icon="camera-reverse"
-            onPress={toggleCameraFacing}
-            disabled={isSessionActive}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const a = (i * 30 * Math.PI) / 180;
+        const r1 = r + 1;
+        const r2 = r + 3;
+        return (
+          <Line
+            key={i}
+            x1={cx + Math.cos(a) * r1}
+            y1={cx + Math.sin(a) * r1}
+            x2={cx + Math.cos(a) * r2}
+            y2={cx + Math.sin(a) * r2}
+            stroke={LC.textDim}
+            strokeWidth={1}
           />
-        </View>
-      )}
+        );
+      })}
+    </Svg>
+  );
+}
 
-      {/* Recording duration pill */}
-      {(isSessionActive || isFinishing) && (
-        <View style={[styles.durationContainer, { top: insets.top + 12 }]}>
-          <View style={styles.durationPill}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.durationText}>
-              {formatDuration(elapsedSeconds)}
-            </Text>
-          </View>
-          {activeTask && (
-            <View style={styles.activeTaskPill}>
-              <Ionicons name="checkbox-outline" size={13} color="#FF3B5C" />
-              <Text style={styles.activeTaskText} numberOfLines={1}>
-                {activeTask.title}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Bottom control - Record button */}
-      <View style={styles.bottomControls}>
-        <GlassRecordButton
-          onPress={handleRecordPress}
-          isRecording={isSessionActive || isFinishing}
-          disabled={isPreparing || isFinishing || isCountingDown}
-        />
-      </View>
-
-      {/* Short Timelapse Warning Modal */}
-      <ShortTimelapseWarningModal
-        visible={showShortWarning}
-        onClose={() => setShowShortWarning(false)}
+function ChevronRightIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 6l6 6-6 6"
+        stroke={LC.textDim}
+        strokeWidth={2}
+        strokeLinecap="round"
       />
+    </Svg>
+  );
+}
 
-      {/* Timelapse preview sheet — same component used on the profile grid */}
-      <TimelapsePreviewSheet
-        visible={showPreview}
-        videoUri={previewUri}
-        sessionDurationSeconds={previewDuration}
-        onClose={handlePreviewClose}
+function CheckSquareIcon({ size = 12 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 12 12" fill="none">
+      <Path
+        d="M1 1h10v10H1z"
+        stroke={LC.red}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
       />
+      <Path
+        d="M3 6l2 2 4-4"
+        stroke={LC.red}
+        strokeWidth={1.5}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function PlayIcon({ size = 30 }: { size?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Svg width={size * 0.45} height={size * 0.45} viewBox="0 0 10 10">
+        <Path d="M1 1l8 4-8 4V1z" fill={LC.red} />
+      </Svg>
     </View>
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function formatHoursColon(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '0:00';
+  let h = Math.floor(hours);
+  let m = Math.round((hours - h) * 60);
+  if (m === 60) {
+    // Float imprecision can push ~0.9999 hours to round to 60 minutes;
+    // carry the hour so we don't display "3:60" instead of "4:00".
+    h += 1;
+    m = 0;
+  }
+  return `${h}:${m.toString().padStart(2, '0')}`;
+}
+
+function formatHoursLeft(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return '0:00';
+  return formatHoursColon(hours);
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────
+
+export default function LockInScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const streak = useProfileStatsStore((s) => s.streak);
+  const hasHydrated = useProfileStatsStore((s) => s.hasHydrated);
+
+  const targetHoursRaw = useOnboardingStore((s) => s.quizAnswers.targetHours);
+  const targetHours = typeof targetHoursRaw === 'number' && targetHoursRaw > 0 ? targetHoursRaw : 0;
+
+  const sessions = useSessionStore((s) => s.sessions);
+  const todayHours = useMemo(() => {
+    const today = getLocalDateString();
+    const todaySec = sessions
+      .filter((s) => s.date === today)
+      .reduce((sum, s) => sum + (s.total_locked_in_seconds || 0), 0);
+    return todaySec / 3600;
+  }, [sessions]);
+
+  const targetPct =
+    targetHours > 0 ? Math.min(todayHours / targetHours, 1) : 0;
+  const hoursLeft = Math.max(targetHours - todayHours, 0);
+
+  const nextTask = useTaskStore((s) =>
+    s.tasks.find((t) => !t.isCompleted),
+  );
+
+  const goTimelapse = () => router.push('/record' as any);
+  const goStopwatch = () => router.push('/stopwatch' as any);
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Ambient red glow */}
+      <View pointerEvents="none" style={styles.ambientGlow} />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Top row — logo + streak chip */}
+        <View style={styles.topRow}>
+          <Text style={styles.brandMark}>
+            LOCKIN<Text style={styles.brandMarkAccent}>CLUB</Text>
+          </Text>
+          {hasHydrated && streak != null && streak > 0 ? (
+            <View style={styles.streakChip}>
+              <Text style={styles.streakEmoji}>🔥</Text>
+              <Text style={styles.streakText}>{streak} DAY</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Banner */}
+        <View style={styles.bannerBlock}>
+          <Text style={styles.bannerEyebrow}>◆ PICK YOUR WEAPON</Text>
+          <Text style={styles.bannerTitle}>
+            HOW WILL{'\n'}YOU <Text style={styles.bannerTitleAccent}>LOCK IN?</Text>
+          </Text>
+        </View>
+
+        {/* Today's target mini-status */}
+        {targetHours > 0 ? (
+          <View style={styles.targetCard}>
+            <View style={styles.targetCardRow}>
+              <Text style={styles.targetCardEyebrow}>
+                TODAY · TARGET {targetHours}H
+              </Text>
+              <Text style={styles.targetCardSubText}>
+                {formatHoursLeft(hoursLeft)} LEFT
+              </Text>
+            </View>
+            <View style={styles.targetCardProgressRow}>
+              <Text style={styles.targetCardHours}>{formatHoursColon(todayHours)}</Text>
+              <View style={styles.targetCardTrack}>
+                <View
+                  style={[
+                    styles.targetCardFill,
+                    { width: `${Math.round(targetPct * 100)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Hero — TIMELAPSE card */}
+        <Pressable onPress={goTimelapse} style={styles.heroWrap}>
+          <View style={styles.heroCard}>
+            {/* Warm lit background gradient (layered Views) */}
+            <View style={styles.heroGlow1} pointerEvents="none" />
+            <View style={styles.heroGlow2} pointerEvents="none" />
+
+            {/* Rule-of-thirds lines */}
+            {[0.33, 0.66].map((p) => (
+              <View
+                key={`h${p}`}
+                pointerEvents="none"
+                style={[styles.ruleH, { top: `${p * 100}%` }]}
+              />
+            ))}
+            {[0.33, 0.66].map((p) => (
+              <View
+                key={`v${p}`}
+                pointerEvents="none"
+                style={[styles.ruleV, { left: `${p * 100}%` }]}
+              />
+            ))}
+
+            {/* RECOMMENDED flag */}
+            <View style={styles.recommendedFlag}>
+              <Text style={styles.recommendedText}>★ RECOMMENDED</Text>
+            </View>
+
+            {/* Adaptive badge (replaces 120×) */}
+            <View style={styles.adaptiveBadge}>
+              <View style={styles.adaptiveDot} />
+              <Text style={styles.adaptiveText}>ADAPTIVE</Text>
+            </View>
+
+            {/* Content */}
+            <View style={styles.heroContent}>
+              <Text style={styles.heroWatermark}>01</Text>
+              <Text style={styles.heroEyebrow}>MODE 01</Text>
+              <Text style={styles.heroTitle}>
+                TIMELAPSE{'\n'}
+                <Text style={styles.heroTitleAccent}>GRIND</Text>
+              </Text>
+              <Text style={styles.heroDesc}>
+                Camera rolls. Share-ready timelapses you can flex on the leaderboard.
+              </Text>
+
+              {/* CTA */}
+              <View style={styles.heroCta}>
+                <Text style={styles.heroCtaLabel}>START RECORDING</Text>
+                <PlayIcon size={30} />
+              </View>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Divider */}
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerLabel}>OR KEEP IT LOWKEY</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Secondary — STOPWATCH card */}
+        <Pressable onPress={goStopwatch} style={styles.secondaryWrap}>
+          <View style={styles.secondaryCard}>
+            <View style={styles.secondaryIconWrap}>
+              <RingClockIcon size={54} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.secondaryEyebrowRow}>
+                <Text style={styles.secondaryEyebrow}>MODE 02</Text>
+                <View style={styles.secondaryEyebrowDot} />
+                <Text style={styles.secondaryEyebrow}>NO CAMERA</Text>
+              </View>
+              <Text style={styles.secondaryTitle}>STOPWATCH GRIND</Text>
+              <Text style={styles.secondaryDesc}>
+                Just a timer. Same 1:1 reward. No video.
+              </Text>
+            </View>
+            <ChevronRightIcon size={18} />
+          </View>
+        </Pressable>
+
+        {/* Next task pill */}
+        {nextTask ? (
+          <View style={styles.nextTaskWrap}>
+            <View style={styles.nextTaskPill}>
+              <View style={styles.nextTaskIconBox}>
+                <CheckSquareIcon size={12} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.nextTaskEyebrow}>NEXT UP</Text>
+                <Text style={styles.nextTaskTitle} numberOfLines={1}>
+                  {nextTask.title}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: LC.bg,
   },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
-  },
-  previewContainer: {
-    position: 'absolute',
-    backgroundColor: '#000',
-    overflow: 'hidden',
-  },
-  topControls: {
+  ambientGlow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 20,
-    zIndex: 10,
+    height: 300,
+    backgroundColor: 'rgba(255,59,48,0.08)',
+    opacity: 0.9,
   },
-  bottomControls: {
+  scrollContent: {
+    paddingBottom: 140,
+  },
+  // Top row
+  topRow: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandMark: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 20,
+    letterSpacing: 3,
+    color: LC.text,
+    textTransform: 'uppercase',
+  },
+  brandMarkAccent: {
+    color: LC.red,
+  },
+  streakChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,59,48,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.3)',
+  },
+  streakEmoji: {
+    fontSize: 12,
+  },
+  streakText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    color: LC.red,
+    letterSpacing: 1,
+  },
+  // Banner
+  bannerBlock: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+  },
+  bannerEyebrow: {
+    fontFamily: Fonts.monoSemiBold,
+    fontSize: 10,
+    letterSpacing: 3,
+    color: LC.red,
+    textTransform: 'uppercase',
+  },
+  bannerTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 48,
+    lineHeight: 56,
+    color: LC.text,
+    letterSpacing: 0.5,
+    marginTop: 6,
+    includeFontPadding: false,
+  },
+  bannerTitleAccent: {
+    color: LC.red,
+  },
+  // Target card
+  targetCard: {
+    marginHorizontal: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
+    marginBottom: 14,
+  },
+  targetCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  targetCardEyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  targetCardSubText: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    color: LC.textDim,
+    letterSpacing: 0.5,
+  },
+  targetCardProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+  },
+  targetCardHours: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: LC.text,
+    letterSpacing: 0.5,
+    includeFontPadding: false,
+  },
+  targetCardTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  targetCardFill: {
+    height: '100%',
+    backgroundColor: LC.red,
+  },
+  // Hero card
+  heroWrap: {
+    paddingHorizontal: 16,
+  },
+  heroCard: {
+    position: 'relative',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.35)',
+    backgroundColor: '#1a1210',
+    shadowColor: LC.red,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.18,
+    shadowRadius: 40,
+    elevation: 8,
+  },
+  heroGlow1: {
+    position: 'absolute',
+    top: -60,
+    left: -40,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(180,110,60,0.25)',
+  },
+  heroGlow2: {
+    position: 'absolute',
+    bottom: -40,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255,59,48,0.12)',
+  },
+  ruleH: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: BUTTON_DEFAULT_BOTTOM,
-    height: 80,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  ruleV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  recommendedFlag: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    backgroundColor: LC.red,
+    zIndex: 2,
+  },
+  recommendedText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    color: '#fff',
+    letterSpacing: 1.5,
+  },
+  adaptiveBadge: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.4)',
+    zIndex: 2,
+  },
+  adaptiveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: LC.red,
+    shadowColor: LC.red,
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
+  },
+  adaptiveText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    color: LC.red,
+    letterSpacing: 1.5,
+  },
+  heroContent: {
+    position: 'relative',
+    paddingTop: 54,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  heroWatermark: {
+    position: 'absolute',
+    right: 12,
+    top: 28,
+    fontFamily: Fonts.display,
+    fontSize: 140,
+    lineHeight: 120,
+    color: 'rgba(255,59,48,0.08)',
+    letterSpacing: -4,
+  },
+  heroEyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  heroTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 44,
+    lineHeight: 52,
+    color: LC.text,
+    letterSpacing: 0.5,
+    marginTop: 4,
+    includeFontPadding: false,
+  },
+  heroTitleAccent: {
+    color: LC.red,
+  },
+  heroDesc: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 12,
+    color: LC.textDim,
+    marginTop: 10,
+    lineHeight: 17,
+    maxWidth: 260,
+  },
+  heroCta: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: LC.red,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: LC.red,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  heroCtaLabel: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: 2,
+    color: '#fff',
+    includeFontPadding: false,
+  },
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: LC.border,
+  },
+  dividerLabel: {
+    fontFamily: Fonts.monoSemiBold,
+    fontSize: 9,
+    color: LC.textMute,
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+  },
+  // Secondary card
+  secondaryWrap: {
+    paddingHorizontal: 16,
+  },
+  secondaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
+  },
+  secondaryIconWrap: {
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
-  permissionContent: {
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  permissionTitle: {
-    fontSize: 24,
-    fontFamily: Fonts.semiBold,
-    color: 'rgba(255,255,255,0.95)',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  permissionText: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 24,
-  },
-  permissionHint: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 16,
-  },
-  durationContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  durationPill: {
+  secondaryEyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 8,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF3B30',
-  },
-  durationText: {
-    color: 'white',
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    fontVariant: ['tabular-nums'],
-  },
-  activeTaskPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginTop: 6,
     gap: 6,
-    maxWidth: 220,
   },
-  activeTaskText: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
-    fontFamily: Fonts.medium,
-    flexShrink: 1,
+  secondaryEyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: LC.textMute,
+    textTransform: 'uppercase',
   },
-  devButton: {
-    backgroundColor: '#2A2A2A',
+  secondaryEyebrowDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: LC.textMute,
+  },
+  secondaryTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    lineHeight: 28,
+    color: LC.text,
+    letterSpacing: 0.5,
+    marginTop: 2,
+    includeFontPadding: false,
+  },
+  secondaryDesc: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 12,
+    color: LC.textDim,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  // Next task pill
+  nextTaskWrap: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    marginTop: 10,
   },
-  devButtonText: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    fontFamily: Fonts.semiBold,
+  nextTaskPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: LC.borderStrong,
+  },
+  nextTaskIconBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,59,48,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextTaskEyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  nextTaskTitle: {
+    fontFamily: Fonts.interMedium,
+    fontSize: 13,
+    color: LC.text,
+    marginTop: 2,
   },
 });

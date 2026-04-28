@@ -1,52 +1,62 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as MediaLibrary from 'expo-media-library';
+import { router } from 'expo-router';
+import { shareAsync } from 'expo-sharing';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
-  ScrollView,
-  RefreshControl,
-  Dimensions,
-  Pressable,
-  ActionSheetIOS,
-  Image,
-  Alert,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { shareAsync } from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system/legacy';
-import { router } from 'expo-router';
-import { Fonts } from '../../constants/Fonts';
-import { useAuth } from '../../contexts/AuthContext';
-import { updateMaxStreakIfHigher } from '../../lib/supabaseUser';
-import { useSessionStore } from '../../store/useSessionStore';
-import { useBadgeStore } from '../../store/useBadgeStore';
-import { useVideoGalleryStore, resolveUri, type Recording } from '../../store/useVideoGalleryStore';
-import { useProfileStatsStore } from '../../store/useProfileStatsStore';
-import VideoGridItem from '../../components/VideoGridItem';
-import FeaturedBadges from '../../components/FeaturedBadges';
-import TimelapsePreviewSheet from '../../components/TimelapsePreviewSheet';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { getContentWidth } from '../../lib/responsive';
+import { LCChip } from '@/components/lc/LCChip';
+import TimelapsePreviewSheet from '@/components/TimelapsePreviewSheet';
+import VideoGridItem from '@/components/VideoGridItem';
+import { LC } from '@/constants/BrandColors';
+import { Fonts } from '@/constants/Fonts';
+import { useAuth } from '@/contexts/AuthContext';
+import { getContentWidth } from '@/lib/responsive';
+import { updateMaxStreakIfHigher } from '@/lib/supabaseUser';
+import { useBadgeStore } from '@/store/useBadgeStore';
+import { useProfileStatsStore } from '@/store/useProfileStatsStore';
+import { useSessionStore } from '@/store/useSessionStore';
+import { resolveUri, useVideoGalleryStore, type Recording } from '@/store/useVideoGalleryStore';
 
 const GRID_GAP = 4;
 const GRID_COLUMNS = 3;
-const GRID_ITEM_SIZE = (getContentWidth() - 32 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
-const PINK = '#FF3B5C';
+const GRID_H_PADDING = 16;
+const GRID_ITEM_WIDTH =
+  (getContentWidth() - GRID_H_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 
-function formatStat(value: number): string {
-  if (value >= 1_000_000) {
-    const m = value / 1_000_000;
-    return m >= 100 ? `${Math.round(m)}M` : `${parseFloat(m.toFixed(1))}M`;
-  }
-  if (value >= 1_000) {
-    const k = value / 1_000;
-    return k >= 100 ? `${Math.round(k)}K` : `${parseFloat(k.toFixed(1))}K`;
-  }
-  if (Number.isInteger(value)) return String(value);
-  return value.toFixed(2).replace(/\.?0+$/, '');
+function formatHoursColon(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}:${m.toString().padStart(2, '0')}`;
+}
+
+function SettingsGear({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={3} stroke={LC.text} strokeWidth={1.8} />
+      <Path
+        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
+        stroke={LC.text}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
 }
 
 export default function ProfileScreen() {
@@ -72,22 +82,12 @@ export default function ProfileScreen() {
   const refreshStatsAndBadges = useCallback(async () => {
     if (!user?.id) return;
     try {
-      // On first launch with no local sessions, fetch baseline from Tinybird once
       if (sessions.length === 0) {
-        console.log('[Profile] refreshStatsAndBadges: no local sessions, fetching baseline');
         await fetchAndStoreBaseline(user.id);
       } else {
-        console.log('[Profile] refreshStatsAndBadges: recomputing from', sessions.length, 'local sessions');
         recomputeFromSessions(user.id);
       }
-
       const currentStats = useProfileStatsStore.getState();
-      console.log('[Profile] refreshStatsAndBadges result:', {
-        total_hours: currentStats.total_hours,
-        grinds: currentStats.grinds,
-        streak: currentStats.streak,
-        baselineFetched: currentStats.baselineFetched,
-      });
       const maxStreak = await updateMaxStreakIfHigher(user.id, currentStats.streak);
       useBadgeStore.getState().checkAndAwardBadges({
         totalHours: currentStats.total_hours,
@@ -116,8 +116,9 @@ export default function ProfileScreen() {
     setShowPreview(true);
   }, []);
 
-  const handleLongPress = useCallback((rec: Recording) => {
-    if (Platform.OS === 'ios') {
+  const handleLongPress = useCallback(
+    (rec: Recording) => {
+      if (Platform.OS !== 'ios') return;
       const videoPath = resolveUri(rec.videoUri);
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -127,7 +128,9 @@ export default function ProfileScreen() {
         },
         async (buttonIndex) => {
           if (buttonIndex === 0) {
-            try { await shareAsync(videoPath); } catch {}
+            try {
+              await shareAsync(videoPath);
+            } catch {}
           } else if (buttonIndex === 1) {
             try {
               const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -144,103 +147,139 @@ export default function ProfileScreen() {
                 style: 'destructive',
                 onPress: async () => {
                   removeRecording(rec.id);
-                  try { await FileSystem.deleteAsync(videoPath, { idempotent: true }); } catch {}
+                  try {
+                    await FileSystem.deleteAsync(videoPath, { idempotent: true });
+                  } catch {}
                   if (rec.thumbnailUri) {
-                    try { await FileSystem.deleteAsync(resolveUri(rec.thumbnailUri), { idempotent: true }); } catch {}
+                    try {
+                      await FileSystem.deleteAsync(resolveUri(rec.thumbnailUri), {
+                        idempotent: true,
+                      });
+                    } catch {}
                   }
                 },
               },
             ]);
           }
-        }
+        },
       );
-    }
-  }, [removeRecording]);
+    },
+    [removeRecording],
+  );
+
+  // ─── Derived values ─────────────────────────────────────────────────────
+
+  const displayName: string =
+    (user?.user_metadata?.full_name as string | undefined)?.trim() || 'User';
+  const initial = displayName.charAt(0).toUpperCase() || '?';
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+
+  const sessionsText =
+    hasHydrated && grinds != null ? String(grinds).padStart(2, '0') : '—';
+  const hoursText =
+    hasHydrated && total_hours != null ? formatHoursColon(total_hours) : '—';
+  const streakText =
+    hasHydrated && streak != null ? String(streak).padStart(2, '0') : '—';
+
+  // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: 8 }]}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={LC.text} />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <View />
-          <View style={styles.topBarRight}>
-            <Pressable
-              style={({ pressed }) => [styles.topBarIcon, pressed && styles.topBarIconPressed]}
-              onPress={() => router.push('/trophies-page')}
-            >
-              <Ionicons name="trophy-outline" size={22} color="#fff" />
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.topBarIcon, pressed && styles.topBarIconPressed]}
-              onPress={() => router.push('/settings-page')}
-            >
-              <Ionicons name="settings-outline" size={22} color="#fff" />
-            </Pressable>
-          </View>
+          <Text style={styles.brandMark}>
+            LOCKIN<Text style={styles.brandMarkAccent}>CLUB</Text>
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            onPress={() => router.push('/settings-page')}
+            style={({ pressed }) => [styles.gearBtn, pressed && styles.pressed]}
+            hitSlop={10}
+          >
+            <SettingsGear size={16} />
+          </Pressable>
         </View>
 
-        {/* Avatar + Name */}
-        <View style={styles.headerSection}>
-          <View style={styles.avatarContainer}>
-            {user?.user_metadata?.avatar_url ? (
-              <Image
-                source={{ uri: user.user_metadata.avatar_url }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {user?.user_metadata?.full_name
-                    ? user.user_metadata.full_name
-                        .split(' ')
-                        .map((n: string) => n[0])
-                        .join('')
-                        .toUpperCase()
-                        .slice(0, 2)
-                    : '?'}
-                </Text>
+        {/* Identity row: avatar + name + streak chip */}
+        <View style={styles.identityRow}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatarShadow}>
+              <LinearGradient
+                colors={[LC.red, LC.redDeep]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatarGradient}
+              >
+                <View style={styles.avatarHighlight} pointerEvents="none" />
+                <Text style={styles.avatarInitial}>{initial}</Text>
+              </LinearGradient>
+            </View>
+          )}
+          <View style={styles.nameBlock}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {displayName.toUpperCase()}
+            </Text>
+            {hasHydrated && streak != null && streak > 0 ? (
+              <View style={styles.chipsRow}>
+                <LCChip tone="red">{`🔥 ${streak} DAY STREAK`}</LCChip>
               </View>
-            )}
-
-          </View>
-          <Text style={styles.userName}>{user?.user_metadata?.full_name || 'User'}</Text>
-        </View>
-
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{hasHydrated && total_hours != null ? (total_hours < 1 ? Math.round(total_hours * 60) : formatStat(total_hours)) : '-'}</Text>
-            <Text style={styles.statLabel}>{hasHydrated && total_hours != null && total_hours < 1 ? 'Mins' : 'Hours'}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{hasHydrated && grinds != null ? formatStat(grinds) : '-'}</Text>
-            <Text style={styles.statLabel}>Grinds</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{hasHydrated && streak != null ? streak : '-'}</Text>
-            <Text style={styles.statLabel}>Streak</Text>
+            ) : null}
           </View>
         </View>
 
-        {/* Badge Collection */}
-        <FeaturedBadges />
+        {/* Counters strip */}
+        <View style={styles.countersRow}>
+          <View style={styles.counterCell}>
+            <Text style={styles.counterValue}>{sessionsText}</Text>
+            <Text style={styles.counterLabel}>SESSIONS</Text>
+          </View>
+          <View style={styles.counterDivider} />
+          <View style={styles.counterCell}>
+            <Text style={styles.counterValue}>{hoursText}</Text>
+            <Text style={styles.counterLabel}>TOTAL HRS</Text>
+          </View>
+          <View style={styles.counterDivider} />
+          <View style={styles.counterCell}>
+            <Text style={styles.counterValue}>{streakText}</Text>
+            <Text style={styles.counterLabel}>STREAK</Text>
+          </View>
+        </View>
 
-        {/* Video Grid */}
+        {/* Tabs */}
+        <View style={styles.tabsRow}>
+          <View style={styles.tabActiveWrap}>
+            <Text style={[styles.tabLabel, styles.tabLabelActive]}>TIMELAPSES</Text>
+            <View style={styles.tabUnderline} />
+          </View>
+          <Pressable
+            onPress={() => router.push('/trophies-page')}
+            style={({ pressed }) => [styles.tabWrap, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Medals"
+          >
+            <Text style={styles.tabLabel}>MEDALS</Text>
+          </Pressable>
+        </View>
+
+        {/* Grid */}
         <View style={styles.gridSection}>
           {recordings.length === 0 ? (
             <View style={styles.emptyGridState}>
-              <Ionicons name="videocam-outline" size={48} color="rgba(255,255,255,0.2)" />
-              <Text style={styles.emptyGridTitle}>No grinds yet</Text>
-              <Text style={styles.emptyGridSubtitle}>
-                Start recording to see your grinds here
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyBoxLabel}>no grinds yet</Text>
+              </View>
+              <Text style={styles.emptySubtitle}>
+                Hit LOCK IN to start a session. Your timelapses land here.
               </Text>
             </View>
           ) : (
@@ -249,7 +288,7 @@ export default function ProfileScreen() {
                 <VideoGridItem
                   key={rec.id}
                   recording={rec}
-                  size={GRID_ITEM_SIZE}
+                  width={GRID_ITEM_WIDTH}
                   onPress={() => handleTap(rec)}
                   onLongPress={() => handleLongPress(rec)}
                 />
@@ -272,88 +311,169 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: LC.bg,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingHorizontal: 20,
+    paddingBottom: 140,
   },
+  // Top bar
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
   },
-  topBarRight: {
-    flexDirection: 'row',
-    gap: 16,
+  brandMark: {
+    fontFamily: Fonts.monoSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.5,
+    color: LC.text,
+    textTransform: 'uppercase',
   },
-  topBarIcon: {
-    padding: 4,
+  brandMarkAccent: {
+    color: LC.red,
   },
-  topBarIconPressed: {
-    opacity: 0.5,
-    transform: [{ scale: 0.85 }],
-  },
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: PINK,
-    backgroundColor: '#1a1a1a',
+  gearBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontSize: 40,
-    fontFamily: Fonts.bold,
-    color: 'rgba(255,255,255,0.4)',
+  pressed: {
+    opacity: 0.55,
+  },
+  // Identity row
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingTop: 14,
+    paddingBottom: 20,
+  },
+  avatarShadow: {
+    shadowColor: LC.red,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 10,
+    borderRadius: 32,
+  },
+  avatarGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  avatarInitial: {
+    fontFamily: Fonts.display,
+    fontSize: 34,
+    lineHeight: 36,
+    color: '#fff',
+    textAlign: 'center',
+  },
+  avatarImg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: LC.bgCard,
+  },
+  nameBlock: {
+    flex: 1,
   },
   userName: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
+    fontFamily: Fonts.display,
+    fontSize: 28,
+    lineHeight: 30,
+    color: LC.text,
+    letterSpacing: 0.5,
   },
-  statsRow: {
+  chipsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    gap: 6,
+    marginTop: 6,
   },
-  statItem: {
+  // Counters
+  countersRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    marginBottom: 18,
+  },
+  counterCell: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 10,
   },
-  statNumber: {
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-    color: '#FFFFFF',
+  counterValue: {
+    fontFamily: Fonts.display,
+    fontSize: 24,
+    lineHeight: 26,
+    color: LC.text,
+    letterSpacing: 0.5,
   },
-  statLabel: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.6)',
-    marginTop: 4,
+  counterLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    color: LC.textMute,
+    letterSpacing: 1.5,
+    marginTop: 3,
+    textTransform: 'uppercase',
   },
-  statDivider: {
+  counterDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignSelf: 'stretch',
+    backgroundColor: LC.border,
   },
+  // Tabs
+  tabsRow: {
+    flexDirection: 'row',
+    gap: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: LC.border,
+    marginBottom: 12,
+  },
+  tabActiveWrap: {
+    paddingBottom: 10,
+    position: 'relative',
+  },
+  tabWrap: {
+    paddingBottom: 10,
+  },
+  tabLabel: {
+    fontFamily: Fonts.monoSemiBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  tabLabelActive: {
+    color: LC.text,
+  },
+  tabUnderline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: -1,
+    height: 2,
+    backgroundColor: LC.red,
+  },
+  // Grid
   gridSection: {
-    minHeight: 200,
+    marginHorizontal: -4,
+    paddingHorizontal: 0,
   },
   grid: {
     flexDirection: 'row',
@@ -363,19 +483,32 @@ const styles = StyleSheet.create({
   emptyGridState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    gap: 12,
   },
-  emptyGridTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 12,
+  emptyBox: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: LC.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  emptyGridSubtitle: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.3)',
-    marginTop: 4,
+  emptyBoxLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  emptySubtitle: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 13,
+    color: LC.textMute,
     textAlign: 'center',
   },
 });

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Lockin Club — iOS Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo+Black&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: Inter, system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tokens.jsx"></script>
+<script type="text/babel" src="screens-core.jsx"></script>
+<script type="text/babel" src="screens-planning.jsx"></script>
+<script type="text/babel" src="screens-progress.jsx"></script>
+<script type="text/babel" src="screens-account.jsx"></script>
+<script type="text/babel" src="screens-lockin.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+  const { DesignCanvas, DCSection, DCArtboard, DCNote } = window;
+
+  function App() {
+    return (
+      <DesignCanvas stateKey="lockin-club">
+
+        <DCSection id="intro" title="LOCKIN CLUB · iOS" subtitle="Gritty hardcore direction — true black, red hot-stamp accent, editorial display type. Screen-time receipt as the core reward metaphor.">
+          <DCArtboard id="direction" label="The System" width={560} height={844}>
+            <div style={{
+              width: '100%', height: '100%', background: '#0a0a0a', color: '#f4f1ea',
+              padding: 36, fontFamily: 'Inter, system-ui',
+              display: 'flex', flexDirection: 'column', gap: 22,
+            }}>
+              <div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, letterSpacing: 3, color: 'rgba(244,241,234,0.5)' }}>◆ LOCKIN CLUB · DESIGN SYSTEM</div>
+                <div style={{ fontFamily: 'Bebas Neue, Impact', fontSize: 68, lineHeight: 0.9, letterSpacing: 0.5, marginTop: 8 }}>LOCK IN<br/>OR LOSE.</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ padding: 14, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, letterSpacing: 1.5, color: 'rgba(244,241,234,0.5)' }}>ACCENT</div>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                    <div style={{ width: 36, height: 36, background: '#ff3b30', borderRadius: 4 }}/>
+                    <div style={{ width: 36, height: 36, background: '#c72a1f', borderRadius: 4 }}/>
+                    <div style={{ width: 36, height: 36, background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4 }}/>
+                    <div style={{ width: 36, height: 36, background: '#f4f1ea', borderRadius: 4 }}/>
+                    <div style={{ width: 36, height: 36, background: '#e9e4d8', borderRadius: 4 }}/>
+                  </div>
+                </div>
+                <div style={{ padding: 14, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10 }}>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, letterSpacing: 1.5, color: 'rgba(244,241,234,0.5)' }}>TYPE</div>
+                  <div style={{ fontFamily: 'Bebas Neue', fontSize: 22, lineHeight: 1.1, marginTop: 6, whiteSpace: 'nowrap' }}>BEBAS NEUE · DISPLAY</div>
+                  <div style={{ fontFamily: 'Inter', fontSize: 13, lineHeight: 1.3, marginTop: 4, whiteSpace: 'nowrap' }}>Inter · body copy</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, lineHeight: 1.3, marginTop: 4, whiteSpace: 'nowrap' }}>JetBrains Mono · numerics</div>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: 2, color: 'rgba(244,241,234,0.5)', marginBottom: 8 }}>CORE LOOP</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {['01 SET TARGET', '02 LOCK APPS', '03 GRIND (TIMELAPSE OR TIMER)', '04 EARN MIN 1:1', '05 CLAIM RECEIPT', '06 UNLOCK'].map((s, i) => (
+                    <div key={i} style={{
+                      padding: '8px 10px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6,
+                      fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: 1,
+                      color: i < 5 ? '#f4f1ea' : '#ff3b30',
+                    }}>{s}</div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ flex: 1 }}/>
+
+              <div style={{
+                padding: 14, background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.25)',
+                borderRadius: 10,
+              }}>
+                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, letterSpacing: 1.5, color: '#ff3b30', fontWeight: 600 }}>◆ VOICE</div>
+                <div style={{ fontFamily: 'Inter', fontSize: 13, marginTop: 4, lineHeight: 1.45 }}>
+                  Hype bro. “You're cooking.” “Lock in.” “WYD.” Gritty, not mean. Copy never lectures —
+                  the receipt does the talking.
+                </div>
+              </div>
+
+              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, letterSpacing: 2, color: 'rgba(244,241,234,0.3)' }}>
+                12 SCREENS · IPHONE 15 · 390 × 844
+              </div>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="coreloop" title="01 · Core loop" subtitle="Home → pick a grind → record → preview → claim receipt. This is the app.">
+          <DCArtboard id="home" label="Home · Today" width={390} height={844}>
+            <LCHome/>
+          </DCArtboard>
+          <DCArtboard id="lockin" label="Lockin · pick your weapon" width={390} height={844}>
+            <LCLockin/>
+          </DCArtboard>
+          <DCArtboard id="timer" label="Stopwatch grind" width={390} height={844}>
+            <LCTimer/>
+          </DCArtboard>
+          <DCArtboard id="timelapse" label="Timelapse recording" width={390} height={844}>
+            <LCTimelapse/>
+          </DCArtboard>
+          <DCArtboard id="preview" label="Timelapse preview" width={390} height={844}>
+            <LCPreview/>
+          </DCArtboard>
+          <DCArtboard id="reward" label="Reward receipt" width={390} height={844}>
+            <LCReward/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="planning" title="02 · Planning & enforcement" subtitle="What you're grinding on, and what happens when you try to cheat.">
+          <DCArtboard id="tasks" label="Tasks · The Hit List" width={390} height={844}>
+            <LCTasks/>
+          </DCArtboard>
+          <DCArtboard id="applock" label="App-lock overlay" width={390} height={844}>
+            <LCAppLock/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="progress" title="03 · Progress & competition" subtitle="The tape, the ranks, the vault.">
+          <DCArtboard id="analytics" label="Analytics" width={390} height={844}>
+            <LCAnalytics/>
+          </DCArtboard>
+          <DCArtboard id="leaderboard" label="Leaderboard" width={390} height={844}>
+            <LCLeaderboard/>
+          </DCArtboard>
+          <DCArtboard id="medals" label="Medals · The Vault" width={390} height={844}>
+            <LCMedals/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="account" title="04 · Account" subtitle="Your shelf and your knobs.">
+          <DCArtboard id="profile" label="Profile · @kai" width={390} height={844}>
+            <LCProfile/>
+          </DCArtboard>
+          <DCArtboard id="settings" label="Settings" width={390} height={844}>
+            <LCSettings/>
+          </DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

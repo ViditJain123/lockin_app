@@ -60,3 +60,40 @@ export const BrandColors = {
 } as const;
 
 export type BrandColorKey = keyof typeof BrandColors;
+
+// ─────────────────────────────────────────────────────────────
+// LC — Lockin Club redesign tokens (Gritty Hardcore direction)
+// Source: design-reference/lockin-club/project/tokens.jsx
+// Kept separate from BrandColors so existing screens are untouched
+// during the rollout. New surfaces should pull from LC.
+// ─────────────────────────────────────────────────────────────
+
+export const LC = {
+  // Surfaces
+  bg: '#0a0a0a',
+  bgElev: '#141414',
+  bgCard: '#1a1a1a',
+
+  // Rules
+  border: 'rgba(255,255,255,0.08)',
+  borderStrong: 'rgba(255,255,255,0.15)',
+
+  // Text
+  text: '#f4f1ea',
+  textDim: 'rgba(244,241,234,0.6)',
+  textMute: 'rgba(244,241,234,0.35)',
+
+  // Accent (red hot-stamp)
+  red: '#ff3b30',
+  redDeep: '#c72a1f',
+  redGlow: 'rgba(255,59,48,0.25)',
+
+  // Utility
+  green: '#4ade80',
+  amber: '#fbbf24',
+
+  // Receipt paper (thermal-printer reward card)
+  paper: '#e9e4d8',
+} as const;
+
+export type LCColorKey = keyof typeof LC;

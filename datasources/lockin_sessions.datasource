@@ -4,9 +4,9 @@ SCHEMA >
     `date` String `json:$.date`,
     `time_started` DateTime `json:$.time_started`,
     `time_ended` DateTime `json:$.time_ended`,
-    `distraction_count` UInt32 `json:$.distraction_count`,
+    `distraction_count` UInt32 `json:$.distraction_count` DEFAULT 0,
     `total_locked_in_seconds` UInt32 `json:$.total_locked_in_seconds`,
-    `total_distracted_seconds` UInt32 `json:$.total_distracted_seconds`,
+    `total_distracted_seconds` UInt32 `json:$.total_distracted_seconds` DEFAULT 0,
     `timestamp` DateTime `json:$.timestamp`
 
 ENGINE "MergeTree"

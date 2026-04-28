@@ -1,122 +1,134 @@
 import React from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import Svg, { Rect } from 'react-native-svg';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
 import { HourlyData } from '@/types/analytics';
 
-const BRAND_PINK = '#FF3B5C';
-const HOUR_LABELS = [
-  { hour: 6, label: '6a' },
-  { hour: 12, label: '12p' },
-  { hour: 18, label: '6p' },
-  { hour: 0, label: '12a' },
+const HOUR_LABELS: { hour: number; label: string }[] = [
+  { hour: 0, label: '12A' },
+  { hour: 6, label: '6A' },
+  { hour: 12, label: '12P' },
+  { hour: 18, label: '6P' },
 ];
+
+const CHART_HEIGHT = 80;
 
 interface Props {
   data: HourlyData[];
 }
 
 export default function HourlyTimeline({ data }: Props) {
-  const screenWidth = Math.min(Dimensions.get('window').width, 430);
-  const chartWidth = screenWidth - 24 - 32; // screen padding + card padding
-  const CHART_HEIGHT = 80;
-  const BAR_GAP = 2;
-  const barWidth = (chartWidth - BAR_GAP * 23) / 24;
-
   const maxMinutes = Math.max(...data.map((d) => d.minutes), 1);
   const hasActivity = data.some((d) => d.minutes > 0);
 
+  if (!hasActivity) {
+    return (
+      <View style={styles.emptyBox}>
+        <Text style={styles.emptyLabel}>no activity today</Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Activity Timeline</Text>
+    <View>
+      <View style={styles.chart}>
+        {[0.5, 1].map((p) => (
+          <View
+            key={p}
+            pointerEvents="none"
+            style={[styles.gridLine, { bottom: p * CHART_HEIGHT }]}
+          />
+        ))}
+        {data.map((d, i) => {
+          if (d.minutes <= 0) {
+            return <View key={i} style={styles.slot} />;
+          }
+          const pct = d.minutes / maxMinutes;
+          const barHeight = Math.max(Math.round(pct * (CHART_HEIGHT - 6)), 3);
+          const opacity = 0.45 + pct * 0.55;
+          return (
+            <View key={i} style={styles.slot}>
+              <View
+                style={[
+                  styles.bar,
+                  { height: barHeight, opacity },
+                ]}
+              />
+            </View>
+          );
+        })}
+      </View>
 
-      {hasActivity ? (
-        <>
-          <View style={styles.chartContainer}>
-            <Svg width={chartWidth} height={CHART_HEIGHT}>
-              {data.map((d, i) => {
-                const barHeight = d.minutes > 0
-                  ? Math.max((d.minutes / maxMinutes) * (CHART_HEIGHT - 10), 4)
-                  : 0;
-                const opacity = d.minutes > 0
-                  ? 0.3 + (d.minutes / maxMinutes) * 0.7
-                  : 0;
-                const x = i * (barWidth + BAR_GAP);
-                const y = CHART_HEIGHT - barHeight;
-
-                return d.minutes > 0 ? (
-                  <Rect
-                    key={i}
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={barHeight}
-                    rx={2}
-                    ry={2}
-                    fill={BRAND_PINK}
-                    opacity={opacity}
-                  />
-                ) : null;
-              })}
-            </Svg>
-          </View>
-
-          <View style={styles.labelsRow}>
-            {HOUR_LABELS.map((hl) => {
-              const x = hl.hour * (barWidth + BAR_GAP) + barWidth / 2;
-              return (
-                <Text
-                  key={hl.hour}
-                  style={[
-                    styles.hourLabel,
-                    { left: x - 10 },
-                  ]}
-                >
-                  {hl.label}
-                </Text>
-              );
-            })}
-          </View>
-        </>
-      ) : (
-        <Text style={styles.emptyText}>No activity recorded</Text>
-      )}
+      <View style={styles.labelsRow}>
+        {HOUR_LABELS.map((hl) => (
+          <Text
+            key={hl.hour}
+            style={[styles.hourLabel, { left: `${(hl.hour / 24) * 100}%` }]}
+          >
+            {hl.label}
+          </Text>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#1c1c1e',
-    borderRadius: 16,
-    padding: 16,
+  chart: {
+    height: CHART_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: LC.border,
+    position: 'relative',
   },
-  title: {
-    fontSize: 16,
-    fontFamily: Fonts.semiBold,
-    color: 'white',
-    marginBottom: 12,
+  gridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: LC.border,
+    opacity: 0.5,
   },
-  chartContainer: {
-    // wrapper
+  slot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  bar: {
+    width: '100%',
+    backgroundColor: LC.red,
+    borderTopLeftRadius: 1.5,
+    borderTopRightRadius: 1.5,
   },
   labelsRow: {
     position: 'relative',
-    height: 18,
+    height: 14,
     marginTop: 6,
   },
   hourLabel: {
     position: 'absolute',
-    fontSize: 10,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.4)',
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    color: LC.textMute,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.3)',
-    textAlign: 'center',
-    paddingVertical: 20,
+  emptyBox: {
+    height: CHART_HEIGHT + 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: LC.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
   },
 });

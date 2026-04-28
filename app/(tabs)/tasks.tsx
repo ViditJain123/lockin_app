@@ -1,19 +1,19 @@
 import AddTaskModal from '@/components/tasks/AddTaskModal';
 import TaskCard from '@/components/tasks/TaskCard';
+import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
 import { useTaskStore, Task } from '@/store/useTaskStore';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AppState,
-  FlatList,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
 export default function TasksScreen() {
   const insets = useSafeAreaInsets();
@@ -22,75 +22,98 @@ export default function TasksScreen() {
   const performDailyReset = useTaskStore((s) => s.performDailyReset);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Perform daily reset after hydration
   useEffect(() => {
-    if (hasHydrated) {
-      performDailyReset();
-    }
+    if (hasHydrated) performDailyReset();
   }, [hasHydrated, performDailyReset]);
 
-  // Also reset when app returns to foreground (e.g. left open overnight)
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
+    const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && useTaskStore.getState().hasHydrated) {
         useTaskStore.getState().performDailyReset();
       }
     });
-    return () => subscription.remove();
+    return () => sub.remove();
   }, []);
 
-  const renderItem = useCallback(({ item }: { item: Task }) => {
-    return <TaskCard task={item} />;
-  }, []);
+  const { openTasks, completedTasks } = useMemo(() => {
+    const open: Task[] = [];
+    const done: Task[] = [];
+    for (const t of tasks) {
+      (t.isCompleted ? done : open).push(t);
+    }
+    return { openTasks: open, completedTasks: done };
+  }, [tasks]);
 
-  const keyExtractor = useCallback((item: Task) => item.id, []);
+  const handleAdd = useCallback(() => setModalVisible(true), []);
+  const handleClose = useCallback(() => setModalVisible(false), []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.headerTitle}>Today's Tasks</Text>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>
+          {openTasks.length > 0
+            ? `TODAY · ${openTasks.length} LEFT`
+            : 'TODAY · ALL CLEAR'}
+        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>THE HIT LIST</Text>
+          <Pressable
+            onPress={handleAdd}
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressed]}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Add task"
+          >
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 5v14M5 12h14"
+                stroke="#fff"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
+        </View>
       </View>
 
-      {/* Task list */}
-      {tasks.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="checkbox-outline" size={64} color="rgba(255,255,255,0.2)" />
-          <Text style={styles.emptyTitle}>No tasks yet</Text>
-          <Text style={styles.emptySubtitle}>Add your first task</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={tasks}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: insets.bottom + 100 },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-
-      {/* Floating action button */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + 90 }]}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
       >
-        <LinearGradient
-          colors={['#FF6B82', '#F04560', '#C83050']}
-          style={styles.fabGradient}
-        >
-          <Ionicons name="add" size={32} color="#FFFFFF" />
-        </LinearGradient>
-      </TouchableOpacity>
+        {tasks.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyLabel}>no tasks yet</Text>
+            </View>
+            <Text style={styles.emptySub}>
+              Tap + to add your first hit.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {openTasks.map((task) => (
+              <TaskCard key={task.id} task={task} />
+            ))}
 
-      {/* Add task modal */}
-      <AddTaskModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-      />
+            {completedTasks.length > 0 && (
+              <View style={styles.clearedSection}>
+                <View style={styles.clearedHeader}>
+                  <Text style={styles.clearedEyebrow}>
+                    CLEARED · {completedTasks.length}
+                  </Text>
+                  <View style={styles.clearedLine} />
+                </View>
+                {completedTasks.map((task) => (
+                  <TaskCard key={task.id} task={task} />
+                ))}
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      <AddTaskModal visible={modalVisible} onClose={handleClose} />
     </View>
   );
 }
@@ -98,55 +121,102 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: LC.bg,
   },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingBottom: 18,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontFamily: Fonts.interBold,
-    color: '#FFFFFF',
+  eyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
   },
-  listContent: {
-    paddingHorizontal: 16,
+  titleRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
   },
-  emptyContainer: {
-    flex: 1,
+  title: {
+    fontFamily: Fonts.display,
+    fontSize: 42,
+    lineHeight: 50,
+    color: LC.text,
+    letterSpacing: 0.5,
+  },
+  addBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: LC.red,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 100,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: Fonts.semiBold,
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.3)',
-    marginTop: 8,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    shadowColor: '#FF3B5C',
+    shadowColor: LC.red,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  fabGradient: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  pressed: { opacity: 0.7 },
+  scroll: {
+    paddingHorizontal: 16,
+    paddingBottom: 140,
+  },
+  // Cleared section
+  clearedSection: {
+    marginTop: 18,
+  },
+  clearedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  clearedEyebrow: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  clearedLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: LC.border,
+  },
+  // Empty state
+  emptyWrap: {
+    paddingTop: 32,
+    paddingHorizontal: 4,
+    gap: 12,
+    alignItems: 'center',
+  },
+  emptyBox: {
+    width: '100%',
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: LC.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  emptyLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
+    textTransform: 'uppercase',
+  },
+  emptySub: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 13,
+    color: LC.textMute,
+    textAlign: 'center',
   },
 });

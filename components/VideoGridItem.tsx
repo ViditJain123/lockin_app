@@ -1,9 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text, View, Pressable, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Fonts } from '../constants/Fonts';
-import type { Recording } from '../store/useVideoGalleryStore';
-import { resolveUri } from '../store/useVideoGalleryStore';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+
+import { LC } from '@/constants/BrandColors';
+import { Fonts } from '@/constants/Fonts';
+import { resolveUri, type Recording } from '@/store/useVideoGalleryStore';
 
 function formatDuration(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
@@ -16,51 +17,87 @@ function formatDuration(totalSeconds: number): string {
 
 interface Props {
   recording: Recording;
-  size: number;
+  /** Column width in pixels. Height is derived 16:9 portrait. */
+  width: number;
   onPress: () => void;
   onLongPress: () => void;
 }
 
-export default function VideoGridItem({ recording, size, onPress, onLongPress }: Props) {
+export default function VideoGridItem({ recording, width, onPress, onLongPress }: Props) {
+  const height = Math.round(width * (16 / 9));
   return (
-    <Pressable onPress={onPress} onLongPress={onLongPress} style={{ width: size, height: size }}>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={[styles.tile, { width, height }]}
+    >
       {recording.thumbnailUri ? (
-        <Image source={{ uri: resolveUri(recording.thumbnailUri) }} style={[styles.thumbnail, { width: size, height: size }]} />
+        <Image
+          source={{ uri: resolveUri(recording.thumbnailUri) }}
+          style={styles.thumbnail}
+        />
       ) : (
-        <View style={[styles.placeholder, { width: size, height: size }]}>
-          <Ionicons name="videocam" size={28} color="rgba(255,255,255,0.3)" />
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderLabel}>processing</Text>
         </View>
       )}
-      <View style={styles.durationChip}>
-        <Text style={styles.durationText}>{formatDuration(recording.sessionDurationSeconds)}</Text>
+
+      <View style={styles.playCorner} pointerEvents="none">
+        <Svg width={10} height={10} viewBox="0 0 10 10">
+          <Path d="M1 1l8 4-8 4V1z" fill="#fff" opacity={0.75} />
+        </Svg>
       </View>
+
+      <Text style={styles.duration} numberOfLines={1}>
+        {formatDuration(recording.sessionDurationSeconds)}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  thumbnail: {
+  tile: {
     borderRadius: 4,
-    backgroundColor: '#1a1a1a',
+    overflow: 'hidden',
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
+  },
+  thumbnail: {
+    width: '100%',
+    height: '100%',
   },
   placeholder: {
-    borderRadius: 4,
-    backgroundColor: '#1a1a1a',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: LC.bgCard,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: LC.borderStrong,
   },
-  durationChip: {
+  placeholderLabel: {
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    color: LC.textMute,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  playCorner: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+  duration: {
     position: 'absolute',
     bottom: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  durationText: {
-    fontSize: 11,
-    fontFamily: Fonts.medium,
-    color: '#FFFFFF',
+    right: 6,
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
