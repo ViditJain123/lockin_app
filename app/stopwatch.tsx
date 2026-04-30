@@ -357,9 +357,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,59,48,0.1)',
+    backgroundColor: 'rgba(255,59,92,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.25)',
+    borderColor: 'rgba(255,59,92,0.25)',
   },
   recDot: {
     width: 7,

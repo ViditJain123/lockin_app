@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  InteractionManager,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,9 +12,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
+import LevelUpToast from '@/components/LevelUpToast';
+import LockinXPCard from '@/components/LockinXPCard';
 import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
 import { getLocalDateString } from '@/lib/dateUtils';
+import { posthog } from '@/lib/posthog';
+import { computeXP, levelFromXP } from '@/lib/xp';
+import { useAppLockStore } from '@/store/useAppLockStore';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useSessionStore } from '@/store/useSessionStore';
@@ -131,6 +138,16 @@ function formatHoursLeft(hours: number): string {
   return formatHoursColon(hours);
 }
 
+function formatMinutes(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${mins} minute${mins !== 1 ? 's' : ''}`;
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────
 
 export default function LockInScreen() {
@@ -160,8 +177,60 @@ export default function LockInScreen() {
     s.tasks.find((t) => !t.isCompleted),
   );
 
+  const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
+  const availableScreenTime = useAppLockStore((s) => s.getAvailableScreenTime());
+  const canClaim = !isFullyUnlocked && availableScreenTime >= 60;
+  const [showClaimModal, setShowClaimModal] = useState(false);
+
+  // ─── Level-up toast ─────────────────────────────────────────────────────
+  // Tracks the most recently observed level so we can flash the toast
+  // when the user crosses into a new level. We use a ref to avoid firing
+  // on the very first hydration of stats.
+  const totalHoursForXP = useProfileStatsStore((s) => s.total_hours);
+  const grindsForXP = useProfileStatsStore((s) => s.grinds);
+  const currentLevel = useMemo(
+    () => levelFromXP(computeXP({ totalHours: totalHoursForXP, totalGrinds: grindsForXP })),
+    [totalHoursForXP, grindsForXP]
+  );
+  const lastLevelRef = useRef<number | null>(null);
+  const [toastLevel, setToastLevel] = useState<number | null>(null);
+  useEffect(() => {
+    if (lastLevelRef.current === null) {
+      lastLevelRef.current = currentLevel;
+      return;
+    }
+    if (currentLevel > lastLevelRef.current) {
+      setToastLevel(currentLevel);
+    }
+    lastLevelRef.current = currentLevel;
+  }, [currentLevel]);
+
   const goTimelapse = () => router.push('/record' as any);
   const goStopwatch = () => router.push('/stopwatch' as any);
+
+  const handleClaimConfirm = () => {
+    posthog.capture('screen_time_claim_confirm_tapped', {
+      available_screen_time_seconds: availableScreenTime,
+      source: 'home_screen',
+    });
+    setShowClaimModal(false);
+    // Defer the native FamilyControls bridge call off the modal-dismiss frame
+    // (mirrors the pattern in grind-complete.tsx that fixed a 1h15m crash).
+    InteractionManager.runAfterInteractions(() => {
+      try {
+        useAppLockStore.getState().unlockApps();
+        posthog.capture('screen_time_claimed', {
+          available_screen_time_seconds: availableScreenTime,
+          source: 'home_screen',
+        });
+      } catch (err: any) {
+        posthog.capture('home_claim_error', {
+          phase: 'unlock',
+          error: err?.message ?? String(err),
+        });
+      }
+    });
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -216,6 +285,21 @@ export default function LockInScreen() {
               </View>
             </View>
           </View>
+        ) : null}
+
+        {/* Claim Screen Time CTA */}
+        {canClaim ? (
+          <Pressable onPress={() => setShowClaimModal(true)} style={styles.claimWrap}>
+            <View style={styles.claimCta}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.claimLabel}>CLAIM SCREEN TIME</Text>
+                <Text style={styles.claimSubLabel}>
+                  {formatMinutes(availableScreenTime)} available
+                </Text>
+              </View>
+              <PlayIcon size={30} />
+            </View>
+          </Pressable>
         ) : null}
 
         {/* Hero — TIMELAPSE card */}
@@ -301,6 +385,11 @@ export default function LockInScreen() {
           </View>
         </Pressable>
 
+        {/* Lockin XP card */}
+        <View style={styles.xpCardWrap}>
+          <LockinXPCard onPress={() => router.push({ pathname: '/profile', params: { tab: 'medals' } } as any)} />
+        </View>
+
         {/* Next task pill */}
         {nextTask ? (
           <View style={styles.nextTaskWrap}>
@@ -318,6 +407,36 @@ export default function LockInScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Claim Screen Time Confirmation Modal */}
+      <Modal
+        visible={showClaimModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowClaimModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Start Screen Time?</Text>
+            <Text style={styles.modalBody}>
+              You'll be able to use your phone for the next{' '}
+              <Text style={styles.modalBold}>{formatMinutes(availableScreenTime)}</Text>
+            </Text>
+            <Pressable style={styles.modalConfirmButton} onPress={handleClaimConfirm}>
+              <Text style={styles.modalConfirmText}>Start Timer</Text>
+            </Pressable>
+            <Pressable
+              style={styles.modalCancelButton}
+              onPress={() => setShowClaimModal(false)}
+            >
+              <Text style={styles.modalCancelText}>Not Now</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Level-up toast */}
+      <LevelUpToast level={toastLevel} onDismiss={() => setToastLevel(null)} />
     </View>
   );
 }
@@ -335,7 +454,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    backgroundColor: 'rgba(255,59,48,0.08)',
+    backgroundColor: 'rgba(255,59,92,0.08)',
     opacity: 0.9,
   },
   scrollContent: {
@@ -366,9 +485,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,59,48,0.12)',
+    backgroundColor: 'rgba(255,59,92,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.3)',
+    borderColor: 'rgba(255,59,92,0.3)',
   },
   streakEmoji: {
     fontSize: 12,
@@ -467,7 +586,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.35)',
+    borderColor: 'rgba(255,59,92,0.35)',
     backgroundColor: '#1a1210',
     shadowColor: LC.red,
     shadowOffset: { width: 0, height: 16 },
@@ -491,7 +610,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(255,59,48,0.12)',
+    backgroundColor: 'rgba(255,59,92,0.12)',
   },
   ruleH: {
     position: 'absolute',
@@ -535,7 +654,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.4)',
+    borderColor: 'rgba(255,59,92,0.4)',
     zIndex: 2,
   },
   adaptiveDot: {
@@ -568,7 +687,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 140,
     lineHeight: 120,
-    color: 'rgba(255,59,48,0.08)',
+    color: 'rgba(255,59,92,0.08)',
     letterSpacing: -4,
   },
   heroEyebrow: {
@@ -645,6 +764,11 @@ const styles = StyleSheet.create({
   secondaryWrap: {
     paddingHorizontal: 16,
   },
+  // Lockin XP card wrap
+  xpCardWrap: {
+    paddingHorizontal: 16,
+    marginTop: 14,
+  },
   secondaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -715,9 +839,9 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 6,
-    backgroundColor: 'rgba(255,59,48,0.12)',
+    backgroundColor: 'rgba(255,59,92,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.3)',
+    borderColor: 'rgba(255,59,92,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -733,5 +857,98 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: LC.text,
     marginTop: 2,
+  },
+  // Claim Screen Time CTA
+  claimWrap: {
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  claimCta: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#34d399',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#34d399',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  claimLabel: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: 2,
+    color: '#000',
+    includeFontPadding: false,
+  },
+  claimSubLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: 'rgba(0,0,0,0.6)',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 22,
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  modalBody: {
+    fontFamily: Fonts.regular,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  modalBold: {
+    fontFamily: Fonts.bold,
+    color: '#34d399',
+  },
+  modalConfirmButton: {
+    width: '100%',
+    backgroundColor: '#34d399',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalConfirmText: {
+    fontFamily: Fonts.bold,
+    fontSize: 17,
+    color: '#000',
+  },
+  modalCancelButton: {
+    width: '100%',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontFamily: Fonts.medium,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.5)',
   },
 });

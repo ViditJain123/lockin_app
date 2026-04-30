@@ -84,9 +84,9 @@ export const LC = {
   textMute: 'rgba(244,241,234,0.35)',
 
   // Accent (red hot-stamp)
-  red: '#ff3b30',
-  redDeep: '#c72a1f',
-  redGlow: 'rgba(255,59,48,0.25)',
+  red: '#FF3B5C',
+  redDeep: '#A02040',
+  redGlow: 'rgba(255,59,92,0.25)',
 
   // Utility
   green: '#4ade80',

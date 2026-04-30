@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as MediaLibrary from 'expo-media-library';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import CrystalGrid from '@/components/CrystalGrid';
 import { LCChip } from '@/components/lc/LCChip';
 import TimelapsePreviewSheet from '@/components/TimelapsePreviewSheet';
 import VideoGridItem from '@/components/VideoGridItem';
@@ -27,7 +28,7 @@ import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
 import { getContentWidth } from '@/lib/responsive';
 import { updateMaxStreakIfHigher } from '@/lib/supabaseUser';
-import { useBadgeStore } from '@/store/useBadgeStore';
+import { useCrystalStore } from '@/store/useCrystalStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useSessionStore } from '@/store/useSessionStore';
 import { resolveUri, useVideoGalleryStore, type Recording } from '@/store/useVideoGalleryStore';
@@ -59,12 +60,22 @@ function SettingsGear({ size = 18 }: { size?: number }) {
   );
 }
 
+type ProfileViewMode = 'timelapses' | 'medals';
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [previewUri, setPreviewUri] = useState('');
   const [previewDuration, setPreviewDuration] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const [viewMode, setViewMode] = useState<ProfileViewMode>('timelapses');
+
+  // Honor `?tab=medals` query param (set by Home → LockinXPCard tap).
+  const params = useLocalSearchParams<{ tab?: string }>();
+  useEffect(() => {
+    if (params?.tab === 'medals') setViewMode('medals');
+    else if (params?.tab === 'timelapses') setViewMode('timelapses');
+  }, [params?.tab]);
 
   const { user } = useAuth();
   const recordings = useVideoGalleryStore((s) => s.recordings);
@@ -88,11 +99,10 @@ export default function ProfileScreen() {
         recomputeFromSessions(user.id);
       }
       const currentStats = useProfileStatsStore.getState();
-      const maxStreak = await updateMaxStreakIfHigher(user.id, currentStats.streak);
-      useBadgeStore.getState().checkAndAwardBadges({
+      await updateMaxStreakIfHigher(user.id, currentStats.streak);
+      useCrystalStore.getState().checkAndAwardCrystals({
         totalHours: currentStats.total_hours,
         totalGrinds: currentStats.grinds,
-        currentStreak: maxStreak,
       });
     } catch (err) {
       console.warn('[Profile] Failed to refresh stats/badges:', err);
@@ -255,47 +265,76 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Tabs */}
+        {/* Tabs — inline toggle, no navigation */}
         <View style={styles.tabsRow}>
-          <View style={styles.tabActiveWrap}>
-            <Text style={[styles.tabLabel, styles.tabLabelActive]}>TIMELAPSES</Text>
-            <View style={styles.tabUnderline} />
-          </View>
           <Pressable
-            onPress={() => router.push('/trophies-page')}
-            style={({ pressed }) => [styles.tabWrap, pressed && styles.pressed]}
+            onPress={() => setViewMode('timelapses')}
+            style={({ pressed }) => [
+              viewMode === 'timelapses' ? styles.tabActiveWrap : styles.tabWrap,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Timelapses"
+          >
+            <Text
+              style={[
+                styles.tabLabel,
+                viewMode === 'timelapses' && styles.tabLabelActive,
+              ]}
+            >
+              TIMELAPSES
+            </Text>
+            {viewMode === 'timelapses' ? <View style={styles.tabUnderline} /> : null}
+          </Pressable>
+          <Pressable
+            onPress={() => setViewMode('medals')}
+            style={({ pressed }) => [
+              viewMode === 'medals' ? styles.tabActiveWrap : styles.tabWrap,
+              pressed && styles.pressed,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Medals"
           >
-            <Text style={styles.tabLabel}>MEDALS</Text>
+            <Text
+              style={[styles.tabLabel, viewMode === 'medals' && styles.tabLabelActive]}
+            >
+              MEDALS
+            </Text>
+            {viewMode === 'medals' ? <View style={styles.tabUnderline} /> : null}
           </Pressable>
         </View>
 
-        {/* Grid */}
-        <View style={styles.gridSection}>
-          {recordings.length === 0 ? (
-            <View style={styles.emptyGridState}>
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyBoxLabel}>no grinds yet</Text>
+        {/* Content swap */}
+        {viewMode === 'timelapses' ? (
+          <View style={styles.gridSection}>
+            {recordings.length === 0 ? (
+              <View style={styles.emptyGridState}>
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyBoxLabel}>no grinds yet</Text>
+                </View>
+                <Text style={styles.emptySubtitle}>
+                  Hit LOCK IN to start a session. Your timelapses land here.
+                </Text>
               </View>
-              <Text style={styles.emptySubtitle}>
-                Hit LOCK IN to start a session. Your timelapses land here.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.grid}>
-              {recordings.map((rec) => (
-                <VideoGridItem
-                  key={rec.id}
-                  recording={rec}
-                  width={GRID_ITEM_WIDTH}
-                  onPress={() => handleTap(rec)}
-                  onLongPress={() => handleLongPress(rec)}
-                />
-              ))}
-            </View>
-          )}
-        </View>
+            ) : (
+              <View style={styles.grid}>
+                {recordings.map((rec) => (
+                  <VideoGridItem
+                    key={rec.id}
+                    recording={rec}
+                    width={GRID_ITEM_WIDTH}
+                    onPress={() => handleTap(rec)}
+                    onLongPress={() => handleLongPress(rec)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.medalsSection}>
+            <CrystalGrid />
+          </View>
+        )}
       </ScrollView>
 
       <TimelapsePreviewSheet
@@ -474,6 +513,10 @@ const styles = StyleSheet.create({
   gridSection: {
     marginHorizontal: -4,
     paddingHorizontal: 0,
+  },
+  medalsSection: {
+    marginHorizontal: -20,
+    marginTop: 4,
   },
   grid: {
     flexDirection: 'row',

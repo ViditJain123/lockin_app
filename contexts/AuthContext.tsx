@@ -9,7 +9,7 @@ import { notifyDiscord } from '../lib/discordNotify';
 import { posthog } from '../lib/posthog';
 import { supabase } from '../lib/supabase';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
-import { useBadgeStore } from '../store/useBadgeStore';
+import { useCrystalStore } from '../store/useCrystalStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { useTaskStore } from '../store/useTaskStore';
@@ -306,7 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Clear all user-specific data on logout for data isolation between accounts
   const clearAllUserData = () => {
     useOnboardingStore.getState().clearQuizAnswers();
-    useBadgeStore.getState().resetBadges();
+    useCrystalStore.getState().resetCrystals();
     useTaskStore.getState().setUserId(null);
   };
 

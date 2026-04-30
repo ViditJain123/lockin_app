@@ -178,8 +178,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardActive: {
-    backgroundColor: 'rgba(255,59,48,0.06)',
-    borderColor: 'rgba(255,59,48,0.3)',
+    backgroundColor: 'rgba(255,59,92,0.06)',
+    borderColor: 'rgba(255,59,92,0.3)',
   },
   cardCompleted: {
     backgroundColor: 'transparent',

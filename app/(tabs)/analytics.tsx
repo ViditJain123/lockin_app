@@ -314,7 +314,7 @@ function LCHeatmap({
               const bg =
                 cell.intensity <= 0
                   ? 'rgba(255,255,255,0.04)'
-                  : `rgba(255,59,48,${0.15 + cell.intensity * 0.8})`;
+                  : `rgba(255,59,92,${0.15 + cell.intensity * 0.8})`;
               return <View key={d} style={[heat.cell, { backgroundColor: bg }]} />;
             })}
           </View>
@@ -330,7 +330,7 @@ function LCHeatmap({
                 heat.legendSwatch,
                 {
                   backgroundColor:
-                    v <= 0 ? 'rgba(255,255,255,0.04)' : `rgba(255,59,48,${0.15 + v * 0.8})`,
+                    v <= 0 ? 'rgba(255,255,255,0.04)' : `rgba(255,59,92,${0.15 + v * 0.8})`,
                 },
               ]}
             />

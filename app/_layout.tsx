@@ -72,18 +72,18 @@ import PaymentScreen from '../components/quiz/questions/PaymentScreen';
 import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
-import TrophyReceivedModal from '../components/TrophyReceivedModal';
-import { getBadgeById } from '../constants/Badges';
+import CrystalReceivedModal from '../components/CrystalReceivedModal';
+import { getCrystalById } from '../constants/Crystals';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
 import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
 import { parseUTMParams, storePendingAttribution } from '../lib/attribution';
-import { preloadAllBadges } from '../lib/badgeAssetCache';
+import { preloadAllCrystals } from '../lib/crystalAssetCache';
 import { getLocalDateString } from '../lib/dateUtils';
 import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
 import { useAppLockStore } from '../store/useAppLockStore';
-import { useBadgeStore, usePendingNewBadges } from '../store/useBadgeStore';
+import { useCrystalStore, usePendingNewCrystals } from '../store/useCrystalStore';
 import { TOTAL_QUIZ_QUESTIONS, useOnboardingStore } from '../store/useOnboardingStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { posthog } from '../lib/posthog';
@@ -140,8 +140,8 @@ export default function RootLayout() {
     if (loaded) {
       // Initialize subscription store (which initializes StoreKit)
       useSubscriptionStore.getState().initialize();
-      // Preload badge assets (fire and forget)
-      preloadAllBadges();
+      // Preload crystal assets (fire and forget)
+      preloadAllCrystals();
     }
   }, [loaded]);
 
@@ -187,21 +187,27 @@ function RootLayoutNav() {
     completeQuizFunnel,
   } = useOnboardingStore();
 
-  // Trophy modal state — moved before early returns to satisfy Rules of Hooks
-  const pendingNewBadges = usePendingNewBadges();
-  const firstPendingBadge = pendingNewBadges.length > 0 ? getBadgeById(pendingNewBadges[0]) : null;
-  const handleDismissTrophy = useCallback(() => {
-    if (pendingNewBadges.length > 0) {
-      useBadgeStore.getState().markBadgeAsSeen(pendingNewBadges[0]);
+  // Crystal modal state — must be declared before any early return.
+  const pendingNewCrystals = usePendingNewCrystals();
+  const firstPendingCrystal =
+    pendingNewCrystals.length > 0 ? getCrystalById(pendingNewCrystals[0]) ?? null : null;
+  const handleDismissCrystal = useCallback(() => {
+    if (pendingNewCrystals.length > 0) {
+      useCrystalStore.getState().markCrystalAsSeen(pendingNewCrystals[0]);
     }
-  }, [pendingNewBadges]);
+  }, [pendingNewCrystals]);
 
-  // Track badge earned events
+  // Analytics: a crystal earned is the new "badge earned" signal.
   useEffect(() => {
-    if (firstPendingBadge) {
-      posthog.capture('badge_earned', { badge_id: firstPendingBadge.id, badge_name: firstPendingBadge.name });
+    if (firstPendingCrystal) {
+      posthog.capture('crystal_earned', {
+        crystal_id: firstPendingCrystal.id,
+        crystal_name: firstPendingCrystal.name,
+        tier: firstPendingCrystal.tier,
+        milestone_level: firstPendingCrystal.milestoneLevel,
+      });
     }
-  }, [firstPendingBadge?.id]);
+  }, [firstPendingCrystal?.id]);
 
   // Deep link listener for UTM attribution
   useEffect(() => {
@@ -671,16 +677,15 @@ function RootLayoutNav() {
               animation: 'slide_from_bottom',
             }}
           />
-          <Stack.Screen name="trophies-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="settings-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           <Stack.Screen name="stopwatch" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
         </Stack>
-        <TrophyReceivedModal
-          visible={!!firstPendingBadge}
-          badge={firstPendingBadge ?? null}
-          onClose={handleDismissTrophy}
-          onAddToCollection={handleDismissTrophy}
+        <CrystalReceivedModal
+          visible={!!firstPendingCrystal}
+          crystal={firstPendingCrystal}
+          onClose={handleDismissCrystal}
+          onAddToCollection={handleDismissCrystal}
         />
       </ThemeProvider>
       </TabletContainer>
