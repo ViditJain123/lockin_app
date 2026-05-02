@@ -1,26 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { LC } from '../../../constants/LockinClubColors';
 import { requestNotificationPermission } from '../../../lib/notificationService';
 
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
+const FEATURES = [
+  { icon: 'alarm-outline' as const, label: 'Daily focus reminders' },
+  { icon: 'flame-outline' as const, label: 'Streak motivation' },
+  { icon: 'trophy-outline' as const, label: 'Achievement updates' },
+];
 
 interface NotificationPermissionScreenProps {
   onContinue: () => void;
@@ -31,15 +29,14 @@ export default function NotificationPermissionScreen({
   onContinue,
   onBack,
 }: NotificationPermissionScreenProps) {
-  const insets = useSafeAreaInsets();
   const [isRequesting, setIsRequesting] = useState(false);
 
   const handleContinue = async () => {
     setIsRequesting(true);
     try {
       await requestNotificationPermission();
-    } catch (error) {
-      console.error('[NotificationPermission] Error requesting permission:', error);
+    } catch (e) {
+      console.error('[NotificationPermission] Error:', e);
     } finally {
       setIsRequesting(false);
       onContinue();
@@ -47,154 +44,92 @@ export default function NotificationPermissionScreen({
   };
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      <View style={styles.overlay} />
-      <CloudBackground height={280} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Back button */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
-            />
-          </Pressable>
-        </View>
+      <View style={styles.body}>
+        <LCEyebrow text="Arm the traps" step={{ current: 2, total: 2 }} />
+        <LCDisplay
+          lineOne="Stay"
+          lineTwo="locked in."
+          accent="two"
+          size={42}
+          style={{ marginTop: 10 }}
+        />
+        <LCBody style={{ marginTop: 8 }}>
+          We'll only buzz when it matters — streaks, wins, and the occasional kick.
+        </LCBody>
 
-        {/* Main content */}
-        <View style={styles.mainContent}>
-          {/* Bell icon */}
-          <View style={styles.iconContainer}>
-            <Ionicons name="notifications" size={64} color={BrandColors.text.accent} />
-          </View>
-
-          <Text style={styles.title}>
-            Stay on Track with{'\n'}Reminders
-          </Text>
-
-          <Text style={styles.subtitle}>
-            Get daily reminders to lock in, keep your{'\n'}streak alive, and celebrate your wins.
-          </Text>
-
-          {/* Feature list */}
-          <View style={styles.featureList}>
-            <View style={styles.featureRow}>
-              <Ionicons name="alarm-outline" size={22} color={BrandColors.text.secondary} />
-              <Text style={styles.featureText}>Daily focus reminders</Text>
+        <LCCard radius="lg" padding={16} style={{ marginTop: 22 }}>
+          <View style={styles.row}>
+            <View style={styles.iconBox}>
+              <Ionicons name="notifications" size={22} color={LC.red} />
             </View>
-            <View style={styles.featureRow}>
-              <Ionicons name="flame-outline" size={22} color={BrandColors.text.secondary} />
-              <Text style={styles.featureText}>Streak motivation</Text>
-            </View>
-            <View style={styles.featureRow}>
-              <Ionicons name="trophy-outline" size={22} color={BrandColors.text.secondary} />
-              <Text style={styles.featureText}>Achievement updates</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.head}>NOTIFICATIONS</Text>
+              <LCBody size={12} style={{ marginTop: 2 }}>
+                Streak reminders, win celebrations, and the rare nudge.
+              </LCBody>
             </View>
           </View>
+        </LCCard>
+
+        <View style={styles.featureList}>
+          {FEATURES.map((f) => (
+            <View key={f.label} style={styles.featureRow}>
+              <Ionicons name={f.icon} size={18} color={LC.textDim} />
+              <Text style={styles.featureText}>{f.label}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Footer */}
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>
-            You can change notification settings{'\n'}at any time in the app.
-          </Text>
-        </View>
-
-        {/* Continue button */}
-        <View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: insets.bottom + 32 },
-          ]}
-        >
-          <Button3D
-            title="Continue"
-            onPress={handleContinue}
-            disabled={isRequesting}
-            loading={isRequesting}
-          />
-        </View>
+        <Text style={styles.footnote}>
+          YOU CAN TURN THESE OFF ANYTIME IN SETTINGS
+        </Text>
       </View>
-    </ImageBackground>
+
+      <LCCTA
+        label={isRequesting ? 'Requesting' : 'Turn on reminders'}
+        onPress={handleContinue}
+        loading={isRequesting}
+        disabled={isRequesting}
+        hint="maybe later"
+      />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mainContent: {
+  body: {
     flex: 1,
     paddingHorizontal: 24,
+    paddingTop: 18,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 14,
     alignItems: 'center',
   },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,59,92,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,92,0.25)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 36,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
+  head: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    color: LC.text,
+    letterSpacing: 0.5,
   },
   featureList: {
-    gap: 16,
-    alignSelf: 'stretch',
-    paddingHorizontal: 24,
+    marginTop: 18,
+    gap: 12,
+    paddingHorizontal: 6,
   },
   featureRow: {
     flexDirection: 'row',
@@ -202,24 +137,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   featureText: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    lineHeight: 22,
+    fontFamily: Fonts.interMedium,
+    fontSize: 13,
+    color: LC.textDim,
   },
-  footerContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 16,
-  },
-  footerText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.muted,
+  footnote: {
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    color: LC.textMute,
     textAlign: 'center',
-    lineHeight: 22,
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    marginTop: 22,
   },
 });

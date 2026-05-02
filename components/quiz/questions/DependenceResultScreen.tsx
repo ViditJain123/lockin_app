@@ -1,14 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -16,32 +7,23 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { LC } from '../../../constants/LockinClubColors';
 import { animationReveal } from '../../../lib/haptics';
 
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
-
-// Animation timing constants
-const TEXT_FADE_DURATION = 400;
-const BAR_ANIMATION_DELAY = 500;
-const BAR_ANIMATION_DURATION = 1200;
-
-// Fixed average percentage
 const AVERAGE_PERCENTAGE = 33;
-
-// Bar dimensions
-const BAR_MAX_HEIGHT = 220;
-const BAR_WIDTH = 80;
+const BAR_MAX_HEIGHT = 180;
+const REVEAL_DELAY = 400;
+const REVEAL_DURATION = 1100;
 
 interface DependenceResultScreenProps {
   screenTime: number;
@@ -51,40 +33,18 @@ interface DependenceResultScreenProps {
   onBack: () => void;
 }
 
-/**
- * Calculate a "fake" dependence score based on quiz answers.
- * The result is always higher than average (33%) to create urgency.
- * Returns a value between 50-85%.
- */
 function calculateDependenceScore(
   screenTime: number,
   desiredScreenTime: number,
   problematicApps: string[]
 ): number {
-  // Base score starts at 50%
   let score = 50;
-
-  // Add points based on screen time (1-12+ hours mapped to 0-15 points)
-  const screenTimeContribution = Math.min((screenTime / 12) * 15, 15);
-  score += screenTimeContribution;
-
-  // Add points based on the gap between desired and actual screen time
-  const screenTimeGap = screenTime - desiredScreenTime;
-  const gapContribution = Math.min(Math.max(screenTimeGap * 2, 0), 10);
-  score += gapContribution;
-
-  // Add points based on number of problematic apps (0-5+ apps mapped to 0-10 points)
-  const appsContribution = Math.min(problematicApps.length * 2, 10);
-  score += appsContribution;
-
-  // Clamp the final score between 50 and 85
+  score += Math.min((screenTime / 12) * 15, 15);
+  score += Math.min(Math.max((screenTime - desiredScreenTime) * 2, 0), 10);
+  score += Math.min(problematicApps.length * 2, 10);
   return Math.min(Math.max(Math.round(score), 50), 85);
 }
 
-/**
- * DependenceResultScreen - Shows phone dependence comparison results
- * Displays animated bar graphs comparing user's result vs average
- */
 export default function DependenceResultScreen({
   screenTime,
   desiredScreenTime,
@@ -92,290 +52,181 @@ export default function DependenceResultScreen({
   onContinue,
   onBack,
 }: DependenceResultScreenProps) {
-  const insets = useSafeAreaInsets();
+  const userScore = calculateDependenceScore(screenTime, desiredScreenTime, problematicApps);
+  const diff = userScore - AVERAGE_PERCENTAGE;
 
-  // Calculate user's dependence score
-  const userScore = calculateDependenceScore(
-    screenTime,
-    desiredScreenTime,
-    problematicApps
-  );
-  const differenceFromAverage = userScore - AVERAGE_PERCENTAGE;
-
-  // Animation values
-  const textOpacity = useSharedValue(0);
-  const userBarHeight = useSharedValue(0);
-  const averageBarHeight = useSharedValue(0);
-  const buttonOpacity = useSharedValue(0);
-
-  // Target heights for bars (percentage of max height)
-  const userBarTargetHeight = (userScore / 100) * BAR_MAX_HEIGHT;
-  const averageBarTargetHeight = (AVERAGE_PERCENTAGE / 100) * BAR_MAX_HEIGHT;
+  const userBar = useSharedValue(0);
+  const avgBar = useSharedValue(0);
+  const reveal = useSharedValue(0);
 
   useEffect(() => {
-    // 1. Text fades in immediately
-    textOpacity.value = withTiming(1, { duration: TEXT_FADE_DURATION });
-
-    // 2. Bars animate after a delay
-    userBarHeight.value = withDelay(
-      BAR_ANIMATION_DELAY,
-      withTiming(userBarTargetHeight, {
-        duration: BAR_ANIMATION_DURATION,
+    reveal.value = withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) });
+    userBar.value = withDelay(
+      REVEAL_DELAY,
+      withTiming((userScore / 100) * BAR_MAX_HEIGHT, {
+        duration: REVEAL_DURATION,
         easing: Easing.out(Easing.cubic),
       })
     );
-
-    averageBarHeight.value = withDelay(
-      BAR_ANIMATION_DELAY,
-      withTiming(averageBarTargetHeight, {
-        duration: BAR_ANIMATION_DURATION,
+    avgBar.value = withDelay(
+      REVEAL_DELAY,
+      withTiming((AVERAGE_PERCENTAGE / 100) * BAR_MAX_HEIGHT, {
+        duration: REVEAL_DURATION,
         easing: Easing.out(Easing.cubic),
       })
     );
+    const t = setTimeout(animationReveal, REVEAL_DELAY + REVEAL_DURATION);
+    return () => clearTimeout(t);
+  }, [userScore, userBar, avgBar, reveal]);
 
-    // 3. Button appears after bars finish
-    buttonOpacity.value = withDelay(
-      BAR_ANIMATION_DELAY + BAR_ANIMATION_DURATION,
-      withTiming(1, { duration: 300 })
-    );
-
-    // Trigger haptic when bars finish animating
-    const hapticTimeout = setTimeout(() => {
-      animationReveal();
-    }, BAR_ANIMATION_DELAY + BAR_ANIMATION_DURATION);
-
-    return () => clearTimeout(hapticTimeout);
-  }, []);
-
-  // Animated styles
-  const textStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-  }));
-
-  const userBarStyle = useAnimatedStyle(() => ({
-    height: userBarHeight.value,
-  }));
-
-  const averageBarStyle = useAnimatedStyle(() => ({
-    height: averageBarHeight.value,
-  }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-  }));
+  const userBarStyle = useAnimatedStyle(() => ({ height: userBar.value }));
+  const avgBarStyle = useAnimatedStyle(() => ({ height: avgBar.value }));
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
-
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
-            />
-          </Pressable>
-        </View>
-
-        {/* Main content */}
-        <Animated.View style={[styles.mainContent, textStyle]}>
-          {/* Title */}
-          <Text style={styles.title}>It doesn't look good so far...</Text>
-
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>
-            Your response indicates a clear{'\n'}
-            <Text style={styles.highlightText}>negative dependence</Text> on your{'\n'}
-            phone*
+      <Animated.View style={[styles.body, revealStyle]}>
+        <LCEyebrow text="The verdict · be honest" />
+        <LCDisplay
+          lineOne="You're"
+          lineTwo="hooked."
+          accent="two"
+          size={48}
+          style={{ marginTop: 10 }}
+        />
+        <LCBody style={{ marginTop: 8 }}>
+          Your answers point to a clear{' '}
+          <Text style={{ color: LC.red, fontFamily: Fonts.interSemiBold }}>
+            negative dependence
           </Text>
+          {' '}on your phone.
+        </LCBody>
 
-          {/* Bar graph section */}
-          <View style={styles.barGraphContainer}>
-            {/* User Result Bar */}
-            <View style={styles.barColumn}>
-              <View style={styles.barWrapper}>
-                <Animated.View style={[styles.barContainer, userBarStyle]}>
-                  <LinearGradient
-                    colors={['#FF8C42', '#FF6B35', '#E85D2C']}
-                    style={styles.barGradient}
-                  >
-                    <Text style={styles.barPercentage}>{userScore}%</Text>
-                  </LinearGradient>
+        <LCCard radius="xl" padding={18} style={{ marginTop: 22 }}>
+          <View style={styles.barsRow}>
+            <View style={styles.barCol}>
+              <View style={styles.barTrack}>
+                <Animated.View style={[styles.barFillRed, userBarStyle]}>
+                  <Text style={styles.barNum}>{userScore}%</Text>
                 </Animated.View>
               </View>
-              <Text style={styles.barLabel}>Your Result</Text>
+              <Text style={styles.barLabel}>YOU</Text>
             </View>
-
-            {/* Average Bar */}
-            <View style={styles.barColumn}>
-              <View style={styles.barWrapper}>
-                <Animated.View style={[styles.barContainer, averageBarStyle]}>
-                  <LinearGradient
-                    colors={['#B8C6DB', '#87A4C5', '#6B95BC']}
-                    style={styles.barGradient}
-                  >
-                    <Text style={styles.barPercentage}>{AVERAGE_PERCENTAGE}%</Text>
-                  </LinearGradient>
+            <View style={styles.barCol}>
+              <View style={styles.barTrack}>
+                <Animated.View style={[styles.barFillMute, avgBarStyle]}>
+                  <Text style={styles.barNumMuted}>{AVERAGE_PERCENTAGE}%</Text>
                 </Animated.View>
               </View>
-              <Text style={styles.barLabel}>Average</Text>
+              <Text style={styles.barLabel}>AVG</Text>
             </View>
           </View>
 
-          {/* Difference text */}
-          <Text style={styles.differenceText}>
-            <Text style={styles.differenceHighlight}>{differenceFromAverage}% higher</Text>
-            {' '}than the average!
-          </Text>
+          <View style={styles.summary}>
+            <Text style={styles.summaryHead}>TOTAL DAMAGE</Text>
+            <Text style={styles.summaryNum}>{`+${diff}%`}</Text>
+            <Text style={styles.summarySub}>WORSE THAN THE AVERAGE GRINDER</Text>
+          </View>
+        </LCCard>
 
-          {/* Disclaimer */}
-          <Text style={styles.disclaimer}>
-            *This is not a psychological diagnosis
-          </Text>
-        </Animated.View>
+        <Text style={styles.disclaimer}>* NOT A PSYCHOLOGICAL DIAGNOSIS</Text>
+      </Animated.View>
 
-        {/* Continue button */}
-        <Animated.View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: insets.bottom + 32 },
-            buttonStyle,
-          ]}
-        >
-          <Button3D title="Continue" onPress={onContinue} />
-        </Animated.View>
-      </View>
-    </ImageBackground>
+      <LCCTA label="OK I'm in trouble" onPress={onContinue} />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mainContent: {
+  body: {
     flex: 1,
     paddingHorizontal: 24,
-    alignItems: 'center',
+    paddingTop: 18,
   },
-  title: {
-    fontSize: 26,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 40,
-  },
-  highlightText: {
-    color: '#FF6B35',
-    fontFamily: Fonts.semiBold,
-  },
-  barGraphContainer: {
+  barsRow: {
     flexDirection: 'row',
+    gap: 32,
     justifyContent: 'center',
-    alignItems: 'flex-end',
-    gap: 40,
-    marginBottom: 32,
   },
-  barColumn: {
+  barCol: {
     alignItems: 'center',
   },
-  barWrapper: {
+  barTrack: {
+    width: 70,
     height: BAR_MAX_HEIGHT,
     justifyContent: 'flex-end',
-    marginBottom: 12,
-  },
-  barContainer: {
-    width: BAR_WIDTH,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
     overflow: 'hidden',
   },
-  barGradient: {
-    flex: 1,
-    justifyContent: 'flex-start',
+  barFillRed: {
+    backgroundColor: LC.red,
+    width: '100%',
     alignItems: 'center',
-    paddingTop: 16,
-    borderRadius: 12,
+    justifyContent: 'flex-start',
+    paddingTop: 10,
+    shadowColor: LC.red,
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
   },
-  barPercentage: {
+  barFillMute: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 10,
+  },
+  barNum: {
+    fontFamily: Fonts.display,
     fontSize: 22,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
+    color: '#fff',
+  },
+  barNumMuted: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    color: LC.text,
   },
   barLabel: {
-    fontSize: 16,
-    fontFamily: Fonts.medium,
-    color: BrandColors.text.primary,
+    marginTop: 8,
+    fontFamily: Fonts.monoBold,
+    fontSize: 11,
+    letterSpacing: 1.8,
+    color: LC.textMute,
   },
-  differenceText: {
-    fontSize: 20,
-    fontFamily: Fonts.medium,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 24,
+  summary: {
+    marginTop: 18,
+    alignItems: 'center',
   },
-  differenceHighlight: {
-    color: '#FF6B35',
-    fontFamily: Fonts.bold,
+  summaryHead: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: LC.textMute,
+  },
+  summaryNum: {
+    fontFamily: Fonts.display,
+    fontSize: 56,
+    color: LC.red,
+    letterSpacing: -1,
+    textShadowColor: LC.redGlow,
+    textShadowRadius: 16,
+    marginTop: 2,
+  },
+  summarySub: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    color: LC.textDim,
+    marginTop: 2,
   },
   disclaimer: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.muted,
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    color: LC.textMute,
     textAlign: 'center',
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    marginTop: 14,
   },
 });

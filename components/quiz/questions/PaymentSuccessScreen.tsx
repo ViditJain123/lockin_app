@@ -1,31 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
+import LCBody from '../lc/LCBody';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCFrame from '../lc/LCFrame';
+import LCReceipt from '../lc/LCReceipt';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
+import { LC } from '../../../constants/LockinClubColors';
 
 interface PaymentSuccessScreenProps {
   userName: string;
@@ -36,146 +28,125 @@ export default function PaymentSuccessScreen({
   userName,
   onContinue,
 }: PaymentSuccessScreenProps) {
-  const insets = useSafeAreaInsets();
+  const pillScale = useSharedValue(0.6);
+  const pillOpacity = useSharedValue(0);
+  const titleOp = useSharedValue(0);
+  const receiptOp = useSharedValue(0);
+  const receiptRot = useSharedValue(-12);
+  const ctaOp = useSharedValue(0);
 
-  // Animation values
-  const emojiScale = useSharedValue(0);
-  const titleOpacity = useSharedValue(0);
-  const subtitleOpacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(0);
-
-  // Trigger animations on mount
   useEffect(() => {
-    // Emoji scale-in with spring animation
-    emojiScale.value = withSpring(1, {
-      damping: 12,
-      stiffness: 100,
-    });
+    pillOpacity.value = withTiming(1, { duration: 280 });
+    pillScale.value = withSpring(1, { damping: 12, stiffness: 110 });
+    titleOp.value = withDelay(260, withTiming(1, { duration: 380 }));
+    receiptOp.value = withDelay(520, withTiming(1, { duration: 360 }));
+    receiptRot.value = withDelay(520, withTiming(-2, { duration: 520, easing: Easing.out(Easing.cubic) }));
+    ctaOp.value = withDelay(900, withTiming(1, { duration: 360 }));
+  }, [pillScale, pillOpacity, titleOp, receiptOp, receiptRot, ctaOp]);
 
-    // Title fade in after 400ms
-    titleOpacity.value = withDelay(400, withTiming(1, { duration: 400 }));
-
-    // Subtitle fade in after 700ms
-    subtitleOpacity.value = withDelay(700, withTiming(1, { duration: 400 }));
-
-    // Button fade in after 1000ms
-    buttonOpacity.value = withDelay(1000, withTiming(1, { duration: 400 }));
-  }, []);
-
-  // Animated styles
-  const emojiAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: emojiScale.value }],
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: pillOpacity.value,
+    transform: [{ scale: pillScale.value }],
   }));
-
-  const titleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: titleOpacity.value,
+  const titleStyle = useAnimatedStyle(() => ({ opacity: titleOp.value }));
+  const receiptStyle = useAnimatedStyle(() => ({
+    opacity: receiptOp.value,
+    transform: [{ rotate: `${receiptRot.value}deg` }],
   }));
-
-  const subtitleAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: subtitleOpacity.value,
-  }));
-
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-  }));
+  const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOp.value }));
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
-
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
-
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Empty header space (no back button) */}
-        <View style={styles.header} />
-
-        {/* Main content */}
-        <View style={styles.mainContent}>
-          {/* Celebration emoji with scale animation */}
-          <Animated.View style={[styles.emojiContainer, emojiAnimatedStyle]}>
-            <Text style={styles.emoji}>🎉</Text>
-          </Animated.View>
-
-          {/* Title */}
-          <Animated.Text style={[styles.title, titleAnimatedStyle]}>
-            You're all set, {userName || 'friend'}!
-          </Animated.Text>
-
-          {/* Subtitle */}
-          <Animated.Text style={[styles.subtitle, subtitleAnimatedStyle]}>
-            Your LockIn journey starts now.
-          </Animated.Text>
-        </View>
-
-        {/* Continue button */}
-        <Animated.View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: insets.bottom + 32 },
-            buttonAnimatedStyle,
-          ]}
-        >
-          <Button3D title="Let's Lock In" onPress={onContinue} />
+    <LCFrame glow="center" glowColor={LC.greenGlow} glowIntensity="normal">
+      <View style={styles.body}>
+        <Animated.View style={[styles.pillRow, pillStyle]}>
+          <View style={styles.pill}>
+            <Ionicons name="checkmark" size={12} color={LC.green} />
+            <Text style={styles.pillText}>YOU'RE IN THE CLUB</Text>
+          </View>
         </Animated.View>
+
+        <Animated.View style={[styles.title, titleStyle]}>
+          <LCDisplay
+            lineOne={userName ? `Welcome, ${userName}` : 'Welcome to'}
+            lineTwo="the club."
+            accent="two"
+            size={44}
+          />
+          <LCBody align="center" style={{ marginTop: 12, paddingHorizontal: 12 }}>
+            Your card prints. Your locks are armed. Time to grind.
+          </LCBody>
+        </Animated.View>
+
+        <View style={styles.receiptWrap}>
+          <Animated.View style={receiptStyle}>
+            <LCReceipt
+              brand="MEMBERSHIP"
+              subtitle="LOCKIN CLUB"
+              meta="ACTIVE"
+              lineItems={[
+                ['MEMBER', userName ? userName.toUpperCase() : 'YOU'],
+                ['PLAN', 'PRO'],
+                ['ACCESS', 'FULL'],
+              ]}
+              total={{ label: 'STATUS', value: 'IN' }}
+              footer="LOCK IN. EARN OUT. NO REFUNDS."
+              showBarcode
+              width={260}
+            />
+          </Animated.View>
+        </View>
       </View>
-    </ImageBackground>
+
+      <Animated.View style={[styles.ctaWrap, ctaStyle]}>
+        <LCCTA label="Let's go" onPress={onContinue} pinned />
+      </Animated.View>
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  body: {
     flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    height: 72, // Same height as other screens for consistency
-  },
-  mainContent: {
-    flex: 1,
+    paddingTop: 40,
     paddingHorizontal: 24,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -60, // Offset to center content visually
   },
-  emojiContainer: {
-    marginBottom: 24,
+  pillRow: {
+    alignItems: 'center',
   },
-  emoji: {
-    fontSize: 80,
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(74,222,128,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(74,222,128,0.3)',
+  },
+  pillText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.green,
   },
   title: {
-    fontSize: 32,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 12,
+    marginTop: 22,
+    alignItems: 'center',
   },
-  subtitle: {
-    fontSize: 18,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 26,
+  receiptWrap: {
+    marginTop: 24,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
   },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+  ctaWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 });

@@ -1,74 +1,24 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
-import Button3D from '../../Button3D';
-import GoalTag from '../GoalTag';
-import ReviewCard from '../ReviewCard';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCChip from '../lc/LCChip';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-const featherLeft = require('../../../assets/images/feather-left.png');
-const featherRight = require('../../../assets/images/feather-right.png');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
-const AURORA_HEIGHT = 300;
-
-// Animation timing constants
-const FEATHER_DURATION = 800;
-const TEXT_FADE_DELAY = FEATHER_DURATION;
-const TEXT_FADE_DURATION = 400;
-const DIGIT_WAVE_DELAY = TEXT_FADE_DELAY + TEXT_FADE_DURATION;
-const DIGIT_WAVE_DURATION = 200;
-const CONTENT_APPEAR_DELAY = DIGIT_WAVE_DELAY + (DIGIT_WAVE_DURATION * 8);
-
-// Fake reviews data
-const REVIEWS = [
-  {
-    id: '1',
-    name: 'Tymofii S.',
-    username: '@whostymo',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    text: 'This app is amazing!! I\'m down to 40 minutes or less TikTok per day from 5 hours per day!!',
-  },
-  {
-    id: '2',
-    name: 'Colbee T.',
-    username: '@jjfvcnejec',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    text: '"It\'s better than I thought because now you can\'t immediately scroll in the morning"',
-  },
-  {
-    id: '3',
-    name: 'Marcus W.',
-    username: '@marcusw_',
-    avatar: 'https://randomuser.me/api/portraits/men/67.jpg',
-    text: 'Finally got my screen time under control. The accountability really works!',
-  },
-];
+import { LC } from '../../../constants/LockinClubColors';
 
 interface SocialProofScreenProps {
   userName: string;
@@ -77,386 +27,191 @@ interface SocialProofScreenProps {
   onBack: () => void;
 }
 
-/**
- * Aurora background SVG component
- */
-function AuroraBackground() {
+const TESTIMONIALS = [
+  { handle: 'tymofii', hours: '4.2H', quote: "down to 40 min on tiktok from 5 hrs. wild.", color: LC.red },
+  { handle: 'colbee', hours: '3.1H', quote: "can't immediately scroll in the morning anymore.", color: LC.amber },
+  { handle: 'marcus', hours: '23D', quote: 'finally got my screen time under control. accountability works.', color: LC.green },
+];
+
+export default function SocialProofScreen({ onContinue, onBack }: SocialProofScreenProps) {
+  const fade = useSharedValue(0);
+  const rise = useSharedValue(20);
+
+  useEffect(() => {
+    fade.value = withDelay(80, withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }));
+    rise.value = withDelay(80, withTiming(0, { duration: 420, easing: Easing.out(Easing.cubic) }));
+  }, [fade, rise]);
+
+  const reveal = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ translateY: rise.value }],
+  }));
+
   return (
-    <View style={styles.auroraContainer} pointerEvents="none">
-      <Svg
-        width={SCREEN_WIDTH}
-        height={AURORA_HEIGHT}
-        style={styles.auroraSvg}
-        viewBox={`0 0 ${SCREEN_WIDTH} ${AURORA_HEIGHT}`}
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        showsVerticalScrollIndicator={false}
       >
-        <Defs>
-          <RadialGradient id="leftAuroraGrad" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor={BrandColors.primary.main} stopOpacity={0.5} />
-            <Stop offset="40%" stopColor={BrandColors.primary.gradientEnd} stopOpacity={0.3} />
-            <Stop offset="70%" stopColor={BrandColors.primary.dark} stopOpacity={0.15} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="rightAuroraGrad" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor={BrandColors.primary.gradientStart} stopOpacity={0.45} />
-            <Stop offset="35%" stopColor={BrandColors.primary.main} stopOpacity={0.25} />
-            <Stop offset="65%" stopColor={BrandColors.primary.gradientEnd} stopOpacity={0.1} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="centerAuroraGlow" cx="50%" cy="0%" r="100%">
-            <Stop offset="0%" stopColor={BrandColors.primary.main} stopOpacity={0.25} />
-            <Stop offset="50%" stopColor={BrandColors.primary.dark} stopOpacity={0.1} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Ellipse
-          cx={-SCREEN_WIDTH * 0.15}
-          cy={-AURORA_HEIGHT * 0.2}
-          rx={SCREEN_WIDTH * 0.7}
-          ry={AURORA_HEIGHT * 1.3}
-          fill="url(#leftAuroraGrad)"
-        />
-        <Ellipse
-          cx={SCREEN_WIDTH * 1.15}
-          cy={-AURORA_HEIGHT * 0.1}
-          rx={SCREEN_WIDTH * 0.65}
-          ry={AURORA_HEIGHT * 1.2}
-          fill="url(#rightAuroraGrad)"
-        />
-        <Ellipse
-          cx={SCREEN_WIDTH / 2}
-          cy={-AURORA_HEIGHT * 0.4}
-          rx={SCREEN_WIDTH * 0.9}
-          ry={AURORA_HEIGHT * 1.0}
-          fill="url(#centerAuroraGlow)"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-/**
- * Animated digit component for wave effect
- */
-function AnimatedDigit({
-  char,
-  delay
-}: {
-  char: string;
-  delay: number;
-}) {
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    scale.value = withDelay(
-      delay,
-      withSequence(
-        withTiming(1.4, { duration: DIGIT_WAVE_DURATION, easing: Easing.out(Easing.ease) }),
-        withTiming(1, { duration: DIGIT_WAVE_DURATION, easing: Easing.in(Easing.ease) })
-      )
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.Text style={[styles.heroNumber, animatedStyle]}>
-      {char}
-    </Animated.Text>
-  );
-}
-
-/**
- * SocialProofScreen - Shows social proof with reviews and goal tags
- * Step 5 in the onboarding quiz funnel
- */
-export default function SocialProofScreen({
-  userName,
-  selectedGoals,
-  onContinue,
-  onBack,
-}: SocialProofScreenProps) {
-  const insets = useSafeAreaInsets();
-
-  // Animation values
-  const featherTranslateY = useSharedValue(100);
-  const featherOpacity = useSharedValue(0);
-  const textOpacity = useSharedValue(0);
-  const textScale = useSharedValue(0.8);
-  const contentOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    // 1. Feathers roll in from bottom
-    featherTranslateY.value = withTiming(0, {
-      duration: FEATHER_DURATION,
-      easing: Easing.out(Easing.back(1.2)),
-    });
-    featherOpacity.value = withTiming(1, {
-      duration: FEATHER_DURATION * 0.6,
-    });
-
-    // 2. Text fades in and scales up after feathers
-    textOpacity.value = withDelay(
-      TEXT_FADE_DELAY,
-      withTiming(1, { duration: TEXT_FADE_DURATION })
-    );
-    textScale.value = withDelay(
-      TEXT_FADE_DELAY,
-      withSpring(1, { damping: 12, stiffness: 100 })
-    );
-
-    // 3. Content appears after digit wave animation
-    contentOpacity.value = withDelay(
-      CONTENT_APPEAR_DELAY,
-      withTiming(1, { duration: 400 })
-    );
-  }, []);
-
-  // Animated styles
-  const featherLeftStyle = useAnimatedStyle(() => ({
-    opacity: featherOpacity.value,
-    transform: [{ translateY: featherTranslateY.value }],
-  }));
-
-  const featherRightStyle = useAnimatedStyle(() => ({
-    opacity: featherOpacity.value,
-    transform: [{ translateY: featherTranslateY.value }],
-  }));
-
-  const textContainerStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-    transform: [{ scale: textScale.value }],
-  }));
-
-  const contentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-  }));
-
-  // Digits for wave animation: "1,000"
-  const digits = ['1', ',', '0', '0', '0'];
-
-  return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
-
-      {/* Aurora effect at top */}
-      <AuroraBackground />
-
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
-            />
-          </Pressable>
+        <View style={styles.body}>
+          <LCEyebrow text="You're not alone" />
+          <LCDisplay
+            lineOne="The club is"
+            lineTwo="cooking."
+            accent="two"
+            size={46}
+            style={{ marginTop: 10 }}
+          />
         </View>
 
-        {/* Scrollable content */}
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Hero section with feathers */}
-          <View style={styles.heroSection}>
-            <View style={styles.featherContainer}>
-              {/* Left feather */}
-              <Animated.Image
-                source={featherLeft}
-                style={[styles.featherLeft, featherLeftStyle]}
-                resizeMode="contain"
-              />
-
-              {/* Text container */}
-              <Animated.View style={[styles.heroTextContainer, textContainerStyle]}>
-                <View style={styles.heroTextRow}>
-                  <Text style={styles.heroText}>Over </Text>
-                  {digits.map((char, index) => (
-                    <AnimatedDigit
-                      key={index}
-                      char={char}
-                      delay={DIGIT_WAVE_DELAY + (index * DIGIT_WAVE_DURATION)}
-                    />
-                  ))}
-                  <Text style={styles.heroText}> People</Text>
+        <Animated.View style={[reveal, { paddingHorizontal: 24, marginTop: 22 }]}>
+          <LCCard radius="xl" padding={18}>
+            <Text style={styles.statLabel}>HOURS LOCKED · ALL-TIME</Text>
+            <View style={styles.statRow}>
+              <Text style={styles.statValue}>23.4</Text>
+              <Text style={styles.statUnit}>M</Text>
+            </View>
+            <View style={styles.statGrid}>
+              <View style={styles.statTile}>
+                <Text style={styles.statTileLabel}>MEMBERS</Text>
+                <Text style={styles.statTileValue}>412K</Text>
+              </View>
+              <View style={styles.statTile}>
+                <Text style={styles.statTileLabel}>LIVE NOW</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                  <Text style={styles.statTileValue}>8,422</Text>
+                  <View style={styles.livePulse} />
                 </View>
-                <Text style={styles.heroSubtext}>
-                  started with the same goals!
-                </Text>
-              </Animated.View>
-
-              {/* Right feather */}
-              <Animated.Image
-                source={featherRight}
-                style={[styles.featherRight, featherRightStyle]}
-                resizeMode="contain"
-              />
+              </View>
             </View>
-          </View>
-
-          {/* Animated content section */}
-          <Animated.View style={contentStyle}>
-            {/* Dynamic goal tags */}
-            <View style={styles.tagsContainer}>
-              {selectedGoals.slice(0, 3).map((goalId) => (
-                <GoalTag key={goalId} goalId={goalId} />
-              ))}
-            </View>
-
-            {/* Reviews */}
-            <View style={styles.reviewsContainer}>
-              {REVIEWS.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  name={review.name}
-                  username={review.username}
-                  avatarUrl={review.avatar}
-                  text={review.text}
-                />
-              ))}
-            </View>
-          </Animated.View>
-        </ScrollView>
-
-        {/* Fixed button at bottom - also animated */}
-        <Animated.View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }, contentStyle]}>
-          <Button3D
-            title="I'm next"
-            onPress={onContinue}
-          />
+          </LCCard>
         </Animated.View>
-      </View>
-    </ImageBackground>
+
+        <View style={[styles.body, { paddingTop: 22 }]}>
+          <LCEyebrow text="In their words" tone="mute" />
+          <View style={{ marginTop: 12, gap: 8 }}>
+            {TESTIMONIALS.map((t) => (
+              <LCCard key={t.handle} radius="md" padding={12}>
+                <View style={styles.testimonialRow}>
+                  <View style={[styles.avatar, { backgroundColor: t.color }]}>
+                    <Text style={styles.avatarChar}>{t.handle[0].toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.testimonialHead}>
+                      <Text style={styles.handle}>@{t.handle}</Text>
+                      <LCChip tone="red" size="sm">{`🔥 ${t.hours}`}</LCChip>
+                    </View>
+                    <LCBody size={13} style={{ marginTop: 2 }}>
+                      “{t.quote}”
+                    </LCBody>
+                  </View>
+                </View>
+              </LCCard>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+
+      <LCCTA label="Keep going" onPress={onContinue} hint="4.9 ★ · 82k reviews" />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+  body: {
+    paddingHorizontal: 24,
+    paddingTop: 18,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  statLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: LC.textMute,
   },
-  auroraContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: AURORA_HEIGHT,
-    zIndex: 1,
-    overflow: 'visible',
-  },
-  auroraSvg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  heroSection: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    alignItems: 'center',
-  },
-  featherContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featherLeft: {
-    width: 50,
-    height: 80,
-    marginRight: 0,
-  },
-  featherRight: {
-    width: 50,
-    height: 80,
-    marginLeft: 0,
-  },
-  heroTextContainer: {
-    alignItems: 'center',
-  },
-  heroTextRow: {
+  statRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  heroText: {
-    fontSize: 18,
-    fontFamily: Fonts.medium,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-  },
-  heroNumber: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-  },
-  heroSubtext: {
-    fontSize: 16,
-    fontFamily: Fonts.medium,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
     marginTop: 4,
   },
-  tagsContainer: {
+  statValue: {
+    fontFamily: Fonts.display,
+    fontSize: 70,
+    lineHeight: 76,
+    color: LC.text,
+    letterSpacing: -1,
+    paddingTop: 4,
+  },
+  statUnit: {
+    fontFamily: Fonts.display,
+    fontSize: 70,
+    lineHeight: 76,
+    color: LC.red,
+    letterSpacing: -1,
+    paddingTop: 4,
+  },
+  statGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 10,
+  },
+  statTile: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderWidth: 1,
+    borderColor: LC.border,
+  },
+  statTileLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: LC.textMute,
+  },
+  statTileValue: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    color: LC.text,
+    marginTop: 2,
+  },
+  livePulse: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: LC.red,
+    shadowColor: LC.red,
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    alignSelf: 'center',
+  },
+  testimonialRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    gap: 12,
   },
-  reviewsContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    gap: 16,
+  avatarChar: {
+    fontFamily: Fonts.display,
+    fontSize: 16,
+    color: '#fff',
   },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+  testimonialHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  handle: {
+    fontFamily: Fonts.interSemiBold,
+    fontSize: 13,
+    color: LC.text,
   },
 });

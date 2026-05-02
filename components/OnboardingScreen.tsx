@@ -1,25 +1,18 @@
 import React from 'react';
-import {
-  Dimensions,
-  Image,
-  ImageBackground,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Button3D from './Button3D';
-import GifCarousel from './GifCarousel';
+import IPhoneVideoFrame from './IPhoneVideoFrame';
+import LCCTA from './quiz/lc/LCCTA';
+import LCFrame from './quiz/lc/LCFrame';
 
 import { Fonts } from '../constants/Fonts';
+import { LC } from '../constants/LockinClubColors';
 
-// Assets
-const nightSkyBackground = require('../assets/images/night-sky-background.jpeg');
-const logo = require('../assets/images/logo-no-bg.png');
+const onboardingVideo = require('../assets/images/onboarding/onboarding.mov');
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
+const PHONE_HEIGHT = Math.round(SCREEN_HEIGHT * 0.56);
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -27,104 +20,87 @@ interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
+  // CTA = button (~54) + paddingBottom (14 + safeBottom)
+  const ctaReserve = 80 + insets.bottom;
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
-
-      {/* Content */}
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Logo at top - no padding below as logo has built-in spacing */}
-        <View style={styles.logoContainer}>
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
+    <LCFrame glow="center" glowIntensity="normal">
+      <View style={[styles.content, { paddingBottom: ctaReserve }]}>
+        <View style={styles.brandRow}>
+          <View style={styles.brandPill}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandText}>LOCKIN CLUB</Text>
+          </View>
         </View>
 
-        {/* GIF Carousel - directly below logo with no padding */}
-        <GifCarousel />
-
-        {/* Spacer above text - centers text vertically */}
-        <View style={styles.spacer} />
-
-        {/* Tagline text */}
-        <View style={styles.textContainer}>
-          <Text style={styles.taglineTop}>IT'S TIME TO</Text>
-          <Text style={styles.taglineBottom}>LOCK THE F'CK IN</Text>
+        <View style={styles.phoneWrap}>
+          <IPhoneVideoFrame source={onboardingVideo} height={PHONE_HEIGHT} />
         </View>
 
-        {/* Spacer below text - centers text vertically */}
-        <View style={styles.spacer} />
-
-        {/* Get Started Button */}
-        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 40 }]}>
-          <Button3D
-            title="Get Started"
-            onPress={onComplete}
-            icon={<Text style={styles.buttonArrow}>→</Text>}
-            iconPosition="right"
-          />
-        </View>
+        <Text style={styles.headline}>
+          LOCK <Text style={styles.headlineAccent}>IN</Text> OR LOSE.
+        </Text>
       </View>
-    </ImageBackground>
+
+      <LCCTA label="I'm locking in" onPress={onComplete} />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
   content: {
     flex: 1,
-    alignItems: 'center',
-  },
-  logoContainer: {
-    width: SCREEN_WIDTH,
-    alignItems: 'center',
-    // No bottom margin/padding - GIFs should be directly below
-  },
-  logo: {
-    width: SCREEN_WIDTH*0.75,
-    height: SCREEN_WIDTH*0.6,
-  },
-  spacer: {
-    flex: 1,
-  },
-  textContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
     paddingHorizontal: 20,
+    paddingTop: 12,
   },
-  taglineTop: {
-    fontSize: 32,
-    fontFamily: Fonts.interBold,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 4,
+  brandRow: {
+    alignItems: 'center',
   },
-  taglineBottom: {
-    fontSize: 32,
-    fontFamily: Fonts.interExtraBold,
-    color: '#FF3B5C',
-    textAlign: 'center',
+  brandPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,59,92,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,92,0.3)',
+  },
+  brandDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: LC.red,
+    shadowColor: LC.red,
+    shadowOpacity: 1,
+    shadowRadius: 6,
+  },
+  brandText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 2.5,
+    color: LC.red,
+  },
+  phoneWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 8,
+  },
+  headline: {
+    fontFamily: Fonts.display,
+    fontSize: 44,
+    lineHeight: 50,
+    paddingTop: 4,
     letterSpacing: 1,
+    color: LC.text,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  buttonContainer: {
-    width: '100%',
-    paddingHorizontal: 32,
-  },
-  buttonArrow: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    fontFamily: Fonts.interSemiBold,
+  headlineAccent: {
+    color: LC.red,
+    textShadowColor: LC.redGlow,
+    textShadowRadius: 22,
   },
 });

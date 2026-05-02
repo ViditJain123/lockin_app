@@ -1,38 +1,23 @@
-import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import {
-  Dimensions,
-  Image,
-  ImageBackground,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppleSignInButton from '../../AppleSignInButton';
-import CloudBackground from '../CloudBackground';
+import LCBody from '../lc/LCBody';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
+import { LC } from '../../../constants/LockinClubColors';
 import { useAuth } from '../../../contexts/AuthContext';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-const logo = require('../../../assets/images/logo-no-bg.png');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
 
 interface QuizLoginScreenProps {
   onContinue: () => void;
   onBack: () => void;
 }
 
-/**
- * QuizLoginScreen - Login screen shown during quiz funnel, before payment
- */
 export default function QuizLoginScreen({
   onContinue,
   onBack,
@@ -41,7 +26,6 @@ export default function QuizLoginScreen({
   const { session } = useAuth();
   const hasCalledContinue = useRef(false);
 
-  // Auto-proceed when user successfully authenticates
   useEffect(() => {
     if (session && !hasCalledContinue.current) {
       hasCalledContinue.current = true;
@@ -50,145 +34,97 @@ export default function QuizLoginScreen({
   }, [session, onContinue]);
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="center">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
+      <View style={styles.body}>
+        <View style={styles.brandRow}>
+          <View style={styles.brandPill}>
+            <View style={styles.brandDot} />
+            <Text style={styles.brandText}>LOCKIN CLUB</Text>
+          </View>
+        </View>
 
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
+        <View style={{ alignItems: 'center', marginTop: 36 }}>
+          <LCEyebrow text="Join the club" />
+          <View style={{ alignItems: 'center', marginTop: 12 }}>
+            <LCDisplay
+              lineOne="Sign in"
+              accent="one"
+              size={64}
+              accentColor={LC.text}
             />
-          </Pressable>
-        </View>
-
-        {/* Main content */}
-        <View style={styles.mainContent}>
-          {/* Logo */}
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
-
-          {/* Tagline */}
-          <Text style={styles.tagline}>Focus. Create. Achieve.</Text>
-        </View>
-
-        {/* Sign In Section */}
-        <View style={[styles.signInSection, { paddingBottom: insets.bottom + 40 }]}>
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>Sign in to continue</Text>
-            <View style={styles.divider} />
+            <LCDisplay
+              lineOne="to lock in."
+              accent="one"
+              size={64}
+              accentColor={LC.red}
+              style={{ textShadowColor: LC.redGlow, textShadowRadius: 28 }}
+            />
           </View>
-
-          <View style={styles.buttonContainer}>
-            <AppleSignInButton />
-          </View>
-
-          <Text style={styles.termsText}>
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </Text>
+          <LCBody align="center" style={{ marginTop: 16, paddingHorizontal: 24 }}>
+            One-tap sign-in. We never see your password.
+          </LCBody>
         </View>
       </View>
-    </ImageBackground>
+
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 28 }]}>
+        <AppleSignInButton />
+        <Text style={styles.terms}>
+          BY CONTINUING YOU AGREE TO OUR{' '}
+          <Text style={styles.termsAccent}>TERMS</Text> · <Text style={styles.termsAccent}>PRIVACY</Text>
+        </Text>
+      </View>
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  body: {
     flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mainContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 24,
-  },
-  logo: {
-    width: SCREEN_WIDTH * 0.65,
-    height: SCREEN_WIDTH * 0.52,
-    marginBottom: 16,
-  },
-  tagline: {
-    fontSize: 18,
-    fontFamily: Fonts.interSemiBold,
-    color: 'rgba(255, 255, 255, 0.8)',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  signInSection: {
+    paddingTop: 18,
     alignItems: 'center',
-    paddingHorizontal: 32,
-    gap: 24,
   },
-  dividerContainer: {
+  brandRow: {
+    alignItems: 'center',
+  },
+  brandPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 8,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,59,92,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,92,0.3)',
   },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  brandDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: LC.red,
   },
-  dividerText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    paddingHorizontal: 16,
+  brandText: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 10,
+    letterSpacing: 2.5,
+    color: LC.red,
   },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  termsText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    textAlign: 'center',
-    lineHeight: 18,
+  bottom: {
     paddingHorizontal: 20,
+    gap: 14,
+  },
+  terms: {
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    color: LC.textMute,
+    textAlign: 'center',
+  },
+  termsAccent: {
+    color: LC.text,
+    fontFamily: Fonts.monoMedium,
   },
 });

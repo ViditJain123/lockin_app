@@ -8,7 +8,7 @@ import { getLocalDateString, getTomorrowDateString } from '../lib/dateUtils';
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
-export const TOTAL_QUIZ_QUESTIONS = 23;
+export const TOTAL_QUIZ_QUESTIONS = 20;
 
 // Interface for sleep time
 export interface SleepTime {

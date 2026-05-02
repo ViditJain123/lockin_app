@@ -1,34 +1,16 @@
-import Slider from '@react-native-community/slider';
-import React, { useRef } from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
-import QuizProgressBar from '../QuizProgressBar';
+import LCBody from '../lc/LCBody';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
+import LCHourPicker from '../lc/LCHourPicker';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-import { sliderTick } from '../../../lib/haptics';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
-
-// Slider configuration - smaller range for desired time
-const MIN_HOURS = 1;
-const MAX_HOURS = 6;
-
-// Blue/cyan color for this slider (matching reference)
-const SLIDER_COLOR = '#00B4D8';
+import { LC } from '../../../constants/LockinClubColors';
 
 interface DesiredScreenTimeQuestionScreenProps {
   currentStep: number;
@@ -40,164 +22,66 @@ interface DesiredScreenTimeQuestionScreenProps {
   onBack: () => void;
 }
 
-/**
- * DesiredScreenTimeQuestionScreen - Fourth question in the quiz funnel
- * Asks user how much time they would like to spend on their phone daily
- */
 export default function DesiredScreenTimeQuestionScreen({
-  currentStep,
-  totalSteps,
   userName,
   desiredScreenTime,
   onDesiredScreenTimeChange,
   onContinue,
   onBack,
 }: DesiredScreenTimeQuestionScreenProps) {
-  const insets = useSafeAreaInsets();
-  const previousDesiredScreenTime = useRef(desiredScreenTime);
-
-  const handleDesiredScreenTimeChange = (value: number) => {
-    const roundedValue = Math.round(value);
-    if (roundedValue !== previousDesiredScreenTime.current) {
-      sliderTick();
-      previousDesiredScreenTime.current = roundedValue;
-    }
-    onDesiredScreenTimeChange(roundedValue);
-  };
-
-  // Calculate font size based on slider value (scales from 48 to 80)
-  const minFontSize = 48;
-  const maxFontSize = 80;
-  const progress = (desiredScreenTime - MIN_HOURS) / (MAX_HOURS - MIN_HOURS);
-  const fontSize = minFontSize + progress * (maxFontSize - minFontSize);
-
-  // Format the display text
-  const displayText = `${desiredScreenTime}h`;
+  const value = desiredScreenTime || 2;
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
+      <View style={styles.body}>
+        <LCEyebrow text="Diagnosis" step={{ current: 3, total: 5 }} />
+        <LCDisplay
+          lineOne="What'd you"
+          lineTwo="rather?"
+          accent="two"
+          size={42}
+          style={{ marginTop: 10 }}
+        />
+        <LCBody style={{ marginTop: 8 }}>
+          {userName ? `Don't feel bad, ${userName}. ` : ''}We're here for the flip.
+        </LCBody>
 
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Progress bar with back button */}
-        <QuizProgressBar
-          currentStep={currentStep}
-          totalSteps={totalSteps}
-          onBack={onBack}
-          showBackButton={true}
+        <LCHourPicker
+          label="Daily target · realistic"
+          caption={`= ${value * 60} min · screen time you keep`}
+          value={value}
+          min={1}
+          max={6}
+          onChange={onDesiredScreenTimeChange}
+          style={{ marginTop: 28 }}
         />
 
-        {/* Question content - fixed at top */}
-        <View style={styles.questionContainer}>
-          <Text style={styles.subtitle}>
-            Don't feel bad{userName ? `, ${userName}` : ''}. What matters is you're here to change that.
-          </Text>
-          <Text style={styles.title}>
-            How much time would you like to spend instead?
-          </Text>
-        </View>
-
-        {/* Spacer to push content down */}
-        <View style={styles.topSpacer} />
-
-        {/* Hours display - fixed height container, text grows upward */}
-        <View style={styles.hoursContainer}>
-          <Text style={[styles.hoursText, { fontSize }]}>
-            {displayText}
-          </Text>
-        </View>
-
-        {/* Slider - fixed position */}
-        <View style={styles.sliderContainer}>
-          <Slider
-            style={styles.slider}
-            minimumValue={MIN_HOURS}
-            maximumValue={MAX_HOURS}
-            step={1}
-            value={desiredScreenTime}
-            onValueChange={handleDesiredScreenTimeChange}
-            minimumTrackTintColor={SLIDER_COLOR}
-            maximumTrackTintColor={BrandColors.input.background}
-            thumbTintColor="#FFFFFF"
-          />
-        </View>
-
-        {/* Bottom spacer - fixed */}
-        <View style={styles.bottomSpacer} />
-
-        {/* Continue button - fixed at bottom */}
-        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }]}>
-          <Button3D
-            title="Continue"
-            onPress={onContinue}
-          />
+        <View style={styles.footnote}>
+          <Text style={styles.footnoteText}>YOU CAN ADJUST THIS LATER</Text>
         </View>
       </View>
-    </ImageBackground>
+
+      <LCCTA label="Continue" onPress={onContinue} />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  body: {
     flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-  },
-  questionContainer: {
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 18,
   },
-  subtitle: {
-    fontSize: 22,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    lineHeight: 34,
-  },
-  topSpacer: {
-    flex: 1,
-  },
-  hoursContainer: {
-    height: 100,
+  footnote: {
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: 20,
+    marginTop: 16,
   },
-  hoursText: {
-    fontFamily: Fonts.bold,
-    color: SLIDER_COLOR,
-  },
-  sliderContainer: {
-    paddingHorizontal: 24,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  bottomSpacer: {
-    flex: 1.5,
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
+  footnoteText: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: LC.textMute,
   },
 });

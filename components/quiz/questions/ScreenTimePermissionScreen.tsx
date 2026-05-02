@@ -1,360 +1,235 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import React, { useState } from 'react';
-import {
-
-  Dimensions,
-  ImageBackground,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ReactNativeDeviceActivity from 'react-native-device-activity';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
+import { LC } from '../../../constants/LockinClubColors';
 
 interface ScreenTimePermissionScreenProps {
   onContinue: () => void;
   onBack: () => void;
 }
 
-/**
- * ScreenTimePermissionScreen - Requests Screen Time / Family Controls permission
- * Shows a preview of the permission dialog and triggers the actual iOS permission request
- */
 export default function ScreenTimePermissionScreen({
   onContinue,
   onBack,
 }: ScreenTimePermissionScreenProps) {
-  const insets = useSafeAreaInsets();
   const [isRequesting, setIsRequesting] = useState(false);
-  const [showDeniedState, setShowDeniedState] = useState(false);
+  const [showDenied, setShowDenied] = useState(false);
 
   const handleContinue = async () => {
+    if (isRequesting) return;
     setIsRequesting(true);
     try {
-      // Request authorization - this triggers the iOS system dialog
       await ReactNativeDeviceActivity.requestAuthorization('individual');
-      console.log('Authorization requested, waiting for user response...');
-
-      // Poll for authorization status change (waits for user to respond to dialog)
-      // Polls every 250ms for up to 10 attempts (2.5 seconds total)
       const status = await ReactNativeDeviceActivity.pollAuthorizationStatus();
-      console.log('Authorization status:', status);
-
       if (status === ReactNativeDeviceActivity.AuthorizationStatus.approved) {
-        console.log('Authorization approved, proceeding');
         onContinue();
-      } else if (status === ReactNativeDeviceActivity.AuthorizationStatus.denied) {
-        console.log('Authorization denied, showing fallback');
-        setShowDeniedState(true);
       } else {
-        // Still notDetermined after polling - user may have dismissed without choosing
-        console.log('Authorization still pending, showing fallback');
-        setShowDeniedState(true);
+        setShowDenied(true);
       }
-    } catch (error) {
-      console.error('Authorization error:', error);
-      setShowDeniedState(true);
+    } catch (e) {
+      console.error('Authorization error:', e);
+      setShowDenied(true);
     } finally {
       setIsRequesting(false);
     }
   };
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
+      <View style={styles.body}>
+        <LCEyebrow text="Arm the traps" step={{ current: 1, total: 2 }} />
+        <LCDisplay
+          lineOne={showDenied ? 'Access' : 'Connect'}
+          lineTwo={showDenied ? 'required.' : 'Screen Time.'}
+          accent="two"
+          size={40}
+          style={{ marginTop: 10 }}
+        />
+        <LCBody style={{ marginTop: 8 }}>
+          {showDenied
+            ? "Lockin can't enforce without it. Tap continue and allow access on the next dialog."
+            : 'iOS will ask you next. This is what to expect — tap Continue.'}
+        </LCBody>
 
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
-            />
-          </Pressable>
-        </View>
+        <View style={styles.dialogWrap}>
+          <BlurView intensity={28} tint="dark" style={styles.blur}>
+            <View style={styles.dialogInner}>
+              <View style={styles.lockBadge}>
+                <Ionicons name="lock-closed" size={22} color="#fff" />
+              </View>
 
-        {/* Main content */}
-        <View style={styles.mainContent}>
-          {showDeniedState ? (
-            <>
-              <View style={styles.deniedContent}>
-                <View style={styles.deniedIconContainer}>
-                  <Ionicons name="shield-checkmark" size={64} color={BrandColors.accent} />
+              <Text style={styles.dialogTitle}>
+                {'“'}LockIn{'”'} Would Like to{'\n'}Access Screen Time
+              </Text>
+              <Text style={styles.dialogBody}>
+                Providing {'“'}LockIn{'”'} access to Screen Time
+                lets it see your activity data, app content, and limit the usage of apps and websites.
+              </Text>
+
+              <View style={styles.dialogButtons}>
+                <Pressable
+                  onPress={handleContinue}
+                  disabled={isRequesting}
+                  style={({ pressed }) => [
+                    styles.dialogBtn,
+                    styles.dialogBtnPrimary,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <Text style={styles.dialogBtnTextPrimary}>Continue</Text>
+                </Pressable>
+                <View style={[styles.dialogBtn, styles.dialogBtnSecondary]}>
+                  <Text style={styles.dialogBtnTextSecondary}>Don{'’'}t Allow</Text>
                 </View>
-                <Text style={styles.deniedTitle}>
-                  Screen Time Access{'\n'}Required
-                </Text>
-                <Text style={styles.deniedSubtitle}>
-                  LockIn needs Screen Time permission to block{'\n'}distracting apps and help you stay focused.{'\n'}Please tap Continue and allow access.
-                </Text>
               </View>
-            </>
-          ) : (
-            <>
-              {/* Title */}
-              <Text style={styles.title}>
-                Connect LockIn to{'\n'}Screen Time, Securely.
-              </Text>
-
-              {/* Subtitle */}
-              <Text style={styles.subtitle}>
-                To analyze your Screen Time on this iPhone,{'\n'}LockIn will need your permission
-              </Text>
-
-              {/* Permission Dialog Preview Card */}
-              <View style={styles.dialogCard}>
-                <BlurView intensity={40} tint="dark" style={styles.blurContainer}>
-                  {/* Play button indicator */}
-                  <View style={styles.playButtonContainer}>
-                    <View style={styles.playButton}>
-                      <Ionicons name="play" size={24} color="#FFFFFF" />
-                    </View>
-                  </View>
-
-                  {/* Dialog content */}
-                  <Text style={styles.dialogTitle}>
-                    "LockIn" Would Like to{'\n'}Access Screen Time
-                  </Text>
-                  <Text style={styles.dialogBody}>
-                    Providing "LockIn" access to Screen Time{'\n'}lets it see your activity data, app content,{'\n'}and limit the usage of apps and websites.
-                  </Text>
-
-                  {/* Mock buttons */}
-                  <View style={styles.dialogButtons}>
-                    <TouchableOpacity style={styles.dialogButton} onPress={handleContinue}>
-                      <Text style={styles.dialogButtonText}>Continue</Text>
-                    </TouchableOpacity>
-                    <View style={[styles.dialogButton, styles.dialogButtonSecondary]}>
-                      <Text style={styles.dialogButtonTextSecondary}>Don't Allow</Text>
-                    </View>
-                  </View>
-                </BlurView>
-              </View>
-
-              {/* Upward arrow indicator */}
-              <View style={styles.arrowContainer}>
-                <Ionicons name="arrow-up" size={32} color={BrandColors.text.primary} />
-              </View>
-            </>
-          )}
+            </View>
+          </BlurView>
         </View>
 
-        {/* Privacy footer */}
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>
-            Your sensitive data is protected by{'\n'}Apple and never leaves your device.
-          </Text>
+        <View style={styles.arrowRow}>
+          <Ionicons name="arrow-down" size={20} color={LC.textMute} />
+          <Text style={styles.arrowText}>TAP CONTINUE BELOW</Text>
         </View>
 
-        {/* Continue button */}
-        <View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: insets.bottom + 32 },
-          ]}
-        >
-          <Button3D
-            title="Continue"
-            onPress={handleContinue}
-            disabled={isRequesting}
-            loading={isRequesting}
-          />
-        </View>
+        <LCCard radius="lg" padding={12} style={styles.privacy}>
+          <View style={styles.privacyRow}>
+            <Ionicons name="shield-checkmark" size={14} color={LC.textDim} style={{ marginTop: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.privacyHead}>PRIVACY · LOCAL ONLY</Text>
+              <LCBody size={11} style={{ marginTop: 2 }}>
+                Sensitive data is protected by Apple and never leaves your device.
+              </LCBody>
+            </View>
+          </View>
+        </LCCard>
       </View>
-    </ImageBackground>
+
+      <LCCTA
+        label={isRequesting ? 'Requesting' : 'Grant access'}
+        onPress={handleContinue}
+        loading={isRequesting}
+        disabled={isRequesting}
+      />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mainContent: {
+  body: {
     flex: 1,
     paddingHorizontal: 24,
-    alignItems: 'center',
+    paddingTop: 18,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 36,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
-  },
-  dialogCard: {
-    width: '100%',
+  dialogWrap: {
+    marginTop: 18,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: LC.borderStrong,
   },
-  blurContainer: {
-    padding: 20,
+  blur: {
+    backgroundColor: 'rgba(20,20,20,0.6)',
+  },
+  dialogInner: {
+    paddingVertical: 18,
+    paddingHorizontal: 18,
     alignItems: 'center',
   },
-  playButtonContainer: {
-    marginBottom: 16,
-  },
-  playButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  lockBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 12,
   },
   dialogTitle: {
-    fontSize: 17,
-    fontFamily: Fonts.semiBold,
-    color: BrandColors.text.primary,
+    fontFamily: Fonts.interSemiBold,
+    fontSize: 16,
+    color: '#fff',
     textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 24,
+    lineHeight: 22,
   },
   dialogBody: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
+    fontFamily: Fonts.interRegular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.72)',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: 18,
+    marginTop: 8,
+    paddingHorizontal: 6,
   },
   dialogButtons: {
     width: '100%',
     gap: 8,
+    marginTop: 14,
   },
-  dialogButton: {
-    backgroundColor: 'rgba(0, 122, 255, 0.9)',
-    paddingVertical: 12,
+  dialogBtn: {
+    width: '100%',
+    paddingVertical: 11,
     borderRadius: 12,
     alignItems: 'center',
   },
-  dialogButtonSecondary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  dialogBtnPrimary: {
+    backgroundColor: '#0A84FF',
   },
-  dialogButtonText: {
-    fontSize: 17,
-    fontFamily: Fonts.semiBold,
-    color: '#FFFFFF',
+  dialogBtnSecondary: {
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
-  dialogButtonTextSecondary: {
-    fontSize: 17,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.primary,
+  dialogBtnTextPrimary: {
+    fontFamily: Fonts.interSemiBold,
+    fontSize: 15,
+    color: '#fff',
   },
-  arrowContainer: {
-    marginTop: 20,
+  dialogBtnTextSecondary: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.85)',
   },
-  deniedContent: {
-    flex: 1,
-    justifyContent: 'center',
+  arrowRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  deniedIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
+    gap: 8,
+    marginTop: 14,
   },
-  deniedTitle: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 36,
+  arrowText: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: LC.textMute,
   },
-  deniedSubtitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 24,
+  privacy: {
+    marginTop: 12,
+    backgroundColor: 'transparent',
+    borderStyle: 'dashed',
   },
-  footerContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 16,
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
   },
-  footerText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.muted,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+  privacyHead: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    color: LC.textMute,
   },
 });

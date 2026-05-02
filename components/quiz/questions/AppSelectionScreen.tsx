@@ -1,9 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  Dimensions,
-  Image,
-  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -12,24 +9,21 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DeviceActivitySelectionView,
   blockSelection,
 } from 'react-native-device-activity';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-const socialImage = require('../../../assets/images/social.png');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
+import { LC } from '../../../constants/LockinClubColors';
 
 interface AppSelectionScreenProps {
   familyActivitySelection: string | null;
@@ -38,19 +32,17 @@ interface AppSelectionScreenProps {
   onBack: () => void;
 }
 
-/**
- * AppSelectionScreen - Allows users to select apps to block using Apple's FamilyActivityPicker
- */
 export default function AppSelectionScreen({
   familyActivitySelection,
   onSelectionChange,
   onContinue,
   onBack,
 }: AppSelectionScreenProps) {
-  const insets = useSafeAreaInsets();
   const [isPickerVisible, setIsPickerVisible] = useState(false);
   const [tempSelection, setTempSelection] = useState<string | null>(familyActivitySelection);
   const [selectionCount, setSelectionCount] = useState({ apps: 0, categories: 0 });
+
+  const totalArmed = selectionCount.apps + selectionCount.categories;
 
   const handleOpenPicker = () => {
     setTempSelection(familyActivitySelection);
@@ -61,7 +53,6 @@ export default function AppSelectionScreen({
     onSelectionChange(tempSelection);
     setIsPickerVisible(false);
 
-    // Block the selected apps
     if (tempSelection) {
       try {
         blockSelection({ activitySelectionToken: tempSelection }, 'onboardingSelection');
@@ -69,13 +60,10 @@ export default function AppSelectionScreen({
         console.error('Error blocking selection:', error);
       }
     }
-
-    // Navigate to the next screen (PaymentScreen) after modal closes
     onContinue();
   };
 
   const handleContinue = () => {
-    // Ensure apps are blocked before continuing
     if (familyActivitySelection) {
       try {
         blockSelection({ activitySelectionToken: familyActivitySelection }, 'onboardingSelection');
@@ -86,110 +74,91 @@ export default function AppSelectionScreen({
     onContinue();
   };
 
-  const hasSelection = familyActivitySelection !== null && (selectionCount.apps > 0 || selectionCount.categories > 0);
-
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
+      <View style={styles.body}>
+        <LCEyebrow text="Freeze list" />
+        <LCDisplay
+          lineOne="What gets"
+          lineTwo="frozen?"
+          accent="two"
+          size={44}
+          style={{ marginTop: 10 }}
+        />
+        <LCBody style={{ marginTop: 8 }}>
+          These apps lock until you earn them. You can change this anytime.
+        </LCBody>
 
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
-            />
-          </Pressable>
-        </View>
-
-        {/* Main content */}
-        <View style={styles.mainContent}>
-          {/* Title */}
-          <Text style={styles.preTitle}>Let's set up LockIn!</Text>
-          <Text style={styles.title}>
-            Select your most distracting apps
-          </Text>
-
-          {/* Subtitle */}
-          <Text style={styles.subtitle}>
-            You can always change this later in the App's settings.
-          </Text>
-
-          {/* Social Image */}
-          <View style={styles.imageContainer}>
-            <Image
-              source={socialImage}
-              style={styles.socialImage}
-              resizeMode="contain"
-            />
+        <LCCard tone="armed" radius="lg" padding={14} style={{ marginTop: 22 }}>
+          <View style={styles.armedRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.armedLabel}>
+                {totalArmed > 0
+                  ? `ARMED · ${totalArmed} ${totalArmed === 1 ? 'TARGET' : 'TARGETS'}`
+                  : 'NOTHING ARMED YET'}
+              </Text>
+              <Text style={styles.armedHero}>
+                {totalArmed > 0 ? 'YOUR LOCK LIST' : 'TAP TO PICK YOUR APPS'}
+              </Text>
+            </View>
+            <Text style={styles.lockEmoji}>🔒</Text>
           </View>
-        </View>
+        </LCCard>
 
-        {/* Continue button */}
-        <View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: insets.bottom + 32 },
-          ]}
+        <Pressable
+          onPress={handleOpenPicker}
+          style={({ pressed }) => [styles.pickerBtn, pressed && { opacity: 0.85 }]}
         >
-          <Button3D
-            title="Select Apps"
-            onPress={handleOpenPicker}
-          />
-        </View>
+          <View style={styles.pickerIcon}>
+            <Ionicons name="apps" size={18} color={LC.text} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pickerLabel}>OPEN PICKER</Text>
+            <Text style={styles.pickerSub}>iOS will show your installed apps</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={LC.textMute} />
+        </Pressable>
+
+        <Text style={styles.footnote}>
+          ↑ TAP TO ADD OR REMOVE TARGETS — CHANGE THESE ANYTIME
+        </Text>
       </View>
 
-      {/* FamilyActivityPicker Modal */}
+      <LCCTA
+        label="Arm the locks"
+        onPress={handleContinue}
+        disabled={!familyActivitySelection}
+      />
+
       <Modal
         visible={isPickerVisible}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setIsPickerVisible(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          {/* Modal Header */}
+        <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderSpacer} />
-            <Text style={styles.modalTitle}>Select Apps</Text>
+            <View style={{ width: 60 }} />
+            <Text style={styles.modalTitle}>SELECT APPS</Text>
             <Pressable
               onPress={handleDone}
-              style={({ pressed }) => [
-                styles.doneButton,
-                pressed && styles.doneButtonPressed,
-              ]}
+              style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.6 }]}
             >
-              <Text style={styles.doneButtonText}>Done</Text>
+              <Text style={styles.doneTxt}>DONE</Text>
             </Pressable>
           </View>
 
-          {/* Simulator warning for developers */}
           {__DEV__ && Platform.OS === 'ios' && !Platform.isPad && (
-            <Text style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 12, fontSize: 13 }}>
+            <Text style={styles.simWarn}>
               Note: App list is empty on Simulator. Test on a physical device.
             </Text>
           )}
 
-          {/* DeviceActivitySelectionView */}
-          <View style={styles.pickerContainer}>
+          <View style={{ flex: 1 }}>
             <DeviceActivitySelectionView
-              style={styles.picker}
+              style={{ flex: 1 }}
               familyActivitySelection={tempSelection}
               onSelectionChange={(event) => {
                 const { familyActivitySelection: selection, applicationCount, categoryCount } = event.nativeEvent;
@@ -200,85 +169,82 @@ export default function AppSelectionScreen({
           </View>
         </SafeAreaView>
       </Modal>
-    </ImageBackground>
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mainContent: {
+  body: {
     flex: 1,
     paddingHorizontal: 24,
-    alignItems: 'center',
+    paddingTop: 18,
   },
-  preTitle: {
+  armedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  armedLabel: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 9,
+    letterSpacing: 1.6,
+    color: LC.red,
+  },
+  armedHero: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    color: LC.text,
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  lockEmoji: {
+    fontSize: 26,
+  },
+  pickerBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: LC.border,
+  },
+  pickerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: LC.bgElev,
+    borderWidth: 1,
+    borderColor: LC.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerLabel: {
+    fontFamily: Fonts.display,
     fontSize: 18,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    textAlign: 'center',
-    marginBottom: 8,
+    color: LC.text,
+    letterSpacing: 0.5,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    marginBottom: 12,
-    lineHeight: 36,
+  pickerSub: {
+    fontFamily: Fonts.interRegular,
+    fontSize: 12,
+    color: LC.textDim,
+    marginTop: 2,
   },
-  subtitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
+  footnote: {
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    color: LC.textMute,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    marginTop: 14,
   },
-  imageContainer: {
+  modal: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  socialImage: {
-    width: SCREEN_WIDTH * 0.85,
-    height: SCREEN_WIDTH * 0.7,
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: LC.bg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -287,32 +253,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  modalHeaderSpacer: {
-    width: 60,
+    borderBottomColor: LC.border,
   },
   modalTitle: {
-    fontSize: 17,
-    fontFamily: Fonts.semiBold,
-    color: BrandColors.text.primary,
+    fontFamily: Fonts.display,
+    fontSize: 16,
+    color: LC.text,
+    letterSpacing: 1.5,
   },
-  doneButton: {
+  doneBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
+    minWidth: 60,
+    alignItems: 'flex-end',
   },
-  doneButtonPressed: {
-    opacity: 0.6,
+  doneTxt: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 13,
+    color: LC.red,
+    letterSpacing: 1.2,
   },
-  doneButtonText: {
-    fontSize: 17,
-    fontFamily: Fonts.semiBold,
-    color: '#007AFF',
-  },
-  pickerContainer: {
-    flex: 1,
-  },
-  picker: {
-    flex: 1,
+  simWarn: {
+    color: LC.textMute,
+    textAlign: 'center',
+    padding: 12,
+    fontSize: 12,
+    fontFamily: Fonts.interRegular,
   },
 });

@@ -1,34 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
-import QuizProgressBar from '../QuizProgressBar';
+import LCBody from '../lc/LCBody';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 import TimePicker from '../TimePicker';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
-
-// Brand color for accent
-const SLEEP_ACCENT_COLOR = BrandColors.primary.main;
+import { LC } from '../../../constants/LockinClubColors';
 
 export interface SleepTime {
-  hour: number; // 1-12
-  minute: number; // 0, 15, 30, 45
+  hour: number;
+  minute: number;
   period: 'AM' | 'PM';
 }
 
@@ -42,171 +28,92 @@ interface SleepTimeQuestionScreenProps {
   onBack: () => void;
 }
 
-/**
- * SleepTimeQuestionScreen - Asks user what time they typically go to sleep
- * Features a modern wheel-style time picker with purple/sleep theme
- */
 export default function SleepTimeQuestionScreen({
-  currentStep,
-  totalSteps,
   userName,
   sleepTime,
   onSleepTimeChange,
   onContinue,
   onBack,
 }: SleepTimeQuestionScreenProps) {
-  const insets = useSafeAreaInsets();
-
   const handleTimeChange = (hour: number, minute: number, period: 'AM' | 'PM') => {
     onSleepTimeChange({ hour, minute, period });
   };
 
-  // Format time for display
-  const formatTimeDisplay = () => {
-    const minuteStr = sleepTime.minute.toString().padStart(2, '0');
-    return `${sleepTime.hour}:${minuteStr} ${sleepTime.period}`;
-  };
+  const formatted = `${sleepTime.hour}:${String(sleepTime.minute).padStart(2, '0')} ${sleepTime.period}`;
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
-
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Progress bar with back button */}
-        <QuizProgressBar
-          currentStep={currentStep}
-          totalSteps={totalSteps}
-          onBack={onBack}
-          showBackButton={true}
+      <View style={styles.body}>
+        <LCEyebrow text="Personalize" step={{ current: 1, total: 2 }} />
+        <LCDisplay
+          lineOne={userName ? `${userName}, when` : 'When do you'}
+          lineTwo="crash out?"
+          accent="two"
+          size={42}
+          style={{ marginTop: 10 }}
         />
+        <LCBody style={{ marginTop: 8 }}>
+          We'll lock down your phone in the hours before bed.
+        </LCBody>
 
-        {/* Question content */}
-        <View style={styles.questionContainer}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="moon" size={32} color={SLEEP_ACCENT_COLOR} />
-          </View>
-          <Text style={styles.subtitle}>
-            Let's optimize your routine{userName ? `, ${userName}` : ''}.
-          </Text>
-          <Text style={styles.title}>
-            What time do you usually go to sleep?
-          </Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>SLEEPING AT</Text>
+          <Text style={styles.summaryValue}>{formatted}</Text>
         </View>
 
-        {/* Spacer */}
-        <View style={styles.topSpacer} />
-
-        {/* Time picker */}
-        <View style={styles.pickerContainer}>
+        <View style={styles.pickerWrap}>
           <TimePicker
             hour={sleepTime.hour}
             minute={sleepTime.minute}
             period={sleepTime.period}
             onTimeChange={handleTimeChange}
-            accentColor={SLEEP_ACCENT_COLOR}
-          />
-        </View>
-
-        {/* Helper text */}
-        <Text style={styles.helperText}>
-          We'll use this to personalize your experience
-        </Text>
-
-        {/* Bottom spacer */}
-        <View style={styles.bottomSpacer} />
-
-        {/* Continue button */}
-        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }]}>
-          <Button3D
-            title="Continue"
-            onPress={onContinue}
+            accentColor={LC.red}
           />
         </View>
       </View>
-    </ImageBackground>
+
+      <LCCTA label="Continue" onPress={onContinue} />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  body: {
     flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  content: {
-    flex: 1,
-  },
-  questionContainer: {
     paddingHorizontal: 24,
+    paddingTop: 18,
   },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
-    justifyContent: 'center',
+  summaryCard: {
+    marginTop: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: LC.bgCard,
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,92,0.3)',
     alignItems: 'center',
-    marginBottom: 16,
+    shadowColor: LC.red,
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
   },
-  subtitle: {
-    fontSize: 20,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    marginBottom: 8,
+  summaryLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    lineHeight: 34,
+  summaryValue: {
+    fontFamily: Fonts.display,
+    fontSize: 50,
+    color: LC.text,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
-  topSpacer: {
-    flex: 0.5,
-  },
-  timeDisplayContainer: {
+  pickerWrap: {
+    marginTop: 18,
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  timeDisplayLabel: {
-    fontSize: 14,
-    fontFamily: Fonts.medium,
-    color: BrandColors.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  timeDisplay: {
-    fontSize: 48,
-    fontFamily: Fonts.bold,
-  },
-  pickerContainer: {
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  helperText: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.muted,
-    textAlign: 'center',
-    marginTop: 20,
-    paddingHorizontal: 24,
-  },
-  bottomSpacer: {
-    flex: 1,
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
   },
 });

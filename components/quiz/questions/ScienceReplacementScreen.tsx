@@ -1,438 +1,134 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
-import {
-    Dimensions,
-    ImageBackground,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
-import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withSequence,
-    withTiming
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import Button3D from '../../Button3D';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-const featherLeft = require('../../../assets/images/feather-left.png');
-const featherRight = require('../../../assets/images/feather-right.png');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
-const AURORA_HEIGHT = 300;
-
-// Animation timing constants
-const FEATHER_DURATION = 800;
-const STAR_WAVE_DELAY = FEATHER_DURATION + 200;
-const STAR_WAVE_DURATION = 150;
-const TEXT1_DELAY = STAR_WAVE_DELAY + (STAR_WAVE_DURATION * 5) + 400;
-const TEXT2_DELAY = TEXT1_DELAY + 800;
-const TEXT3_DELAY = TEXT2_DELAY + 800;
-const BUTTON_DELAY = TEXT3_DELAY + 600;
-
-// Accent color (brand pinkish theme)
-const ACCENT_COLOR = BrandColors.primary.main; // #FF3B5C
+import { LC } from '../../../constants/LockinClubColors';
 
 interface ScienceReplacementScreenProps {
   onContinue: () => void;
   onBack: () => void;
 }
 
-/**
- * Aurora background SVG component
- */
-function AuroraBackground() {
-  return (
-    <View style={styles.auroraContainer} pointerEvents="none">
-      <Svg
-        width={SCREEN_WIDTH}
-        height={AURORA_HEIGHT}
-        style={styles.auroraSvg}
-        viewBox={`0 0 ${SCREEN_WIDTH} ${AURORA_HEIGHT}`}
-      >
-        <Defs>
-          <RadialGradient id="leftAuroraGrad" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor={BrandColors.primary.main} stopOpacity={0.5} />
-            <Stop offset="40%" stopColor={BrandColors.primary.gradientEnd} stopOpacity={0.3} />
-            <Stop offset="70%" stopColor={BrandColors.primary.dark} stopOpacity={0.15} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="rightAuroraGrad" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor={BrandColors.primary.gradientStart} stopOpacity={0.45} />
-            <Stop offset="35%" stopColor={BrandColors.primary.main} stopOpacity={0.25} />
-            <Stop offset="65%" stopColor={BrandColors.primary.gradientEnd} stopOpacity={0.1} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="centerAuroraGlow" cx="50%" cy="0%" r="100%">
-            <Stop offset="0%" stopColor={BrandColors.primary.main} stopOpacity={0.25} />
-            <Stop offset="50%" stopColor={BrandColors.primary.dark} stopOpacity={0.1} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Ellipse
-          cx={-SCREEN_WIDTH * 0.15}
-          cy={-AURORA_HEIGHT * 0.2}
-          rx={SCREEN_WIDTH * 0.7}
-          ry={AURORA_HEIGHT * 1.3}
-          fill="url(#leftAuroraGrad)"
-        />
-        <Ellipse
-          cx={SCREEN_WIDTH * 1.15}
-          cy={-AURORA_HEIGHT * 0.1}
-          rx={SCREEN_WIDTH * 0.65}
-          ry={AURORA_HEIGHT * 1.2}
-          fill="url(#rightAuroraGrad)"
-        />
-        <Ellipse
-          cx={SCREEN_WIDTH / 2}
-          cy={-AURORA_HEIGHT * 0.4}
-          rx={SCREEN_WIDTH * 0.9}
-          ry={AURORA_HEIGHT * 1.0}
-          fill="url(#centerAuroraGlow)"
-        />
-      </Svg>
-    </View>
-  );
-}
+const STEPS = [
+  {
+    n: '01',
+    head: "QUITTING DOESN'T WORK",
+    body: 'Cold-turkey kills almost every habit-change attempt. Your brain is wired to fill the gap — and the phone wins by default.',
+  },
+  {
+    n: '02',
+    head: 'REPLACEMENT WINS',
+    body: 'Decades of behavioral science: the only durable fix is to swap the loop, not erase it. Pull a habit out, plug a new one in.',
+  },
+  {
+    n: '03',
+    head: 'WORK IS THE PLUG',
+    body: 'Deep work fills the dopamine slot. Lockin makes the trade visible: minutes of grind for minutes of phone.',
+  },
+];
 
-/**
- * Animated star component for wave effect
- */
-function AnimatedStar({ delay }: { delay: number }) {
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    scale.value = withDelay(
-      delay,
-      withSequence(
-        withTiming(1.5, { duration: STAR_WAVE_DURATION, easing: Easing.out(Easing.ease) }),
-        withTiming(1, { duration: STAR_WAVE_DURATION, easing: Easing.in(Easing.ease) })
-      )
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  return (
-    <Animated.Text style={[styles.star, animatedStyle]}>
-      ★
-    </Animated.Text>
-  );
-}
-
-/**
- * ScienceReplacementScreen - Shows the science behind replacement therapy
- * Explains that quitting is hard and the best method is to replace with WORK
- */
 export default function ScienceReplacementScreen({
   onContinue,
   onBack,
 }: ScienceReplacementScreenProps) {
-  const insets = useSafeAreaInsets();
-
-  // Animation values
-  const featherTranslateY = useSharedValue(100);
-  const featherOpacity = useSharedValue(0);
-  const text1Opacity = useSharedValue(0);
-  const text2Opacity = useSharedValue(0);
-  const text3Opacity = useSharedValue(0);
-  const buttonOpacity = useSharedValue(0);
-
-  useEffect(() => {
-    // 1. Feathers roll in from bottom
-    featherTranslateY.value = withTiming(0, {
-      duration: FEATHER_DURATION,
-      easing: Easing.out(Easing.back(1.2)),
-    });
-    featherOpacity.value = withTiming(1, {
-      duration: FEATHER_DURATION * 0.6,
-    });
-
-    // 2. Text 1 fades in: "We know that Quitting is hard."
-    text1Opacity.value = withDelay(
-      TEXT1_DELAY,
-      withTiming(1, { duration: 400 })
-    );
-
-    // 3. Text 2 fades in: "Science agrees - the best method is to Replace."
-    text2Opacity.value = withDelay(
-      TEXT2_DELAY,
-      withTiming(1, { duration: 400 })
-    );
-
-    // 4. Text 3 fades in: "And what better replacement than WORK"
-    text3Opacity.value = withDelay(
-      TEXT3_DELAY,
-      withTiming(1, { duration: 400 })
-    );
-
-    // 5. Button appears
-    buttonOpacity.value = withDelay(
-      BUTTON_DELAY,
-      withTiming(1, { duration: 300 })
-    );
-  }, []);
-
-  // Animated styles
-  const featherLeftStyle = useAnimatedStyle(() => ({
-    opacity: featherOpacity.value,
-    transform: [{ translateY: featherTranslateY.value }],
-  }));
-
-  const featherRightStyle = useAnimatedStyle(() => ({
-    opacity: featherOpacity.value,
-    transform: [{ translateY: featherTranslateY.value }],
-  }));
-
-  const text1Style = useAnimatedStyle(() => ({
-    opacity: text1Opacity.value,
-  }));
-
-  const text2Style = useAnimatedStyle(() => ({
-    opacity: text2Opacity.value,
-  }));
-
-  const text3Style = useAnimatedStyle(() => ({
-    opacity: text3Opacity.value,
-  }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    opacity: buttonOpacity.value,
-  }));
-
-  // Stars for wave animation
-  const stars = [0, 1, 2, 3, 4];
-
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Aurora effect at top */}
-      <AuroraBackground />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.body}>
+          <LCEyebrow text="The science" />
+          <LCDisplay
+            lineOne="Kill the"
+            lineTwo="scroll."
+            accent="two"
+            size={46}
+            style={{ marginTop: 10 }}
+          />
+          <LCBody style={{ marginTop: 8 }}>
+            You don't quit a habit. You replace it. Here's the playbook.
+          </LCBody>
 
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Custom header - back button only */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && styles.backButtonPressed,
-            ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={28}
-              color={BrandColors.text.primary}
-            />
-          </Pressable>
-        </View>
-
-        {/* Main content */}
-        <View style={styles.mainContent}>
-          {/* Hero section with feathers and stars */}
-          <View style={styles.heroSection}>
-            <View style={styles.featherContainer}>
-              {/* Left feather */}
-              <Animated.Image
-                source={featherLeft}
-                style={[styles.featherLeft, featherLeftStyle]}
-                resizeMode="contain"
-              />
-
-              {/* Stars container */}
-              <Animated.View style={[styles.starsContainer, featherLeftStyle]}>
-                {stars.map((_, index) => (
-                  <AnimatedStar
-                    key={index}
-                    delay={STAR_WAVE_DELAY + (index * STAR_WAVE_DURATION)}
-                  />
-                ))}
-              </Animated.View>
-
-              {/* Right feather */}
-              <Animated.Image
-                source={featherRight}
-                style={[styles.featherRight, featherRightStyle]}
-                resizeMode="contain"
-              />
-            </View>
+          <View style={{ marginTop: 22, gap: 10 }}>
+            {STEPS.map((s) => (
+              <LCCard key={s.n} radius="lg" padding={16}>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepNumWrap}>
+                    <Text style={styles.stepNum}>{s.n}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.stepHead}>{s.head}</Text>
+                    <LCBody size={13} style={{ marginTop: 6 }}>
+                      {s.body}
+                    </LCBody>
+                  </View>
+                </View>
+              </LCCard>
+            ))}
           </View>
 
-          {/* Text sections with sequential fade-in */}
-          <View style={styles.textContainer}>
-            {/* Text 1: We know that Quitting is hard. */}
-            <Animated.View style={[styles.textBlock, text1Style]}>
-              <Text style={styles.mainText}>
-                We know that{'\n'}
-                <Text style={styles.cyanText}>Quitting is hard</Text>.
-              </Text>
-            </Animated.View>
-
-            {/* Text 2: Science agrees - the best method is to Replace. */}
-            <Animated.View style={[styles.textBlock, text2Style]}>
-              <Text style={styles.mainText}>
-                Science agrees - the{'\n'}best method is to{'\n'}
-                <Text style={styles.cyanText}>Replace</Text>.
-              </Text>
-            </Animated.View>
-
-            {/* Text 3: And what better replacement than WORK */}
-            <Animated.View style={[styles.textBlock, text3Style]}>
-              <Text style={styles.mainText}>
-                And what better{'\n'}replacement than{'\n'}
-                <Text style={styles.cyanText}>WORK</Text>?
-              </Text>
-            </Animated.View>
-          </View>
-        </View>
-
-        {/* Bottom section with disclaimer and button */}
-        <Animated.View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: insets.bottom + 32 },
-            buttonStyle,
-          ]}
-        >
           <Text style={styles.disclaimer}>
-            Backed by <Text style={styles.disclaimerUnderline}>longitudinal studies</Text>, <Text style={styles.disclaimerUnderline}>systematic reviews</Text>{'\n'}and <Text style={styles.disclaimerUnderline}>behavioral science experts</Text>.
+            BACKED BY LONGITUDINAL STUDIES · SYSTEMATIC REVIEWS · BEHAVIORAL SCIENCE
           </Text>
-          <Button3D title="Continue" onPress={onContinue} />
-        </Animated.View>
-      </View>
-    </ImageBackground>
+        </View>
+      </ScrollView>
+
+      <LCCTA label="I'm ready" onPress={onContinue} />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  auroraContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: AURORA_HEIGHT,
-    zIndex: 1,
-    overflow: 'visible',
-  },
-  auroraSvg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  content: {
-    flex: 1,
-    zIndex: 2,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 20,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  mainContent: {
-    flex: 1,
+  body: {
     paddingHorizontal: 24,
+    paddingTop: 18,
   },
-  heroSection: {
-    paddingTop: 10,
-    alignItems: 'center',
-  },
-  featherContainer: {
+  stepRow: {
     flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+  },
+  stepNumWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: LC.bgElev,
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,92,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  featherLeft: {
-    width: 50,
-    height: 80,
-    marginRight: 0,
-  },
-  featherRight: {
-    width: 50,
-    height: 80,
-    marginLeft: 0,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  star: {
+  stepNum: {
+    fontFamily: Fonts.display,
     fontSize: 22,
-    color: ACCENT_COLOR,
+    color: LC.red,
+    letterSpacing: 0.5,
   },
-  textContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 32,
-  },
-  textBlock: {
-    alignItems: 'center',
-  },
-  mainText: {
-    fontSize: 24,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    textAlign: 'center',
-    lineHeight: 34,
-  },
-  cyanText: {
-    color: ACCENT_COLOR,
-    fontStyle: 'italic',
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+  stepHead: {
+    fontFamily: Fonts.display,
+    fontSize: 18,
+    color: LC.text,
+    letterSpacing: 0.5,
   },
   disclaimer: {
-    fontSize: 12,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.muted,
+    fontFamily: Fonts.monoRegular,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    color: LC.textMute,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  disclaimerUnderline: {
-    textDecorationLine: 'underline',
+    marginTop: 18,
+    lineHeight: 14,
   },
 });

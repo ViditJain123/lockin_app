@@ -1,27 +1,16 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import {
-  Dimensions,
-  ImageBackground,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
-import QuizProgressBar from '../QuizProgressBar';
+import LCBody from '../lc/LCBody';
+import LCCard from '../lc/LCCard';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-import { TOTAL_QUIZ_QUESTIONS } from '../../../store/useOnboardingStore';
-
-// Assets
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
+import { LC } from '../../../constants/LockinClubColors';
 
 interface HowItWorksScreenProps {
   userName: string;
@@ -30,223 +19,121 @@ interface HowItWorksScreenProps {
   onBack: () => void;
 }
 
-interface StepCardProps {
-  stepNumber: number;
-  iconName: string;
-  iconFamily: 'ionicons' | 'material-community';
-  title: string;
-  description: string;
-}
-
-function StepCard({ stepNumber, iconName, iconFamily, title, description }: StepCardProps) {
-  return (
-    <View style={styles.stepCard}>
-      <View style={styles.stepNumberBadge}>
-        <Text style={styles.stepNumberText}>{stepNumber}</Text>
-      </View>
-      <View style={styles.stepIconContainer}>
-        {iconFamily === 'ionicons' ? (
-          <Ionicons name={iconName as any} size={28} color="#FF3B5C" />
-        ) : (
-          <MaterialCommunityIcons name={iconName as any} size={28} color="#FF3B5C" />
-        )}
-      </View>
-      <View style={styles.stepTextContainer}>
-        <Text style={styles.stepTitle}>{title}</Text>
-        <Text style={styles.stepDescription}>{description}</Text>
-      </View>
-    </View>
-  );
-}
-
 export default function HowItWorksScreen({
   userName,
   targetHours,
   onContinue,
   onBack,
 }: HowItWorksScreenProps) {
-  const insets = useSafeAreaInsets();
-  const displayName = userName || 'there';
+  const displayName = userName || 'you';
+
+  const STEPS = [
+    {
+      n: '01',
+      head: 'YOU LOCK IN',
+      body: 'Camera rolls. Apps freeze. Distractions die for the session.',
+    },
+    {
+      n: '02',
+      head: 'YOU GRIND',
+      body: `${targetHours}h of deep work earns ${targetHours * 60} minutes of screen time — banked.`,
+    },
+    {
+      n: '03',
+      head: 'YOU CLAIM',
+      body: 'Hit your daily target and the phone unlocks fully — for the rest of the day.',
+    },
+  ];
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay */}
-      <View style={styles.overlay} />
+    <LCFrame glow="top">
+      <LCHeader onBack={onBack} />
 
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
-
-      <View style={[styles.content, { paddingTop: insets.top }]}>
-        {/* Progress bar with back button */}
-        <QuizProgressBar
-          currentStep={19}
-          totalSteps={TOTAL_QUIZ_QUESTIONS}
-          onBack={onBack}
-          showBackButton={true}
-        />
-
-        {/* Title section */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Here's how it works</Text>
-          <Text style={styles.subtitle}>
-            {displayName}, you chose to work {targetHours} hours daily
-          </Text>
-        </View>
-
-        {/* Steps */}
-        <View style={styles.stepsContainer}>
-          <StepCard
-            stepNumber={1}
-            iconName="videocam"
-            iconFamily="ionicons"
-            title="Record"
-            description="Record a timelapse while you work"
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 140 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.body}>
+          <LCEyebrow text="How it works" />
+          <LCDisplay
+            lineOne="The loop"
+            lineTwo="is simple."
+            accent="two"
+            size={44}
+            style={{ marginTop: 10 }}
           />
-          <StepCard
-            stepNumber={2}
-            iconName="timer-outline"
-            iconFamily="material-community"
-            title="Earn"
-            description="Earn 15 min of screen time per hour"
-          />
-          <StepCard
-            stepNumber={3}
-            iconName="lock-open-outline"
-            iconFamily="ionicons"
-            title="Unlock"
-            description={`Hit ${targetHours}hrs → phone fully unlocked`}
-          />
-        </View>
+          <LCBody style={{ marginTop: 8 }}>
+            {displayName.charAt(0).toUpperCase() + displayName.slice(1)},
+            you committed to {targetHours}h a day. Here's how the trade works.
+          </LCBody>
 
-        {/* Info box */}
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={20} color={BrandColors.text.secondary} />
-          <Text style={styles.infoText}>
-            You'll earn breaks as you go. Once you hit your daily target, your phone unlocks completely for the rest of the day.
-          </Text>
+          <View style={{ marginTop: 22, gap: 10 }}>
+            {STEPS.map((s) => (
+              <LCCard key={s.n} radius="lg" padding={16}>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepNumWrap}>
+                    <Text style={styles.stepNum}>{s.n}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.stepHead}>{s.head}</Text>
+                    <LCBody size={13} style={{ marginTop: 6 }}>
+                      {s.body}
+                    </LCBody>
+                  </View>
+                </View>
+                <Text style={styles.watermark}>{s.n}</Text>
+              </LCCard>
+            ))}
+          </View>
         </View>
+      </ScrollView>
 
-        {/* Spacer */}
-        <View style={styles.spacer} />
-
-        {/* Continue button */}
-        <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }]}>
-          <Button3D
-            title="Continue"
-            onPress={onContinue}
-          />
-        </View>
-      </View>
-    </ImageBackground>
+      <LCCTA label="Got it" onPress={onContinue} />
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  content: {
-    flex: 1,
-  },
-  titleContainer: {
+  body: {
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 18,
   },
-  title: {
-    fontSize: 28,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    lineHeight: 34,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    lineHeight: 22,
-  },
-  stepsContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    gap: 16,
-  },
-  stepCard: {
+  stepRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    padding: 16,
     gap: 14,
-  },
-  stepNumberBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255, 59, 92, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNumberText: {
-    fontSize: 13,
-    fontFamily: Fonts.semiBold,
-    color: '#FF3B5C',
-  },
-  stepIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 59, 92, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepTextContainer: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: BrandColors.text.primary,
-    marginBottom: 2,
-  },
-  stepDescription: {
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    lineHeight: 20,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    marginHorizontal: 24,
-    marginTop: 24,
-    backgroundColor: 'rgba(28, 28, 30, 0.8)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 14,
-    gap: 10,
     alignItems: 'flex-start',
   },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
-    lineHeight: 20,
+  stepNumWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: LC.bgElev,
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,92,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  spacer: {
-    flex: 1,
+  stepNum: {
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    color: LC.red,
+    letterSpacing: 0.5,
   },
-  buttonContainer: {
-    paddingHorizontal: 24,
+  stepHead: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    color: LC.text,
+    letterSpacing: 0.5,
+  },
+  watermark: {
+    position: 'absolute',
+    right: 0,
+    bottom: -28,
+    fontFamily: Fonts.display,
+    fontSize: 130,
+    lineHeight: 110,
+    color: 'rgba(255,59,92,0.06)',
+    letterSpacing: -4,
   },
 });

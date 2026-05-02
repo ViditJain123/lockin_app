@@ -1,30 +1,24 @@
 import React from 'react';
 import {
-  Dimensions,
-  ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableWithoutFeedback,
+  TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import Button3D from '../../Button3D';
-import CloudBackground from '../CloudBackground';
-import QuizInput from '../QuizInput';
-import QuizProgressBar from '../QuizProgressBar';
+import LCBody from '../lc/LCBody';
+import LCCTA from '../lc/LCCTA';
+import LCDisplay from '../lc/LCDisplay';
+import LCEyebrow from '../lc/LCEyebrow';
+import LCFrame from '../lc/LCFrame';
+import LCHeader from '../lc/LCHeader';
 
-import { BrandColors } from '../../../constants/BrandColors';
 import { Fonts } from '../../../constants/Fonts';
-
-// Assets - same background as onboarding
-const nightSkyBackground = require('../../../assets/images/night-sky-background.jpeg');
-
-const { width: RAW_SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SCREEN_WIDTH = Math.min(RAW_SCREEN_WIDTH, 430);
+import { LC } from '../../../constants/LockinClubColors';
 
 interface NameQuestionScreenProps {
   currentStep: number;
@@ -35,135 +29,110 @@ interface NameQuestionScreenProps {
   onBack: () => void;
 }
 
-/**
- * NameQuestionScreen - First question in the quiz funnel
- * Asks "What should we call you?" with a name input
- */
 export default function NameQuestionScreen({
-  currentStep,
-  totalSteps,
   name,
   onNameChange,
   onContinue,
   onBack,
 }: NameQuestionScreenProps) {
-  const insets = useSafeAreaInsets();
   const isValidName = name.trim().length > 0;
+  const inputRef = React.useRef<TextInput>(null);
+  const [focused, setFocused] = React.useState(false);
 
   const handleContinue = () => {
-    if (isValidName) {
-      Keyboard.dismiss();
-      onContinue();
-    }
+    if (!isValidName) return;
+    Keyboard.dismiss();
+    onContinue();
   };
 
   return (
-    <ImageBackground
-      source={nightSkyBackground}
-      style={styles.container}
-      resizeMode="cover"
-    >
-      {/* Dark overlay for better readability */}
-      <View style={styles.overlay} />
-
-      {/* Cloud/Aurora effect at top */}
-      <CloudBackground height={280} />
-
+    <LCFrame glow="top">
       <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={[styles.content, { paddingTop: insets.top }]}>
-            {/* Progress bar with back button */}
-            <QuizProgressBar
-              currentStep={currentStep}
-              totalSteps={totalSteps}
-              onBack={onBack}
-              showBackButton={true}
+        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+          <LCHeader onBack={onBack} />
+
+          <View style={styles.body}>
+            <LCEyebrow text="Intro" />
+            <LCDisplay
+              lineOne="What do we"
+              lineTwo="call you?"
+              accent="two"
+              size={44}
+              style={{ marginTop: 10 }}
             />
+            <LCBody style={{ marginTop: 10 }}>
+              First things first — we'll personalize the receipts.
+            </LCBody>
 
-            {/* Question content */}
-            <View style={styles.questionContainer}>
-              <Text style={styles.subtitle}>First things first.</Text>
-              <Text style={styles.title}>What should we call you?</Text>
-            </View>
-
-            {/* Spacer */}
-            <View style={styles.spacer} />
-
-            {/* Input field */}
-            <View style={styles.inputContainer}>
-              <QuizInput
-                value={name}
-                onChangeText={onNameChange}
-                placeholder="Name"
-                autoFocus={true}
-                onSubmitEditing={handleContinue}
-              />
-            </View>
-
-            {/* More spacer for visual balance */}
-            <View style={styles.spacerLarge} />
-
-            {/* Continue button */}
-            <View style={[styles.buttonContainer, { paddingBottom: insets.bottom + 32 }]}>
-              <Button3D
-                title="Continue"
-                onPress={handleContinue}
-                disabled={!isValidName}
-              />
+            <View style={{ marginTop: 36 }}>
+              <Text style={styles.inputLabel}>FIRST NAME</Text>
+              <Pressable onPress={() => inputRef.current?.focus()}>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    focused && { borderColor: LC.red },
+                  ]}
+                >
+                  <TextInput
+                    ref={inputRef}
+                    value={name}
+                    onChangeText={onNameChange}
+                    placeholder="TYPE HERE"
+                    placeholderTextColor={LC.textMute}
+                    autoFocus
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    selectionColor={LC.red}
+                    style={styles.input}
+                    onFocus={() => setFocused(true)}
+                    onBlur={() => setFocused(false)}
+                    onSubmitEditing={handleContinue}
+                    returnKeyType="next"
+                  />
+                </View>
+              </Pressable>
             </View>
           </View>
-        </TouchableWithoutFeedback>
+
+          <LCCTA
+            label="Lock it in"
+            onPress={handleContinue}
+            disabled={!isValidName}
+          />
+        </Pressable>
       </KeyboardAvoidingView>
-    </ImageBackground>
+    </LCFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  body: {
     flex: 1,
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  questionContainer: {
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 18,
   },
-  subtitle: {
-    fontSize: 22,
-    fontFamily: Fonts.regular,
-    color: BrandColors.text.secondary,
+  inputLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: LC.textMute,
     marginBottom: 8,
   },
-  title: {
-    fontSize: 32,
-    fontFamily: Fonts.bold,
-    color: BrandColors.text.primary,
-    lineHeight: 34,
+  inputWrap: {
+    backgroundColor: LC.bgCard,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: LC.border,
+    paddingHorizontal: 18,
   },
-  spacer: {
-    flex: 0.5,
-  },
-  spacerLarge: {
-    flex: 1,
-  },
-  inputContainer: {
-    paddingHorizontal: 24,
-  },
-  buttonContainer: {
-    paddingHorizontal: 24,
+  input: {
+    fontFamily: Fonts.display,
+    fontSize: 34,
+    letterSpacing: 1,
+    color: LC.text,
+    paddingVertical: 18,
   },
 });
