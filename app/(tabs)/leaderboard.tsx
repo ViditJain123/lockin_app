@@ -350,8 +350,16 @@ export default function LeaderboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      console.log(
+        '[LeaderboardScreen] focus — userId:',
+        userId,
+        'entries:',
+        entries.length,
+        'isLoading:',
+        isLoading,
+      );
       if (userId) fetchLeaderboard(userId);
-    }, [userId, fetchLeaderboard]),
+    }, [userId, fetchLeaderboard, entries.length, isLoading]),
   );
 
   // Resolve the user's effective rank: prefer the server-reported rank, but fall

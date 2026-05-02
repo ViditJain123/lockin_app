@@ -26,10 +26,18 @@ export const useLeaderboardStore = create<LeaderboardState>((set, get) => ({
   lastFetched: null,
 
   fetchLeaderboard: async (userId: string) => {
+    console.log('[Leaderboard] fetchLeaderboard called for userId:', userId);
     // Throttle: skip if fetched within the last 30 seconds
     const now = Date.now();
     const { lastFetched } = get();
-    if (lastFetched && now - lastFetched < 30_000) return;
+    if (lastFetched && now - lastFetched < 30_000) {
+      console.log(
+        '[Leaderboard] Skipping fetch — throttled, last fetched',
+        Math.round((now - lastFetched) / 1000),
+        's ago',
+      );
+      return;
+    }
 
     set({ isLoading: true });
 
@@ -39,6 +47,10 @@ export const useLeaderboardStore = create<LeaderboardState>((set, get) => ({
         fetchMonthlyLeaderboard(),
         fetchMonthlyUserRank(userId),
       ]);
+      console.log('[Leaderboard] Tinybird returned', {
+        leaderboardCount: leaderboard.length,
+        userRank,
+      });
 
       // 2. Collect all user_ids to resolve display names
       const userIds = leaderboard.map((e) => e.user_id);
@@ -49,16 +61,23 @@ export const useLeaderboardStore = create<LeaderboardState>((set, get) => ({
       // 3. Batch-fetch display names from Supabase
       let nameMap = new Map<string, string | null>();
       if (userIds.length > 0) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('leaderboard_profiles')
           .select('id, display_name')
           .in('id', userIds);
 
+        if (error) {
+          console.warn('[Leaderboard] Supabase display_name lookup error:', error);
+        }
         if (data) {
           for (const row of data) {
             nameMap.set(row.id, row.display_name);
           }
         }
+        console.log('[Leaderboard] Supabase display_name lookup:', {
+          requested: userIds.length,
+          resolved: nameMap.size,
+        });
       }
 
       // 4. Merge: attach display names and rank to leaderboard entries
@@ -76,6 +95,12 @@ export const useLeaderboardStore = create<LeaderboardState>((set, get) => ({
         isLoading: false,
         lastFetched: Date.now(),
       });
+      console.log(
+        '[Leaderboard] State updated — entries:',
+        entries.length,
+        'currentUserRank:',
+        userRank?.rank ?? null,
+      );
     } catch (error) {
       console.warn('[Leaderboard] Error fetching leaderboard:', error);
       set({ isLoading: false });

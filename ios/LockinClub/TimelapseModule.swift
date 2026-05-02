@@ -20,7 +20,13 @@ class TimelapseModule: NSObject {
   private var videoWidth: Int = 0
   private var videoHeight: Int = 0
   private var frameOverlay: TimelapseFrameOverlay?
-  private var frameURLs: [URL] = []
+
+  private struct StoredFrame { let url: URL; let elapsedMs: Int }
+  private var frames: [StoredFrame] = []
+  // Monotonic guard: the JS bridge can in principle deliver addFrame calls
+  // out of order if dispatch races. Decimation relies on elapsedMs being
+  // non-decreasing, so we clamp every incoming timestamp to lastElapsedMs+1.
+  private var lastElapsedMs: Int = -1
   private var isRecording: Bool = false
 
   // Config
@@ -70,8 +76,11 @@ class TimelapseModule: NSObject {
     return sessionDir.appendingPathComponent("meta.json")
   }
 
-  private static func frameURL(in sessionDir: URL, index: Int) -> URL {
-    let name = String(format: "frame_%07d.jpg", index)
+  private static func frameURL(in sessionDir: URL, index: Int, elapsedMs: Int) -> URL {
+    // Encoding elapsedMs in the filename keeps on-disk state self-describing,
+    // which crash recovery (finalizePendingRecording) relies on to sort
+    // frames by real time without an out-of-band manifest.
+    let name = String(format: "frame_%07d_t%010d.jpg", index, elapsedMs)
     return sessionDir.appendingPathComponent(name)
   }
 
@@ -105,7 +114,8 @@ class TimelapseModule: NSObject {
       )
 
       self.sessionStartDate = Date()
-      self.frameURLs.removeAll(keepingCapacity: true)
+      self.frames.removeAll(keepingCapacity: true)
+      self.lastElapsedMs = -1
 
       let dir = Self.newSessionDir()
       self.sessionDir = dir
@@ -144,7 +154,7 @@ class TimelapseModule: NSObject {
       // The first IntroOverlay.introFrameCount frames must be stored raw so
       // the intro card can render over clean pixels at finalize time.
       // decimateDiskBuffer() preserves this prefix across long sessions.
-      let isIntroCandidate = self.frameURLs.count < IntroOverlay.introFrameCount
+      let isIntroCandidate = self.frames.count < IntroOverlay.introFrameCount
 
       let jpegResult: FrameEncodeResult = autoreleasepool {
         guard let imageData = Data(base64Encoded: base64ImageData, options: .ignoreUnknownCharacters) else {
@@ -172,7 +182,7 @@ class TimelapseModule: NSObject {
       case .failure(let code, let message):
         reject(code, message, nil)
       case .success(let jpeg):
-        self.persistFrame(jpeg: jpeg, in: dir, resolve: resolve, reject: reject)
+        self.persistFrame(jpeg: jpeg, elapsedSeconds: elapsedSeconds, in: dir, resolve: resolve, reject: reject)
       }
     }
   }
@@ -216,7 +226,10 @@ class TimelapseModule: NSObject {
       case .failure(let code, let message):
         reject(code, message, nil)
       case .success(let jpeg):
-        self.persistFrame(jpeg: jpeg, in: dir, resolve: resolve, reject: reject)
+        // No JS caller passes an elapsed time on this path, so derive it
+        // from sessionStartDate. Falls back to 0 if state was wiped mid-flight.
+        let elapsed = self.sessionStartDate.map { Date().timeIntervalSince($0) } ?? 0
+        self.persistFrame(jpeg: jpeg, elapsedSeconds: elapsed, in: dir, resolve: resolve, reject: reject)
       }
     }
   }
@@ -224,18 +237,24 @@ class TimelapseModule: NSObject {
   /// Shared tail for addFrame / addCompositeFrame: writes the encoded JPEG
   /// to the session directory and advances the frame counter. Must be
   /// called from the processingQueue.
-  private func persistFrame(jpeg: Data, in dir: URL, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
-    let index = frameURLs.count
-    let url = Self.frameURL(in: dir, index: index)
+  private func persistFrame(jpeg: Data, elapsedSeconds: Double, in dir: URL, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    var elapsedMs = Int((elapsedSeconds * 1000).rounded())
+    // Clamp to strict-monotonic so decimation's time-bucket math holds even
+    // if the bridge ever delivers addFrame calls slightly out of order.
+    elapsedMs = max(elapsedMs, lastElapsedMs + 1)
+    lastElapsedMs = elapsedMs
+
+    let index = frames.count
+    let url = Self.frameURL(in: dir, index: index, elapsedMs: elapsedMs)
     do {
       try jpeg.write(to: url, options: .atomic)
     } catch {
       reject("ERR_WRITE", "Failed to write frame to disk: \(error.localizedDescription)", error)
       return
     }
-    frameURLs.append(url)
+    frames.append(StoredFrame(url: url, elapsedMs: elapsedMs))
 
-    if frameURLs.count > maxBufferFrames {
+    if frames.count > maxBufferFrames {
       decimateDiskBuffer()
     }
     resolve(nil)
@@ -243,31 +262,65 @@ class TimelapseModule: NSObject {
 
   // MARK: - Decimation
 
-  /// Halves the on-disk frame buffer in place, preserving the raw intro
-  /// prefix. Called when frame count exceeds maxBufferFrames. Both the
-  /// in-memory URL list and the underlying disk files are pruned.
+  /// Decimates the on-disk frame buffer in place, preserving the raw intro
+  /// prefix. Called when frame count exceeds maxBufferFrames. Selection is
+  /// time-aware: the suffix is divided into N equal-time buckets and one
+  /// frame is kept per bucket (closest to bucket center). This produces a
+  /// uniform-in-real-time distribution regardless of input cadence — the
+  /// previous index-halving algorithm was time-uniform only when capture
+  /// rate was constant, which it isn't (see CAPTURE_SCHEDULE in record.tsx).
   private func decimateDiskBuffer() {
     let preservePrefix = IntroOverlay.introFrameCount
-    guard frameURLs.count > preservePrefix + 1 else { return }
+    guard frames.count > preservePrefix + 2 else { return }
 
-    var kept: [URL] = []
-    kept.reserveCapacity(preservePrefix + (frameURLs.count - preservePrefix + 1) / 2)
-    kept.append(contentsOf: frameURLs.prefix(preservePrefix))
+    let suffix = Array(frames[preservePrefix...])
+    // Halve the suffix budget so we don't re-trigger decimation on the very
+    // next addFrame. preservePrefix/2 is subtracted only as a rough budget
+    // adjustment — exact accounting isn't needed.
+    let targetSuffixCount = max(2, maxBufferFrames / 2 - preservePrefix / 2)
+    if suffix.count <= targetSuffixCount { return }
 
-    // Walk the suffix, keeping even offsets and deleting odd ones. Doing the
-    // delete inline (instead of a second pass with a Set) avoids building any
-    // auxiliary data structure and cuts the work in half.
-    var i = preservePrefix
-    while i < frameURLs.count {
-      kept.append(frameURLs[i])
-      let dropIdx = i + 1
-      if dropIdx < frameURLs.count {
-        try? FileManager.default.removeItem(at: frameURLs[dropIdx])
+    let tStart = suffix.first!.elapsedMs
+    let tEnd = suffix.last!.elapsedMs
+    let span = max(1, tEnd - tStart)
+
+    var keptSuffix: [StoredFrame] = []
+    keptSuffix.reserveCapacity(targetSuffixCount)
+    var lastKeptIdx = -1
+    for b in 0..<targetSuffixCount {
+      // Bucket center in ms: tStart + (b + 0.5) * span / target
+      let bucketCenter = tStart + (span * (2 * b + 1)) / (2 * targetSuffixCount)
+      var bestIdx = lastKeptIdx + 1
+      if bestIdx >= suffix.count { break }
+      var bestDist = abs(suffix[bestIdx].elapsedMs - bucketCenter)
+      var i = bestIdx + 1
+      while i < suffix.count {
+        let d = abs(suffix[i].elapsedMs - bucketCenter)
+        // <= so we prefer the later of two equidistant frames; the moment d
+        // grows we know we've passed the closest (timestamps are monotonic).
+        if d <= bestDist {
+          bestDist = d
+          bestIdx = i
+        } else {
+          break
+        }
+        i += 1
       }
-      i += 2
+      keptSuffix.append(suffix[bestIdx])
+      lastKeptIdx = bestIdx
+    }
+    // Force-keep the very last frame so the video ends at the true end of
+    // the session, not several seconds short.
+    if keptSuffix.last?.url != suffix.last?.url {
+      keptSuffix.append(suffix.last!)
     }
 
-    frameURLs = kept
+    let keptURLs = Set(keptSuffix.map { $0.url })
+    for f in suffix where !keptURLs.contains(f.url) {
+      try? FileManager.default.removeItem(at: f.url)
+    }
+
+    frames = Array(frames.prefix(preservePrefix)) + keptSuffix
   }
 
   // MARK: - Stop
@@ -281,7 +334,7 @@ class TimelapseModule: NSObject {
       }
       self.isRecording = false
 
-      let capturedURLs = self.frameURLs
+      let capturedURLs = self.frames.map { $0.url }
       let startDate = self.sessionStartDate ?? Date()
       let width = self.videoWidth
       let height = self.videoHeight
@@ -338,9 +391,25 @@ class TimelapseModule: NSObject {
         options: [.skipsHiddenFiles]
       )) ?? []
 
-      let frameURLs = contents
+      // Sort by elapsed-ms parsed from the filename. Falls back to capture
+      // index for pre-upgrade pending dirs that used the old `frame_NNNNNNN.jpg`
+      // format — those finalize with whatever (possibly non-uniform) ordering
+      // they had pre-fix, which is no worse than the prior behavior.
+      let parsed: [(URL, Int)] = contents
         .filter { $0.pathExtension.lowercased() == "jpg" && $0.lastPathComponent.hasPrefix("frame_") }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        .compactMap { url in
+          let stem = url.deletingPathExtension().lastPathComponent
+          let parts = stem.split(separator: "_")
+          if parts.count == 3, parts[0] == "frame", parts[2].hasPrefix("t"),
+             let t = Int(parts[2].dropFirst()) {
+            return (url, t)
+          }
+          if parts.count == 2, parts[0] == "frame", let i = Int(parts[1]) {
+            return (url, i)
+          }
+          return nil
+        }
+      let frameURLs = parsed.sorted { $0.1 < $1.1 }.map { $0.0 }
 
       if frameURLs.isEmpty {
         try? FileManager.default.removeItem(at: dir)
@@ -597,7 +666,8 @@ class TimelapseModule: NSObject {
     sessionDir = nil
     sessionStartDate = nil
     frameOverlay = nil
-    frameURLs.removeAll(keepingCapacity: false)
+    frames.removeAll(keepingCapacity: false)
+    lastElapsedMs = -1
     isRecording = false
   }
 

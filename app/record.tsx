@@ -50,8 +50,9 @@ import { v4 as uuidv4 } from 'uuid';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Adaptive capture cadence: fast at the start, gradually slowing as the session runs.
-// The native module (TimelapseModule) buffers frames in memory and decimates by halving
-// when the buffer exceeds its cap, so the final video always has uniform temporal density.
+// The native module (TimelapseModule) buffers frames on disk and time-bucket-decimates
+// when the buffer exceeds its cap, picking one frame per equal-time slice. That makes
+// the final video uniform in real time regardless of which schedule tier produced each frame.
 const CAPTURE_SCHEDULE: ReadonlyArray<{ untilSeconds: number; intervalMs: number }> = [
   { untilSeconds: 30,       intervalMs: 250 },    // 0-30s      @ 4 fps
   { untilSeconds: 120,      intervalMs: 500 },    // 30s-2min   @ 2 fps

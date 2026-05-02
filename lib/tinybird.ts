@@ -217,6 +217,7 @@ export interface LeaderboardEntry {
 }
 
 export async function fetchMonthlyLeaderboard(): Promise<LeaderboardEntry[]> {
+  console.log('[Tinybird] Fetching monthly leaderboard...');
   try {
     const response = await fetch(
       `${TINYBIRD_HOST}/v0/pipes/monthly_leaderboard.json`,
@@ -228,12 +229,27 @@ export async function fetchMonthlyLeaderboard(): Promise<LeaderboardEntry[]> {
     );
 
     if (!response.ok) {
-      console.warn('[Tinybird] Failed to fetch monthly leaderboard:', response.status);
+      const body = await response.text().catch(() => '<unreadable body>');
+      console.warn(
+        '[Tinybird] Failed to fetch monthly leaderboard:',
+        response.status,
+        response.statusText,
+        body,
+      );
       return [];
     }
 
     const json = await response.json();
-    return json.data ?? [];
+    const rows: LeaderboardEntry[] = json.data ?? [];
+    console.log('[Tinybird] Monthly leaderboard rows:', rows.length);
+    if (rows.length === 0) {
+      console.log(
+        '[Tinybird] (Empty result — current month is',
+        new Date().toISOString().slice(0, 7),
+        ')',
+      );
+    }
+    return rows;
   } catch (error) {
     console.warn('[Tinybird] Error fetching monthly leaderboard:', error);
     return [];
@@ -247,6 +263,7 @@ export interface UserRankEntry {
 }
 
 export async function fetchMonthlyUserRank(userId: string): Promise<UserRankEntry | null> {
+  console.log('[Tinybird] Fetching user rank for:', userId);
   try {
     const response = await fetch(
       `${TINYBIRD_HOST}/v0/pipes/monthly_user_rank.json?user_id=${encodeURIComponent(userId)}`,
@@ -257,10 +274,21 @@ export async function fetchMonthlyUserRank(userId: string): Promise<UserRankEntr
       }
     );
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const body = await response.text().catch(() => '<unreadable body>');
+      console.warn(
+        '[Tinybird] User rank request failed:',
+        response.status,
+        response.statusText,
+        body,
+      );
+      return null;
+    }
 
     const json = await response.json();
-    return json.data?.[0] ?? null;
+    const row = json.data?.[0] ?? null;
+    console.log('[Tinybird] User rank result:', row ?? 'no row for this user');
+    return row;
   } catch (error) {
     console.warn('[Tinybird] Error fetching user rank:', error);
     return null;
