@@ -292,6 +292,19 @@ class TimelapseFrameOverlay {
         return image
     }
 
+    // MARK: - Aspect-fill helper
+
+    private func aspectFillRect(imageSize: CGSize, targetSize: CGSize) -> CGRect {
+        let widthRatio = targetSize.width / imageSize.width
+        let heightRatio = targetSize.height / imageSize.height
+        let scale = max(widthRatio, heightRatio)
+        let scaledW = imageSize.width * scale
+        let scaledH = imageSize.height * scale
+        let x = (targetSize.width - scaledW) / 2
+        let y = (targetSize.height - scaledH) / 2
+        return CGRect(x: x, y: y, width: scaledW, height: scaledH)
+    }
+
     // MARK: - Public API
 
     /// Apply overlay (gradient + timer) to a camera frame
@@ -301,8 +314,10 @@ class TimelapseFrameOverlay {
         UIGraphicsBeginImageContextWithOptions(size, true, 1.0)
         defer { UIGraphicsEndImageContext() }
 
-        // Draw the camera frame
-        image.draw(in: CGRect(origin: .zero, size: size))
+        // Draw the camera frame aspect-filled into the target rect so a 4:3
+        // capture isn't horizontally squished into a 9:16 output.
+        let cameraRect = aspectFillRect(imageSize: image.size, targetSize: size)
+        image.draw(in: cameraRect)
 
         // Draw cached gradient overlay
         if let gradient = cachedGradientOverlay {

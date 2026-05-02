@@ -6,6 +6,7 @@ import { LCTabBar } from '@/components/lc/LCTabBar';
 export default function TabLayout() {
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
