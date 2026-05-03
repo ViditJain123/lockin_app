@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -25,15 +26,20 @@ interface Props {
 
 export default function VideoGridItem({ recording, width, onPress, onLongPress }: Props) {
   const height = Math.round(width * (16 / 9));
+  const isPhoto = recording.type === 'photo';
+  // Photos render the rendered card image as the tile; videos use thumbnailUri.
+  const tileUri = isPhoto
+    ? recording.cardUri ?? recording.thumbnailUri
+    : recording.thumbnailUri;
   return (
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
       style={[styles.tile, { width, height }]}
     >
-      {recording.thumbnailUri ? (
+      {tileUri ? (
         <Image
-          source={{ uri: resolveUri(recording.thumbnailUri) }}
+          source={{ uri: resolveUri(tileUri) }}
           style={styles.thumbnail}
         />
       ) : (
@@ -42,10 +48,14 @@ export default function VideoGridItem({ recording, width, onPress, onLongPress }
         </View>
       )}
 
-      <View style={styles.playCorner} pointerEvents="none">
-        <Svg width={10} height={10} viewBox="0 0 10 10">
-          <Path d="M1 1l8 4-8 4V1z" fill="#fff" opacity={0.75} />
-        </Svg>
+      <View style={styles.iconCorner} pointerEvents="none">
+        {isPhoto ? (
+          <Ionicons name="camera" size={11} color="#fff" />
+        ) : (
+          <Svg width={10} height={10} viewBox="0 0 10 10">
+            <Path d="M1 1l8 4-8 4V1z" fill="#fff" opacity={0.75} />
+          </Svg>
+        )}
       </View>
 
       <Text style={styles.duration} numberOfLines={1}>
@@ -83,10 +93,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  playCorner: {
+  iconCorner: {
     position: 'absolute',
     top: 6,
     right: 6,
+    opacity: 0.85,
   },
   duration: {
     position: 'absolute',

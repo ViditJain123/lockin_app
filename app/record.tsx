@@ -406,6 +406,7 @@ export default function CameraScreen() {
     try {
       useVideoGalleryStore.getState().addRecording({
         id: sessionId,
+        type: 'timelapse',
         videoUri: 'timelapses/' + filename,
         thumbnailUri: thumbnailRelPath,
         sessionDurationSeconds: lockedInSeconds,
@@ -450,6 +451,17 @@ export default function CameraScreen() {
       lockedInSeconds: String(lockedInSeconds),
       ...(activeTaskId ? { activeTaskId } : {}),
     };
+
+    // Session is done — auto-check the targeted task so users don't have to
+    // tick it manually after grinding for it. Idempotent; no-op if the task
+    // doesn't exist or is already completed.
+    if (activeTaskId) {
+      useTaskStore.getState().completeTask(activeTaskId);
+    }
+    // Then clear the active task so the next grind started from Home
+    // (untargeted) doesn't carry over a stale task pill. The route param above
+    // already snapshotted the id for grind-complete.
+    useRecordingStore.getState().setActiveTaskId(null);
 
     if (skipPreview) {
       router.push({ pathname: '/grind-complete', params: grindCompleteParams } as any);
@@ -688,15 +700,18 @@ export default function CameraScreen() {
         onComplete={handleCountdownComplete}
       />
 
-      {/* Recording duration pill */}
-      {(isSessionActive || isFinishing) && (
+      {/* Top pills — task pill is always visible when a task is selected; the
+          REC duration pill only shows during recording / finishing. */}
+      {(activeTask || isSessionActive || isFinishing) && (
         <View style={[styles.durationContainer, { top: insets.top + 12 }]}>
-          <View style={styles.durationPill}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.durationText}>
-              REC · {formatDuration(elapsedSeconds)}
-            </Text>
-          </View>
+          {(isSessionActive || isFinishing) && (
+            <View style={styles.durationPill}>
+              <View style={styles.recordingDot} />
+              <Text style={styles.durationText}>
+                REC · {formatDuration(elapsedSeconds)}
+              </Text>
+            </View>
+          )}
           {activeTask && (
             <View style={styles.activeTaskPill}>
               <View style={styles.taskDot} />

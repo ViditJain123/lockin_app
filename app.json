@@ -21,9 +21,9 @@
       "associatedDomains": ["applinks:lockin.club"],
       "icon": "./assets/images/logo.jpg",
       "infoPlist": {
-        "NSCameraUsageDescription": "Required for timelapse recording",
-        "NSPhotoLibraryAddUsageDescription": "Save timelapse videos to your gallery",
-        "NSPhotoLibraryUsageDescription": "Access your photos to save timelapse videos",
+        "NSCameraUsageDescription": "Required for timelapse recording and to capture a photo at the end of your grind",
+        "NSPhotoLibraryAddUsageDescription": "Save your grind timelapses and photo cards to your gallery",
+        "NSPhotoLibraryUsageDescription": "Access your photos to save grind timelapses and photo cards",
         "NSFamilyControlsUsageDescription": "LockIn uses Screen Time to help you manage app usage and build better habits",
         "NSMotionUsageDescription": "Used to detect device orientation for timer display",
         "NSLocationWhenInUseUsageDescription": "This app does not use your location",
@@ -84,7 +84,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to capture time-lapse videos"
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to capture timelapses and photos of your grinds"
         }
       ]
     ],

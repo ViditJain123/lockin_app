@@ -1,8 +1,11 @@
 import AddTaskModal from '@/components/tasks/AddTaskModal';
+import GrindModePicker from '@/components/tasks/GrindModePicker';
 import TaskCard from '@/components/tasks/TaskCard';
 import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { useRecordingStore } from '@/store/useRecordingStore';
 import { useTaskStore, Task } from '@/store/useTaskStore';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AppState,
@@ -20,7 +23,36 @@ export default function TasksScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const hasHydrated = useTaskStore((s) => s.hasHydrated);
   const performDailyReset = useTaskStore((s) => s.performDailyReset);
+  const setActiveTaskId = useRecordingStore((s) => s.setActiveTaskId);
   const [modalVisible, setModalVisible] = useState(false);
+  const [pickerTaskId, setPickerTaskId] = useState<string | null>(null);
+
+  const pickerTask = useMemo(
+    () => (pickerTaskId ? tasks.find((t) => t.id === pickerTaskId) ?? null : null),
+    [pickerTaskId, tasks],
+  );
+
+  const handleGrindRequest = useCallback((taskId: string) => {
+    setPickerTaskId(taskId);
+  }, []);
+
+  const handlePickerClose = useCallback(() => {
+    setPickerTaskId(null);
+  }, []);
+
+  const handleModePick = useCallback(
+    (mode: 'timelapse' | 'stopwatch') => {
+      if (!pickerTaskId) return;
+      setActiveTaskId(pickerTaskId);
+      setPickerTaskId(null);
+      if (mode === 'timelapse') {
+        router.push('/record' as any);
+      } else {
+        router.push('/stopwatch' as any);
+      }
+    },
+    [pickerTaskId, setActiveTaskId],
+  );
 
   useEffect(() => {
     if (hasHydrated) performDailyReset();
@@ -93,7 +125,7 @@ export default function TasksScreen() {
         ) : (
           <>
             {openTasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <TaskCard key={task.id} task={task} onGrindPress={handleGrindRequest} />
             ))}
 
             {completedTasks.length > 0 && (
@@ -105,7 +137,7 @@ export default function TasksScreen() {
                   <View style={styles.clearedLine} />
                 </View>
                 {completedTasks.map((task) => (
-                  <TaskCard key={task.id} task={task} />
+                  <TaskCard key={task.id} task={task} onGrindPress={handleGrindRequest} />
                 ))}
               </View>
             )}
@@ -114,6 +146,13 @@ export default function TasksScreen() {
       </ScrollView>
 
       <AddTaskModal visible={modalVisible} onClose={handleClose} />
+
+      <GrindModePicker
+        visible={pickerTaskId != null}
+        taskTitle={pickerTask?.title ?? null}
+        onClose={handlePickerClose}
+        onPick={handleModePick}
+      />
     </View>
   );
 }

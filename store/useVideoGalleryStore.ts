@@ -22,15 +22,20 @@ export async function flushGallery(): Promise<void> {
     VIDEO_GALLERY_STORAGE_KEY,
     JSON.stringify({
       state: { recordings: state.recordings },
-      version: 1,
+      version: 2,
     })
   );
 }
 
+export type RecordingKind = 'timelapse' | 'photo';
+
 export interface Recording {
   id: string;
-  videoUri: string;
-  thumbnailUri: string | null;
+  type: RecordingKind;
+  videoUri?: string;            // timelapse only
+  photoUri?: string;            // photo only — raw JPEG
+  cardUri?: string;             // photo only — rendered card with overlay
+  thumbnailUri: string | null;  // for photos this points at the cardUri
   sessionDurationSeconds: number;
   createdAt: string;
 }
@@ -77,22 +82,28 @@ export const useVideoGalleryStore = create<VideoGalleryState>()(
     {
       name: VIDEO_GALLERY_STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
-      version: 1,
+      version: 2,
       migrate: (persistedState: any, version: number) => {
+        let state = persistedState;
         if (version === 0 || version === undefined) {
-          // Convert absolute paths to relative paths
-          const recordings: Recording[] = (persistedState?.recordings || []).map(
-            (rec: Recording) => ({
-              ...rec,
-              videoUri: toRelativePath(rec.videoUri),
-              thumbnailUri: rec.thumbnailUri
-                ? toRelativePath(rec.thumbnailUri)
-                : null,
-            })
-          );
-          return { ...persistedState, recordings };
+          // v0 → v1: convert absolute paths to relative paths
+          const recordings: any[] = (state?.recordings || []).map((rec: any) => ({
+            ...rec,
+            videoUri: rec.videoUri ? toRelativePath(rec.videoUri) : rec.videoUri,
+            thumbnailUri: rec.thumbnailUri ? toRelativePath(rec.thumbnailUri) : null,
+          }));
+          state = { ...state, recordings };
+          version = 1;
         }
-        return persistedState as VideoGalleryState;
+        if (version === 1) {
+          // v1 → v2: add `type` discriminator. All legacy entries are timelapses.
+          const recordings: Recording[] = (state?.recordings || []).map((rec: any) => ({
+            ...rec,
+            type: rec.type ?? 'timelapse',
+          }));
+          state = { ...state, recordings };
+        }
+        return state as VideoGalleryState;
       },
       onRehydrateStorage: () => {
         return async (state) => {
@@ -106,8 +117,9 @@ export const useVideoGalleryStore = create<VideoGalleryState>()(
             // This writes the recovered .mp4 into Documents/timelapses/ so
             // scanOrphanedFiles picks it up as a normal orphan on the same pass.
             await finalizeCrashedRecording();
-            // Then scan for any loose .mp4s (no metadata entry).
+            // Then scan for any loose .mp4s and any loose photo+card pairs.
             await scanOrphanedFiles(state);
+            await scanOrphanedPhotos(useVideoGalleryStore.getState());
             // These two both operate on the post-scan store state and are
             // independent of each other — parallelize.
             await Promise.all([
@@ -185,7 +197,18 @@ async function cleanOrphanedRecordings(state: VideoGalleryState) {
   const orphanedIds: string[] = [];
 
   for (const rec of recordings) {
-    const exists = await fileExists(resolveUri(rec.videoUri));
+    // Photos render from cardUri; timelapses play videoUri. Pick the right one
+    // to probe — if the file the grid actually shows is missing, the entry is
+    // dead.
+    const probePath =
+      rec.type === 'photo'
+        ? rec.cardUri
+        : rec.videoUri;
+    if (!probePath) {
+      orphanedIds.push(rec.id);
+      continue;
+    }
+    const exists = await fileExists(resolveUri(probePath));
     if (exists) {
       validRecordings.push(rec);
     } else {
@@ -208,6 +231,17 @@ async function regenerateMissingThumbnails(state: VideoGalleryState) {
 
   const updatedRecordings = await Promise.all(
     recordings.map(async (rec) => {
+      // Photos use the card image as their own thumbnail — no video to seek.
+      // Self-heal a missing thumbnailUri by pointing it at cardUri.
+      if (rec.type === 'photo') {
+        if (!rec.thumbnailUri && rec.cardUri) {
+          updated = true;
+          return { ...rec, thumbnailUri: rec.cardUri };
+        }
+        return rec;
+      }
+
+      if (!rec.videoUri) return rec;
       const videoExists = await fileExists(resolveUri(rec.videoUri));
       if (!videoExists) return rec;
 
@@ -331,7 +365,9 @@ async function scanOrphanedFiles(state: VideoGalleryState) {
   if (filesOnDisk.length === 0) return;
 
   const knownFilenames = new Set(
-    state.recordings.map((r) => extractFilename(r.videoUri))
+    state.recordings
+      .filter((r) => !!r.videoUri)
+      .map((r) => extractFilename(r.videoUri as string))
   );
   const orphans = filesOnDisk.filter(
     (f) => f.endsWith('.mp4') && !knownFilenames.has(f)
@@ -405,6 +441,7 @@ async function scanOrphanedFiles(state: VideoGalleryState) {
 
     recovered.push({
       id,
+      type: 'timelapse',
       videoUri: 'timelapses/' + filename,
       thumbnailUri: thumbnailRelPath,
       sessionDurationSeconds: duration,
@@ -415,6 +452,105 @@ async function scanOrphanedFiles(state: VideoGalleryState) {
   if (recovered.length === 0) return;
 
   console.log('[VideoGallery] Recovered', recovered.length, 'orphaned recording(s)');
+  useVideoGalleryStore.setState((current) => {
+    const recoveredIds = new Set(recovered.map((r) => r.id));
+    const existing = current.recordings.filter((r) => !recoveredIds.has(r.id));
+    const merged = [...recovered, ...existing].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt)
+    );
+    return { recordings: merged };
+  });
+}
+
+/// Scans Documents/photos/ for raw JPEGs that have no matching gallery entry.
+/// Photo entries are only recoverable when both the raw photo and the rendered
+/// card are still on disk — without the card we can't render the grid tile, and
+/// without the raw we can't re-render the card. Pairs that pass both checks are
+/// matched against the local session log (5-minute window on file mtime) so
+/// recovered entries inherit their original duration when possible.
+async function scanOrphanedPhotos(state: VideoGalleryState) {
+  const photosDir = (FileSystem.documentDirectory || '') + 'photos/';
+  const cardsDir = (FileSystem.documentDirectory || '') + 'photo-cards/';
+  if (!photosDir.startsWith('file://') && !photosDir.startsWith('/')) return;
+
+  const photosInfo = await FileSystem.getInfoAsync(photosDir);
+  if (!photosInfo.exists) return;
+
+  const filesOnDisk = await FileSystem.readDirectoryAsync(photosDir);
+  if (filesOnDisk.length === 0) return;
+
+  const knownPhotoFiles = new Set(
+    state.recordings
+      .filter((r) => r.type === 'photo' && !!r.photoUri)
+      .map((r) => extractFilename(r.photoUri as string))
+  );
+  const orphans = filesOnDisk.filter(
+    (f) => f.endsWith('.jpg') && !knownPhotoFiles.has(f)
+  );
+  if (orphans.length === 0) return;
+
+  const sessions = await readSessionsFromStorage();
+  const existingIds = new Set(state.recordings.map((r) => r.id));
+  const recovered: Recording[] = [];
+
+  for (const filename of orphans) {
+    const photoAbs = photosDir + filename;
+    const cardAbs = cardsDir + filename;
+
+    // Must have both files. Without the card we can't display anything in the
+    // grid; without the raw we can't ever re-render. Skip the orphan.
+    let photoSize = 0;
+    try {
+      const info = await FileSystem.getInfoAsync(photoAbs, { size: true } as any);
+      if (!info.exists) continue;
+      photoSize = Number((info as any).size ?? 0);
+    } catch {
+      continue;
+    }
+    if (photoSize <= 0) {
+      try { await FileSystem.deleteAsync(photoAbs, { idempotent: true }); } catch {}
+      continue;
+    }
+    const cardInfo = await FileSystem.getInfoAsync(cardAbs);
+    if (!cardInfo.exists) {
+      posthog.capture('orphan_photo_missing_card', { filename });
+      continue;
+    }
+
+    // Filename is the session id (uuid + .jpg). Use it as the recording id when
+    // it's still unique; otherwise fall back to a fresh uuid.
+    const idGuess = filename.replace(/\.jpg$/, '');
+    const id = existingIds.has(idGuess) ? uuidv4() : idGuess;
+    existingIds.add(id);
+
+    let fileMs = 0;
+    try {
+      const info = await FileSystem.getInfoAsync(photoAbs);
+      const mtime = (info as any).modificationTime;
+      if (typeof mtime === 'number') fileMs = mtime * 1000;
+    } catch {}
+
+    const matched = matchSessionForFile(sessions, fileMs);
+    const duration = matched?.total_locked_in_seconds ?? 0;
+    const createdAt =
+      matched?.time_ended ||
+      matched?.created_at ||
+      (fileMs ? new Date(fileMs).toISOString() : new Date().toISOString());
+
+    recovered.push({
+      id,
+      type: 'photo',
+      photoUri: 'photos/' + filename,
+      cardUri: 'photo-cards/' + filename,
+      thumbnailUri: 'photo-cards/' + filename,
+      sessionDurationSeconds: duration,
+      createdAt,
+    });
+  }
+
+  if (recovered.length === 0) return;
+
+  console.log('[VideoGallery] Recovered', recovered.length, 'orphaned photo card(s)');
   useVideoGalleryStore.setState((current) => {
     const recoveredIds = new Set(recovered.map((r) => r.id));
     const existing = current.recordings.filter((r) => !recoveredIds.has(r.id));

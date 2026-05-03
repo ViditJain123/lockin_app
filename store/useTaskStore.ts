@@ -25,6 +25,9 @@ interface TaskState {
   restoreFromTinybird: (userId: string) => Promise<void>;
   addTask: (title: string, description: string, isDaily: boolean) => void;
   toggleTask: (id: string) => void;
+  /** Idempotent — marks the task complete if it isn't already. No-op if the
+   * task is missing or already completed. */
+  completeTask: (id: string) => void;
   deleteTask: (id: string) => void;
   getTaskById: (id: string) => Task | undefined;
   performDailyReset: () => void;
@@ -120,6 +123,30 @@ export const useTaskStore = create<TaskState>()(
         const { userId } = get();
         sendTaskEvent({
           event_type: willBeCompleted ? 'task_complete' : 'task_uncomplete',
+          task_id: id,
+          user_id: userId ?? 'anonymous',
+          title: task.title,
+          is_daily: task.isDaily,
+          timestamp: now,
+        }).catch(() => {});
+      },
+
+      completeTask: (id: string) => {
+        const task = get().tasks.find((t) => t.id === id);
+        if (!task || task.isCompleted) return;
+
+        const now = new Date().toISOString();
+        set((state) => ({
+          tasks: state.tasks.map((t) =>
+            t.id === id
+              ? { ...t, isCompleted: true, completedAt: now, updatedAt: now }
+              : t
+          ),
+        }));
+
+        const { userId } = get();
+        sendTaskEvent({
+          event_type: 'task_complete',
           task_id: id,
           user_id: userId ?? 'anonymous',
           title: task.title,

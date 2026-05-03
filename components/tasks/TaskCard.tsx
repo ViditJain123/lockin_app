@@ -12,9 +12,13 @@ import Svg, { Path } from 'react-native-svg';
 
 interface TaskCardProps {
   task: Task;
+  /** Lifts the GRIND tap up to the parent so it can show a mode picker. If
+   * omitted, falls back to the legacy behavior of setting activeTaskId and
+   * routing to the home tab. */
+  onGrindPress?: (taskId: string) => void;
 }
 
-export default function TaskCard({ task }: TaskCardProps) {
+export default function TaskCard({ task, onGrindPress }: TaskCardProps) {
   const toggleTask = useTaskStore((s) => s.toggleTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const setActiveTaskId = useRecordingStore((s) => s.setActiveTaskId);
@@ -31,9 +35,13 @@ export default function TaskCard({ task }: TaskCardProps) {
 
   const handleGrindPress = useCallback(() => {
     buttonPress();
+    if (onGrindPress) {
+      onGrindPress(task.id);
+      return;
+    }
     setActiveTaskId(task.id);
     router.navigate('/(tabs)' as any);
-  }, [task.id, setActiveTaskId]);
+  }, [task.id, setActiveTaskId, onGrindPress]);
 
   const handleDelete = useCallback(() => {
     swipeableRef.current?.close();

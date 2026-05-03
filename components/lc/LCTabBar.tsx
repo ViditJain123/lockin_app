@@ -145,7 +145,9 @@ export function LCTabBar({ state, navigation }: BottomTabBarProps) {
               >
                 <View style={styles.recordShadow}>
                   <View style={styles.recordButton}>
-                    <View style={styles.recordSquare} />
+                    <Svg width={22} height={22} viewBox="0 0 22 22">
+                      <Path d="M5 3 L19 11 L5 19 Z" fill="#ffffff" />
+                    </Svg>
                   </View>
                 </View>
                 <Text style={styles.label}>{cfg.label}</Text>
@@ -222,12 +224,6 @@ const styles = StyleSheet.create({
     borderColor: LC.bg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  recordSquare: {
-    width: 22,
-    height: 22,
-    borderRadius: 3,
-    backgroundColor: '#ffffff',
   },
   label: {
     fontFamily: Fonts.monoSemiBold,

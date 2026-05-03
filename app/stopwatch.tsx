@@ -150,11 +150,21 @@ export default function StopwatchScreen() {
 
     setIsFinishing(false);
 
-    router.push({
-      pathname: '/grind-complete',
+    // Auto-check the targeted task so the user doesn't have to tick it
+    // manually after grinding for it. Idempotent.
+    if (activeTaskId) {
+      useTaskStore.getState().completeTask(activeTaskId);
+    }
+    // Then clear the active task so the next grind from Home doesn't carry
+    // over a stale pill. The route param below already snapshotted the task
+    // id for downstream screens.
+    useRecordingStore.getState().setActiveTaskId(null);
+
+    router.replace({
+      pathname: '/photo-capture',
       params: {
-        grindDurationSeconds: String(lockedInSeconds),
         lockedInSeconds: String(lockedInSeconds),
+        sessionId,
         ...(activeTaskId ? { activeTaskId } : {}),
       },
     } as any);

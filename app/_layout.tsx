@@ -653,6 +653,8 @@ function RootLayoutNav() {
           <Stack.Screen name="settings-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           <Stack.Screen name="stopwatch" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="photo-capture" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
+          <Stack.Screen name="photo-preview" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         </Stack>
         <CrystalReceivedModal
           visible={!!firstPendingCrystal}
