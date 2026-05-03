@@ -35,6 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const lastValidSession = useRef<Session | null>(null);
   const recoveryUnsubscribe = useRef<NetInfoSubscription | null>(null);
   const recoveryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Apple returns fullName only on the very first sign-in for this bundle ID.
+  // We stash it the moment we get it so a later failure (network blip during
+  // signInWithIdToken / updateUser) doesn't lose the one-shot value forever.
+  const pendingAppleName = useRef<string | null>(null);
 
   // Schedule session recovery when SIGNED_OUT happens while offline
   const scheduleSessionRecovery = () => {
@@ -168,18 +172,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               $set_once: { created_at: newSession.user.created_at },
             });
             posthog.capture('user_signed_in');
-            // Notify Discord on new sign-ups (not returning logins)
+
+            // Resolve identity fields:
+            // - email: from auth (real or Apple relay address)
+            // - apple_full_name: from the just-stashed credential, falling back to user_metadata
+            // - display_name: from the quiz (user-typed)
+            const email = newSession.user.email ?? null;
+            const appleFullName =
+              pendingAppleName.current ??
+              (newSession.user.user_metadata?.full_name as string | undefined) ??
+              null;
+            pendingAppleName.current = null;
+            const { sleepTime, targetHours, name } = useOnboardingStore.getState().quizAnswers;
+            const displayName = name || appleFullName || null;
+
+            // Notify Discord on new sign-ups (not returning logins) — include name + email
             const isNewUser = Date.now() - new Date(newSession.user.created_at).getTime() < 60_000;
             if (isNewUser) {
-              notifyDiscord('signup', newSession.user.email ?? 'unknown');
+              notifyDiscord(
+                'signup',
+                email ?? 'unknown',
+                undefined,
+                appleFullName ?? displayName ?? null
+              );
             }
-            // Ensure a users row exists in Supabase and sync onboarding data
-            const { sleepTime, targetHours, name } = useOnboardingStore.getState().quizAnswers;
-            const displayName = name || newSession.user.user_metadata?.full_name || null;
+
+            // Ensure a users row exists in Supabase and sync identity + onboarding data.
+            // upsertUserRow strips null/undefined so we never clobber an existing server value.
             upsertUserRow(newSession.user.id, {
+              email,
+              apple_full_name: appleFullName,
+              display_name: displayName,
               sleep_time: convertSleepTimeTo24h(sleepTime),
               target_hours: targetHours,
-              display_name: displayName,
             }).catch((err) =>
               console.warn('[Auth] Failed to upsert user row:', err)
             );
@@ -262,6 +287,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('[Auth] Apple Sign-In credential received');
 
+      // Apple gives fullName only on first sign-in — stash it before any Supabase call.
+      const appleFullName = credential.fullName
+        ? [credential.fullName.givenName, credential.fullName.familyName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || null
+        : null;
+      if (appleFullName) {
+        pendingAppleName.current = appleFullName;
+      }
+
       if (credential.identityToken) {
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
@@ -274,18 +310,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log('[Auth] Apple Sign-In successful');
 
-        // Optionally update user metadata with name from Apple (only provided on first sign-in)
-        if (credential.fullName && (credential.fullName.givenName || credential.fullName.familyName)) {
-          const fullName = [credential.fullName.givenName, credential.fullName.familyName]
-            .filter(Boolean)
-            .join(' ');
-
-          if (fullName && data.user) {
-            await supabase.auth.updateUser({
-              data: { full_name: fullName },
-            });
-            console.log('[Auth] Updated user name from Apple:', fullName);
-          }
+        // Mirror Apple's name to user_metadata as a secondary backup
+        if (appleFullName && data.user) {
+          await supabase.auth.updateUser({
+            data: { full_name: appleFullName },
+          });
+          console.log('[Auth] Updated user name from Apple:', appleFullName);
         }
       } else {
         throw new Error('No identity token received from Apple');

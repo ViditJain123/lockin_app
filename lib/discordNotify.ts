@@ -9,11 +9,12 @@ type DiscordEventType = 'signup' | 'trial_started' | 'subscription_purchased';
 export function notifyDiscord(
   eventType: DiscordEventType,
   email: string,
-  productId?: string
+  productId?: string,
+  name?: string | null
 ): void {
   supabase.functions
     .invoke('discord-notify', {
-      body: { event_type: eventType, email, product_id: productId },
+      body: { event_type: eventType, email, product_id: productId, name },
     })
     .catch((err) => console.warn('[Discord] Notification failed:', err));
 }

@@ -37,9 +37,17 @@ export async function upsertUserRow(
   userId: string,
   fields: Record<string, unknown>
 ) {
+  // Strip null/undefined so a client-side blank doesn't clobber an existing server value
+  // (e.g., reinstall after Apple stopped returning fullName).
+  const cleaned = Object.fromEntries(
+    Object.entries(fields).filter(([, v]) => v !== null && v !== undefined)
+  );
+
+  if (Object.keys(cleaned).length === 0) return;
+
   const { error } = await supabase
     .from('users')
-    .upsert({ id: userId, ...fields }, { onConflict: 'id' });
+    .upsert({ id: userId, ...cleaned }, { onConflict: 'id' });
 
   if (error) throw error;
 }

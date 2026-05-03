@@ -42,7 +42,7 @@ serve(async (req) => {
       )
     }
 
-    const { event_type, email, product_id } = await req.json()
+    const { event_type, email, product_id, name } = await req.json()
 
     if (!event_type || !email) {
       return new Response(
@@ -51,20 +51,22 @@ serve(async (req) => {
       )
     }
 
+    const who = name ? `${name} (${email})` : email
+
     // Build Discord message based on event type
     let message: string
     switch (event_type) {
       case 'signup':
-        message = `✅ [email] ${email} has just signed up`
+        message = `✅ ${who} has just signed up`
         break
       case 'trial_started':
-        message = `🆓 ${email} has started a free trial${product_id ? ` (${product_id})` : ''}`
+        message = `🆓 ${who} has started a free trial${product_id ? ` (${product_id})` : ''}`
         break
       case 'subscription_purchased':
-        message = `💰 ${email} has started a subscription${product_id ? ` (${product_id})` : ''}`
+        message = `💰 ${who} has started a subscription${product_id ? ` (${product_id})` : ''}`
         break
       default:
-        message = `📢 ${email} triggered event: ${event_type}`
+        message = `📢 ${who} triggered event: ${event_type}`
     }
 
     // Post to Discord webhook
