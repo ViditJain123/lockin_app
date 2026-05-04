@@ -244,11 +244,19 @@ export default function CameraScreen() {
       // this key and call finalizePendingRecording on pendingDir.
       if (pendingDir) {
         try {
+          // Snapshot the targeted task title so the intro overlay can include
+          // it on crash recovery too (the recording store doesn't survive a
+          // process kill).
+          const startTaskId = useRecordingStore.getState().activeTaskId;
+          const startTaskName = startTaskId
+            ? useTaskStore.getState().tasks.find((t) => t.id === startTaskId)?.title ?? ''
+            : '';
           await AsyncStorage.setItem(
             PENDING_RECORDING_KEY,
             JSON.stringify({
               pendingDir,
               startedAt: (sessionStartTimeRef.current ?? new Date()).toISOString(),
+              taskName: startTaskName,
             })
           );
         } catch (err) {
@@ -326,9 +334,18 @@ export default function CameraScreen() {
     // correlate any future crash to exactly which phase failed. The native
     // module now writes the .mp4 straight into Documents/timelapses/, so we
     // no longer need a JS-side moveAsync.
+    // Snapshot the targeted task title at stop time so the intro overlay can
+    // render it. Read directly from the store rather than a stale closure of
+    // `activeTask`, which would be undefined right after the user picked a
+    // task without re-rendering this callback.
+    const stopTaskId = useRecordingStore.getState().activeTaskId;
+    const stopTaskName = stopTaskId
+      ? useTaskStore.getState().tasks.find((t) => t.id === stopTaskId)?.title ?? ''
+      : '';
+
     let videoPath: string | null = null;
     try {
-      videoPath = await Timelapse.stopRecording(lockedInSeconds);
+      videoPath = await Timelapse.stopRecording(lockedInSeconds, stopTaskName);
       posthog.capture('timelapse_save_step', { step: 'encode', sessionId, success: true });
     } catch (e: any) {
       const code = e?.code ?? 'UNKNOWN';

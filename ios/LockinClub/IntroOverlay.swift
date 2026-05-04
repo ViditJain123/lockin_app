@@ -6,6 +6,10 @@ struct IntroOverlayInputs {
     let sessionDurationSeconds: TimeInterval
     let sessionStartDate: Date
     let videoSize: CGSize
+    /// Title of the task this grind targeted, if any. Empty/nil renders the
+    /// overlay without a task block (logo / duration / date only) — matches
+    /// pre-task behavior for grinds started from Home.
+    let taskName: String?
 }
 
 /// Draws a 2-second animated intro on top of the first 60 output frames
@@ -38,6 +42,7 @@ final class IntroOverlay {
     private let videoSize: CGSize
     private let duration: TimeInterval
     private let date: Date
+    private let taskName: String?
 
     // MARK: - Cached pre-rendered images
 
@@ -49,6 +54,8 @@ final class IntroOverlay {
     private var durationTextImage: CGImage?
     private var dateLabelImage: CGImage?
     private var dateTextImage: CGImage?
+    private var taskLabelImage: CGImage?
+    private var taskTextImage: CGImage?
 
     // MARK: - Cached layout rects (in UIKit top-left coordinates)
 
@@ -57,6 +64,8 @@ final class IntroOverlay {
     private var durationRect: CGRect = .zero
     private var dateLabelRect: CGRect = .zero
     private var dateRect: CGRect = .zero
+    private var taskLabelRect: CGRect = .zero
+    private var taskRect: CGRect = .zero
 
     // MARK: - Init
 
@@ -64,6 +73,7 @@ final class IntroOverlay {
         self.videoSize = inputs.videoSize
         self.duration = inputs.sessionDurationSeconds
         self.date = inputs.sessionStartDate
+        self.taskName = inputs.taskName
 
         prerenderBlack()
         prerenderGradients()
@@ -109,6 +119,12 @@ final class IntroOverlay {
             }
             if let img = durationTextImage {
                 UIImage(cgImage: img).draw(in: durationRect, blendMode: .normal, alpha: alpha)
+            }
+            if let img = taskLabelImage {
+                UIImage(cgImage: img).draw(in: taskLabelRect, blendMode: .normal, alpha: alpha)
+            }
+            if let img = taskTextImage {
+                UIImage(cgImage: img).draw(in: taskRect, blendMode: .normal, alpha: alpha)
             }
             if let img = dateLabelImage {
                 UIImage(cgImage: img).draw(in: dateLabelRect, blendMode: .normal, alpha: alpha)
@@ -176,16 +192,29 @@ final class IntroOverlay {
         // Strings
         let durationString = IntroOverlay.formatDuration(duration)
         let dateString = IntroOverlay.formatDate(date)
+        // Task is optional — empty/nil string means no block. Long titles get
+        // truncated with an ellipsis so the centered overlay stays readable
+        // and doesn't bloat the block width on long task names.
+        let taskString: String? = {
+            guard let raw = taskName?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !raw.isEmpty else { return nil }
+            let lowered = raw.lowercased()
+            let maxLen = 24
+            if lowered.count <= maxLen { return lowered }
+            return String(lowered.prefix(maxLen - 1)) + "…"
+        }()
 
         // Font sizes scale with video width so output looks the same
         // across resolutions.
         let labelFontSize = videoSize.width * 0.038
         let durationFontSize = videoSize.width * 0.105
         let dateFontSize = videoSize.width * 0.058
+        let taskFontSize = videoSize.width * 0.058
 
         let labelFont = monoFont(size: labelFontSize)
         let durationFont = monoFont(size: durationFontSize)
         let dateFont = monoFont(size: dateFontSize)
+        let taskFont = monoFont(size: taskFontSize)
 
         // Strava-style: muted uppercase-feel label above a bold value.
         let labelColor = UIColor(white: 1.0, alpha: 0.55)
@@ -219,6 +248,27 @@ final class IntroOverlay {
         dateLabelImage = dateLabelImg
         dateTextImage = dateImg
 
+        // Task block (optional)
+        var taskLabelSize: CGSize = .zero
+        var taskSize: CGSize = .zero
+        if let task = taskString {
+            let (tLabelImg, tLabelSize) = renderTextImage(
+                "task",
+                font: labelFont,
+                color: labelColor,
+                tracking: labelFontSize * 0.12
+            )
+            let (tImg, tSize) = renderTextImage(
+                task,
+                font: taskFont,
+                color: valueColor
+            )
+            taskLabelImage = tLabelImg
+            taskTextImage = tImg
+            taskLabelSize = tLabelSize
+            taskSize = tSize
+        }
+
         // Text logo: "LOCKIN " in white, "CLUB" in brand red — same split as
         // the existing minimal timer filter in TimelapseFrameOverlay.
         let logoFontSize = videoSize.width * 0.068
@@ -241,26 +291,37 @@ final class IntroOverlay {
         let (logoImg, logoSize) = renderAttributedTextImage(logoAttributed)
         logoImage = logoImg
 
-        // Three entities stacked top-to-bottom: logo, duration pair,
-        // date pair. Each pair (label + value) is tightly grouped with a
-        // small internal gap. The three entities are separated from each
-        // other by a larger gap that is the same between every pair.
+        // Entities stacked top-to-bottom: logo, duration pair, [task pair],
+        // date pair. The task pair is only included when taskString is set.
+        // Each pair (label + value) is tightly grouped with a small internal
+        // gap. The entities are separated from each other by a larger gap
+        // that is the same between every pair.
         let labelToValueGap = videoSize.height * 0.006
         let entityGap = videoSize.height * 0.045
 
         let durationPairHeight = durLabelSize.height + labelToValueGap + durSize.height
         let datePairHeight = dateLabelSize.height + labelToValueGap + dateSize.height
+        let hasTask = taskString != nil
+        let taskPairHeight = hasTask
+            ? taskLabelSize.height + labelToValueGap + taskSize.height
+            : 0
 
-        let stackHeight = logoSize.height
+        var stackHeight = logoSize.height
             + entityGap + durationPairHeight
             + entityGap + datePairHeight
+        if hasTask {
+            stackHeight += entityGap + taskPairHeight
+        }
 
         // Left edge of the block = block's horizontal center (frame center)
         // minus half the widest element across all rows.
-        let blockMaxWidth = max(
+        var blockMaxWidth = max(
             max(logoSize.width, max(durLabelSize.width, durSize.width)),
             max(dateLabelSize.width, dateSize.width)
         )
+        if hasTask {
+            blockMaxWidth = max(blockMaxWidth, max(taskLabelSize.width, taskSize.width))
+        }
         let blockLeftX = (videoSize.width - blockMaxWidth) / 2.0
 
         // Vertically centered in the frame.
@@ -289,6 +350,25 @@ final class IntroOverlay {
             height: durSize.height
         )
         y += durSize.height + entityGap
+
+        // Task pair (between duration and date) if present.
+        if hasTask {
+            taskLabelRect = CGRect(
+                x: blockLeftX,
+                y: y,
+                width: taskLabelSize.width,
+                height: taskLabelSize.height
+            )
+            y += taskLabelSize.height + labelToValueGap
+
+            taskRect = CGRect(
+                x: blockLeftX,
+                y: y,
+                width: taskSize.width,
+                height: taskSize.height
+            )
+            y += taskSize.height + entityGap
+        }
 
         dateLabelRect = CGRect(
             x: blockLeftX,

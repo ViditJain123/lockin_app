@@ -325,7 +325,8 @@ class TimelapseModule: NSObject {
 
   // MARK: - Stop
 
-  @objc func stopRecording(_ sessionDurationSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc func stopRecording(_ sessionDurationSeconds: Double, taskName: NSString?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    let resolvedTask = (taskName as String?) ?? ""
     processingQueue.async { [weak self] in
       guard let self = self else { return }
       guard self.isRecording, let dir = self.sessionDir else {
@@ -345,6 +346,7 @@ class TimelapseModule: NSObject {
         height: height,
         sessionStartDate: startDate,
         sessionDurationSeconds: sessionDurationSeconds,
+        taskName: resolvedTask,
         pendingDir: dir,
         clearInstanceState: true,
         resolve: resolve,
@@ -356,7 +358,8 @@ class TimelapseModule: NSObject {
   /// Invoked from JS on app start when a pending session directory was left
   /// behind by a prior crashed/killed process. Rebuilds the output .mp4 from
   /// the on-disk frames and meta.json.
-  @objc func finalizePendingRecording(_ pendingDirPath: String, sessionDurationSeconds: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+  @objc func finalizePendingRecording(_ pendingDirPath: String, sessionDurationSeconds: Double, taskName: NSString?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    let resolvedTask = (taskName as String?) ?? ""
     processingQueue.async { [weak self] in
       guard let self = self else { return }
       if self.isRecording {
@@ -423,6 +426,7 @@ class TimelapseModule: NSObject {
         height: height,
         sessionStartDate: startDate,
         sessionDurationSeconds: sessionDurationSeconds,
+        taskName: resolvedTask,
         pendingDir: dir,
         clearInstanceState: false,
         resolve: resolve,
@@ -445,6 +449,7 @@ class TimelapseModule: NSObject {
     height: Int,
     sessionStartDate: Date,
     sessionDurationSeconds: Double,
+    taskName: String,
     pendingDir: URL,
     clearInstanceState: Bool,
     resolve: @escaping RCTPromiseResolveBlock,
@@ -518,7 +523,8 @@ class TimelapseModule: NSObject {
     let introInputs = IntroOverlayInputs(
       sessionDurationSeconds: sessionDurationSeconds,
       sessionStartDate: sessionStartDate,
-      videoSize: CGSize(width: width, height: height)
+      videoSize: CGSize(width: width, height: height),
+      taskName: taskName.isEmpty ? nil : taskName
     )
     let introOverlay = IntroOverlay(inputs: introInputs)
     let introCount = min(IntroOverlay.introFrameCount, frameURLs.count)

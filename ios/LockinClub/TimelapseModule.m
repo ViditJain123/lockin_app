@@ -23,11 +23,13 @@ RCT_EXTERN_METHOD(addCompositeFrame:(NSString *)cameraImagePath
                   reject:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(stopRecording:(double)sessionDurationSeconds
+                  taskName:(NSString *)taskName
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(finalizePendingRecording:(NSString *)pendingDirPath
                   sessionDurationSeconds:(double)sessionDurationSeconds
+                  taskName:(NSString *)taskName
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 

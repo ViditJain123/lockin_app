@@ -153,14 +153,14 @@ async function finalizeCrashedRecording(): Promise<void> {
   }
   if (!raw) return;
 
-  let descriptor: { pendingDir?: string; startedAt?: string } = {};
+  let descriptor: { pendingDir?: string; startedAt?: string; taskName?: string } = {};
   try {
     descriptor = JSON.parse(raw) || {};
   } catch {
     await AsyncStorage.removeItem(PENDING_RECORDING_KEY).catch(() => {});
     return;
   }
-  const { pendingDir, startedAt } = descriptor;
+  const { pendingDir, startedAt, taskName } = descriptor;
   if (!pendingDir) {
     await AsyncStorage.removeItem(PENDING_RECORDING_KEY).catch(() => {});
     return;
@@ -177,7 +177,11 @@ async function finalizeCrashedRecording(): Promise<void> {
   posthog.capture('timelapse_recovery_attempt', { durationSeconds });
 
   try {
-    const recoveredPath = await Timelapse.finalizePendingRecording(pendingDir, durationSeconds);
+    const recoveredPath = await Timelapse.finalizePendingRecording(
+      pendingDir,
+      durationSeconds,
+      taskName ?? ''
+    );
     console.log('[VideoGallery] Recovered pending recording to:', recoveredPath);
     posthog.capture('timelapse_recovery_success', { path: recoveredPath, durationSeconds });
   } catch (err: any) {

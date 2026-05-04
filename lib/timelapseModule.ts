@@ -30,17 +30,25 @@ export function addCompositeFrame(cameraImagePath: string, overlayBase64: string
   return TimelapseModule.addCompositeFrame(cameraImagePath, overlayBase64);
 }
 
-export function stopRecording(sessionDurationSeconds: number): Promise<string> {
+export function stopRecording(
+  sessionDurationSeconds: number,
+  taskName: string = ''
+): Promise<string> {
   if (!isIOS) return noopString();
-  return TimelapseModule.stopRecording(sessionDurationSeconds);
+  return TimelapseModule.stopRecording(sessionDurationSeconds, taskName);
 }
 
 export function finalizePendingRecording(
   pendingDirPath: string,
-  sessionDurationSeconds: number
+  sessionDurationSeconds: number,
+  taskName: string = ''
 ): Promise<string> {
   if (!isIOS) return noopString();
-  return TimelapseModule.finalizePendingRecording(pendingDirPath, sessionDurationSeconds);
+  return TimelapseModule.finalizePendingRecording(
+    pendingDirPath,
+    sessionDurationSeconds,
+    taskName
+  );
 }
 
 export function cancelRecording(): Promise<void> {
