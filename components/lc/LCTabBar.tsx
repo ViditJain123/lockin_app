@@ -150,7 +150,9 @@ export function LCTabBar({ state, navigation }: BottomTabBarProps) {
                     </Svg>
                   </View>
                 </View>
-                <Text style={styles.label}>{cfg.label}</Text>
+                <Text style={styles.label} numberOfLines={1} allowFontScaling={false}>
+                  {cfg.label}
+                </Text>
               </Pressable>
             );
           }
@@ -168,6 +170,8 @@ export function LCTabBar({ state, navigation }: BottomTabBarProps) {
               <TabIcon kind={cfg.icon} active={isActive} />
               <Text
                 style={[styles.label, { color: isActive ? LC.text : LC.textMute }]}
+                numberOfLines={1}
+                allowFontScaling={false}
               >
                 {cfg.label}
               </Text>
@@ -197,7 +201,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
   },
   recordSlot: {
     flex: 1,
@@ -205,7 +209,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: -28,
     paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
   },
   recordShadow: {
     shadowColor: LC.red,

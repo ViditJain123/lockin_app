@@ -51,11 +51,12 @@ export default function AddTaskModal({ visible, onClose }: AddTaskModalProps) {
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Backdrop */}
         <TouchableWithoutFeedback onPress={handleClose}>

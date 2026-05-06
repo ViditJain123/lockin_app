@@ -43,7 +43,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.lockin.club",
-      "versionCode": 6,
+      "versionCode": 9,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -80,6 +80,29 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/quicksand/300Light/Quicksand_300Light.ttf",
+            "./node_modules/@expo-google-fonts/quicksand/400Regular/Quicksand_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/quicksand/500Medium/Quicksand_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/quicksand/600SemiBold/Quicksand_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/quicksand/700Bold/Quicksand_700Bold.ttf",
+            "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+            "./node_modules/@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf",
+            "./node_modules/@expo-google-fonts/bebas-neue/400Regular/BebasNeue_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/jetbrains-mono/400Regular/JetBrainsMono_400Regular.ttf",
+            "./node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/jetbrains-mono/600SemiBold/JetBrainsMono_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/jetbrains-mono/700Bold/JetBrainsMono_700Bold.ttf",
+            "./assets/fonts/SpaceMono-Regular.ttf"
+          ]
+        }
+      ],
       [
         "expo-camera",
         {
