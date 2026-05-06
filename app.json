@@ -16,9 +16,12 @@
     "ios": {
       "bundleIdentifier": "com.lockin.club",
       "appleTeamId": "CCQU7Z66V5",
+      "buildNumber": "2",
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "associatedDomains": ["applinks:lockin.club"],
+      "associatedDomains": [
+        "applinks:lockin.club"
+      ],
       "icon": "./assets/images/logo.jpg",
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording and to capture a photo at the end of your grind",
@@ -35,14 +38,38 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.jpg",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.lockin.club",
+      "versionCode": 6,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "lockin.club",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
@@ -79,12 +106,6 @@
         {
           "appleTeamId": "CCQU7Z66V5",
           "appGroup": "group.com.lockin.club"
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to capture timelapses and photos of your grinds"
         }
       ]
     ],

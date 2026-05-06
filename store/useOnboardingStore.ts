@@ -1,6 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import {
+  ANDROID_DEFAULT_NAME,
+  ANDROID_DEFAULT_TARGET_HOURS,
+  IS_ANDROID,
+} from '../lib/androidDefaultUser';
 import { ONBOARDING_DEV_MODE } from '../lib/config';
 import { getLocalDateString, getTomorrowDateString } from '../lib/dateUtils';
 
@@ -9,6 +15,15 @@ const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
 export const TOTAL_QUIZ_QUESTIONS = 20;
+
+// Indices that depend on iOS-only FamilyControls / DeviceActivity APIs and
+// don't have an Android equivalent. The navigation actions skip these on
+// Android so the user never lands on a screen that can't function.
+//   13 → ScreenTimePermissionScreen
+//   19 → AppSelectionScreen (final app-lock step)
+const PLATFORM_SKIP_INDICES = new Set<number>(
+  Platform.OS === 'ios' ? [] : [13, 19],
+);
 
 // Interface for sleep time
 export interface SleepTime {
@@ -90,7 +105,7 @@ interface OnboardingState {
 }
 
 const initialQuizAnswers: QuizAnswers = {
-  name: '',
+  name: IS_ANDROID ? ANDROID_DEFAULT_NAME : '',
   goals: [],
   screenTime: 4, // Default to 4 hours
   desiredScreenTime: 2, // Default to 2 hours
@@ -98,7 +113,7 @@ const initialQuizAnswers: QuizAnswers = {
   age: '',
   sleepTime: { hour: 10, minute: 0, period: 'PM' }, // Default to 10:00 PM
   familyActivitySelection: null,
-  targetHours: 4, // Default to 4 hours of daily work target
+  targetHours: IS_ANDROID ? ANDROID_DEFAULT_TARGET_HOURS : 4,
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -106,7 +121,8 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set, get) => ({
       // Default: show onboarding only once (set to true for testing/debugging)
       showOnboardingAlways: false,
-      hasCompletedOnboarding: false,
+      // Android skips onboarding entirely — default identity is preloaded.
+      hasCompletedOnboarding: IS_ANDROID,
       _hasHydrated: false,
 
       // Quiz funnel initial state
@@ -126,6 +142,10 @@ export const useOnboardingStore = create<OnboardingState>()(
 
       // Determine if onboarding should be shown
       shouldShowOnboarding: () => {
+        // Android never shows onboarding — defensive guard against any
+        // persisted state that pre-dates this change.
+        if (IS_ANDROID) return false;
+
         const { showOnboardingAlways, hasCompletedOnboarding } = get();
 
         // DEV MODE handling
@@ -160,7 +180,8 @@ export const useOnboardingStore = create<OnboardingState>()(
       // Reset for testing/debugging
       resetOnboarding: () => {
         set({
-          hasCompletedOnboarding: false,
+          // Android keeps onboarding "complete" because there's no flow to run.
+          hasCompletedOnboarding: IS_ANDROID,
           isInQuizFunnel: false,
           currentQuestionIndex: 0,
           quizAnswers: initialQuizAnswers,
@@ -180,16 +201,27 @@ export const useOnboardingStore = create<OnboardingState>()(
       // Move to next question
       goToNextQuestion: () => {
         const { currentQuestionIndex } = get();
-        if (currentQuestionIndex < TOTAL_QUIZ_QUESTIONS - 1) {
-          set({ currentQuestionIndex: currentQuestionIndex + 1 });
+        let next = currentQuestionIndex + 1;
+        while (PLATFORM_SKIP_INDICES.has(next) && next < TOTAL_QUIZ_QUESTIONS) {
+          next++;
         }
+        if (next < TOTAL_QUIZ_QUESTIONS) {
+          set({ currentQuestionIndex: next });
+        }
+        // If we ran off the end (Android skipping the final app-lock step),
+        // the screen at currentQuestionIndex is responsible for completing
+        // the funnel — see _layout.tsx PaymentSuccessScreen onContinue.
       },
 
       // Move to previous question
       goToPreviousQuestion: () => {
         const { currentQuestionIndex } = get();
-        if (currentQuestionIndex > 0) {
-          set({ currentQuestionIndex: currentQuestionIndex - 1 });
+        let prev = currentQuestionIndex - 1;
+        while (PLATFORM_SKIP_INDICES.has(prev) && prev > 0) {
+          prev--;
+        }
+        if (prev >= 0) {
+          set({ currentQuestionIndex: prev });
         } else {
           // If on first question, exit quiz funnel back to initial onboarding
           set({ isInQuizFunnel: false });

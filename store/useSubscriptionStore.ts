@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { IS_ANDROID } from '../lib/androidDefaultUser';
 import { notifyDiscord } from '../lib/discordNotify';
 import { scheduleTrialEndNotification, cancelTrialEndNotification } from '../lib/notificationService';
 import { supabase } from '../lib/supabase';
@@ -12,8 +13,19 @@ import { supabase } from '../lib/supabase';
 // Storage key
 const SUBSCRIPTION_STORAGE_KEY = 'lockin-subscription-state';
 
-// RevenueCat API Key
-const REVENUECAT_API_KEY = 'appl_UjCZpUjBoKjZaaaLihwedqiSwhU';
+// RevenueCat API keys, one per platform. RevenueCat hands out a different
+// key for each app target (App Store vs Play Store) — using the wrong key
+// silently breaks Purchases.configure with no entitlements ever appearing.
+// Replace the Android key with the value from the RevenueCat dashboard once
+// the Google Play app is set up; see docs/ANDROID_SETUP.md section 2.
+const REVENUECAT_API_KEY_IOS = 'appl_UjCZpUjBoKjZaaaLihwedqiSwhU';
+const REVENUECAT_API_KEY_ANDROID = 'goog_REPLACE_ME';
+
+const REVENUECAT_API_KEY = Platform.select({
+  ios: REVENUECAT_API_KEY_IOS,
+  android: REVENUECAT_API_KEY_ANDROID,
+  default: REVENUECAT_API_KEY_IOS,
+}) as string;
 
 // Entitlement identifier (must match RevenueCat dashboard)
 export const ENTITLEMENT_ID = 'Lockin Club Pro';
@@ -131,18 +143,25 @@ function handleTrialNotification(subscriptionInfo: SubscriptionInfo): void {
 export const useSubscriptionStore = create<SubscriptionState>()(
   persist(
     (set, get) => ({
-      // Initial state
-      isSubscribed: false,
+      // Initial state.
+      // Android has no paywall — always treat as subscribed and initialized so
+      // the layout renders the main tabs immediately.
+      isSubscribed: IS_ANDROID,
       subscriptionInfo: null,
       customerInfo: null,
       isLoading: false,
       isPurchasing: false,
       isRestoring: false,
       error: null,
-      isInitialized: false,
+      isInitialized: IS_ANDROID,
 
       // Initialize RevenueCat SDK
       initialize: async () => {
+        if (IS_ANDROID) {
+          // No RevenueCat on Android — keep the platform fully offline.
+          set({ isSubscribed: true, isInitialized: true });
+          return;
+        }
         if (get().isInitialized) {
           console.log('[Subscription] Already initialized');
           return;
@@ -348,6 +367,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
       // Login user to RevenueCat (call after Supabase auth)
       loginUser: async (userId: string) => {
+        if (IS_ANDROID) return;
         try {
           console.log('[Subscription] Logging in user:', userId);
           const { customerInfo } = await Purchases.logIn(userId);
@@ -403,6 +423,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
       // Logout user from RevenueCat (call on sign out)
       logoutUser: async () => {
+        if (IS_ANDROID) return;
         try {
           console.log('[Subscription] Logging out user');
           const customerInfo = await Purchases.logOut();
@@ -425,6 +446,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
       // Reset store (for logout)
       reset: () => {
+        if (IS_ANDROID) return;
         set({
           isSubscribed: false,
           subscriptionInfo: null,

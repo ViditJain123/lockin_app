@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import {
   resetBlocks,
   blockSelection,
@@ -9,7 +10,13 @@ import {
 
 const USAGE_MONITOR = 'usageCountdown';
 
+// Android has no FamilyControls equivalent; the underlying package logs
+// "Only available on iOS" on every call. Bail early so Android logs stay
+// quiet and we don't waste cycles in no-op bridge hops.
+const isIOS = Platform.OS === 'ios';
+
 export function unlockAppsWithTimer(availableSeconds: number) {
+  if (!isIOS) return;
   // 1. Remove shields
   resetBlocks('appLockUnlock');
 
@@ -62,11 +69,13 @@ export function unlockAppsWithTimer(availableSeconds: number) {
 }
 
 export function relockApps() {
+  if (!isIOS) return;
   stopMonitoring([USAGE_MONITOR]);
   blockSelection({ activitySelectionId: 'onboardingSelection' }, 'appLockRelock');
 }
 
 export function fullyUnlockApps() {
+  if (!isIOS) return;
   stopMonitoring([USAGE_MONITOR]);
   resetBlocks('appLockFullUnlock');
 }

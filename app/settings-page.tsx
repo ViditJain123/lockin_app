@@ -201,51 +201,55 @@ export default function SettingsPageScreen() {
               {!isFullyUnlocked && <Ionicons name="chevron-forward" size={18} color="#666" />}
             </Pressable>
 
-            <View style={styles.separator} />
-
-            {/* Blocked Apps */}
-            <Pressable style={styles.row} onPress={() => { setTempSelection(familyActivitySelection); setShowAppPicker(true); }}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                <Ionicons name="lock-closed" size={20} color="#ef4444" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>Blocked Apps</Text>
-                <Text style={styles.rowSubtitle}>{familyActivitySelection ? 'Configured' : 'Not set'}</Text>
-                {pendingSettings?.familyActivitySelection !== undefined && (
-                  <Text style={styles.pendingText}>Change pending — takes effect tomorrow</Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
-            </Pressable>
-
-            {isFullyUnlocked ? (
+            {/* Blocked Apps + Screen Time controls — iOS-only because they
+                wrap the FamilyControls / DeviceActivity APIs. */}
+            {Platform.OS === 'ios' && (
               <>
                 <View style={styles.separator} />
-                <View style={styles.row}>
-                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-                    <Ionicons name="lock-open" size={20} color="#34d399" />
+                <Pressable style={styles.row} onPress={() => { setTempSelection(familyActivitySelection); setShowAppPicker(true); }}>
+                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                    <Ionicons name="lock-closed" size={20} color="#ef4444" />
                   </View>
                   <View style={styles.rowTextContainer}>
-                    <Text style={[styles.rowTitle, { color: '#34d399' }]}>Apps Unlocked</Text>
-                    <Text style={styles.rowSubtitle}>Unlocked until {formatSleepTimeDisplay(sleepTime)}</Text>
-                  </View>
-                </View>
-              </>
-            ) : canClaim ? (
-              <>
-                <View style={styles.separator} />
-                <Pressable style={styles.row} onPress={() => setShowClaimModal(true)}>
-                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-                    <Ionicons name="play" size={20} color="#34d399" />
-                  </View>
-                  <View style={styles.rowTextContainer}>
-                    <Text style={[styles.rowTitle, { color: '#34d399' }]}>Claim Screen Time</Text>
-                    <Text style={styles.rowSubtitle}>{Math.floor(availableScreenTime / 60)} minutes available</Text>
+                    <Text style={styles.rowTitle}>Blocked Apps</Text>
+                    <Text style={styles.rowSubtitle}>{familyActivitySelection ? 'Configured' : 'Not set'}</Text>
+                    {pendingSettings?.familyActivitySelection !== undefined && (
+                      <Text style={styles.pendingText}>Change pending — takes effect tomorrow</Text>
+                    )}
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#666" />
                 </Pressable>
+
+                {isFullyUnlocked ? (
+                  <>
+                    <View style={styles.separator} />
+                    <View style={styles.row}>
+                      <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
+                        <Ionicons name="lock-open" size={20} color="#34d399" />
+                      </View>
+                      <View style={styles.rowTextContainer}>
+                        <Text style={[styles.rowTitle, { color: '#34d399' }]}>Apps Unlocked</Text>
+                        <Text style={styles.rowSubtitle}>Unlocked until {formatSleepTimeDisplay(sleepTime)}</Text>
+                      </View>
+                    </View>
+                  </>
+                ) : canClaim ? (
+                  <>
+                    <View style={styles.separator} />
+                    <Pressable style={styles.row} onPress={() => setShowClaimModal(true)}>
+                      <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
+                        <Ionicons name="play" size={20} color="#34d399" />
+                      </View>
+                      <View style={styles.rowTextContainer}>
+                        <Text style={[styles.rowTitle, { color: '#34d399' }]}>Claim Screen Time</Text>
+                        <Text style={styles.rowSubtitle}>{Math.floor(availableScreenTime / 60)} minutes available</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#666" />
+                    </Pressable>
+                  </>
+                ) : null}
               </>
-            ) : null}
+            )}
           </View>
         </View>
 

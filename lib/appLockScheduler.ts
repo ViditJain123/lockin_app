@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import {
   startMonitoring,
   stopMonitoring,
@@ -5,8 +6,10 @@ import {
 } from 'react-native-device-activity';
 
 const SLEEP_TIME_ACTIVITY = 'sleepTimeLock';
+const isIOS = Platform.OS === 'ios';
 
 export function scheduleSleepTimeLock(sleepHour24: number, sleepMinute: number) {
+  if (!isIOS) return;
   // Stop any existing sleep time monitoring
   stopMonitoring([SLEEP_TIME_ACTIVITY]);
 
@@ -46,5 +49,6 @@ export function scheduleSleepTimeLock(sleepHour24: number, sleepMinute: number) 
 }
 
 export function cancelSleepTimeLock() {
+  if (!isIOS) return;
   stopMonitoring([SLEEP_TIME_ACTIVITY]);
 }

@@ -3,6 +3,7 @@ import {
   Dimensions,
   Image,
   ImageBackground,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -10,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppleSignInButton from './AppleSignInButton';
+import EmailAuthForm from './EmailAuthForm';
 
 import { Fonts } from '../constants/Fonts';
 
@@ -49,6 +51,14 @@ export default function AuthScreen() {
 
           <View style={styles.buttonContainer}>
             <AppleSignInButton />
+            {Platform.OS === 'ios' ? (
+              <View style={styles.orDividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.orText}>OR</Text>
+                <View style={styles.divider} />
+              </View>
+            ) : null}
+            <EmailAuthForm />
           </View>
 
           <Text style={styles.termsText}>
@@ -96,6 +106,19 @@ const styles = StyleSheet.create({
   buttonContainer: {
     width: '100%',
     gap: 12,
+  },
+  orDividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginVertical: 4,
+  },
+  orText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 11,
+    fontFamily: Fonts.regular,
+    paddingHorizontal: 12,
+    letterSpacing: 1.5,
   },
   dividerContainer: {
     flexDirection: 'row',

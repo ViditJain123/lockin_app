@@ -1,3 +1,4 @@
+import { IS_ANDROID } from './androidDefaultUser';
 import { supabase } from './supabase';
 import type { SleepTime } from '../store/useOnboardingStore';
 
@@ -22,6 +23,9 @@ export function parseSleepTime24h(time24h: string): SleepTime {
 }
 
 export async function fetchUserRow(userId: string) {
+  // Android uses a hardcoded local user that doesn't exist in Supabase.
+  if (IS_ANDROID) return null;
+
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -37,6 +41,9 @@ export async function upsertUserRow(
   userId: string,
   fields: Record<string, unknown>
 ) {
+  // Android uses a hardcoded local user that doesn't exist in Supabase.
+  if (IS_ANDROID) return;
+
   // Strip null/undefined so a client-side blank doesn't clobber an existing server value
   // (e.g., reinstall after Apple stopped returning fullName).
   const cleaned = Object.fromEntries(
@@ -56,6 +63,8 @@ export async function updateMaxStreakIfHigher(
   userId: string,
   currentStreak: number
 ): Promise<number> {
+  if (IS_ANDROID) return currentStreak;
+
   const row = await fetchUserRow(userId);
   const storedMax = row?.max_streak ?? 0;
 

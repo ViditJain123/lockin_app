@@ -5,10 +5,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { shareAsync } from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActionSheetIOS,
   Alert,
   Image,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import ActionSheet, { type ActionSheetOption } from '@/components/ActionSheet';
 import CrystalGrid from '@/components/CrystalGrid';
 import { LCChip } from '@/components/lc/LCChip';
 import PhotoPreviewSheet from '@/components/PhotoPreviewSheet';
@@ -72,6 +71,7 @@ export default function ProfileScreen() {
   const [photoPreviewUri, setPhotoPreviewUri] = useState('');
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [viewMode, setViewMode] = useState<ProfileViewMode>('timelapses');
+  const [actionSheetRec, setActionSheetRec] = useState<Recording | null>(null);
 
   // Honor `?tab=medals` query param (set by Home → LockinXPCard tap).
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -137,87 +137,94 @@ export default function ProfileScreen() {
     setShowPreview(true);
   }, []);
 
-  const handleLongPress = useCallback(
-    (rec: Recording) => {
-      if (Platform.OS !== 'ios') return;
-      const isPhoto = rec.type === 'photo';
-      const sharePath = isPhoto
-        ? rec.cardUri
-          ? resolveUri(rec.cardUri)
-          : null
-        : rec.videoUri
-          ? resolveUri(rec.videoUri)
-          : null;
-      if (!sharePath) return;
+  const handleLongPress = useCallback((rec: Recording) => {
+    setActionSheetRec(rec);
+  }, []);
 
-      const deleteLabel = isPhoto ? 'Delete Photo' : 'Delete Video';
-      const savedLabel = isPhoto ? 'Photo saved to your gallery.' : 'Video saved to your gallery.';
+  const actionSheetOptions: ActionSheetOption[] = React.useMemo(() => {
+    const rec = actionSheetRec;
+    if (!rec) return [];
+    const isPhoto = rec.type === 'photo';
+    const sharePath = isPhoto
+      ? rec.cardUri
+        ? resolveUri(rec.cardUri)
+        : null
+      : rec.videoUri
+        ? resolveUri(rec.videoUri)
+        : null;
+    if (!sharePath) return [];
 
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Share', 'Save to Gallery', 'Delete', 'Cancel'],
-          destructiveButtonIndex: 2,
-          cancelButtonIndex: 3,
+    const deleteLabel = isPhoto ? 'Delete Photo' : 'Delete Video';
+    const savedLabel = isPhoto ? 'Photo saved to your gallery.' : 'Video saved to your gallery.';
+
+    return [
+      {
+        label: 'Share',
+        onPress: async () => {
+          try {
+            await shareAsync(sharePath, isPhoto ? { mimeType: 'image/jpeg' } : undefined);
+          } catch {}
         },
-        async (buttonIndex) => {
-          if (buttonIndex === 0) {
-            try {
-              await shareAsync(sharePath, isPhoto ? { mimeType: 'image/jpeg' } : undefined);
-            } catch {}
-          } else if (buttonIndex === 1) {
-            try {
-              const { status } = await MediaLibrary.requestPermissionsAsync();
-              if (status === 'granted') {
-                await MediaLibrary.saveToLibraryAsync(sharePath);
-                Alert.alert('Saved', savedLabel);
-              }
-            } catch {}
-          } else if (buttonIndex === 2) {
-            Alert.alert(deleteLabel, 'Are you sure?', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: async () => {
-                  removeRecording(rec.id);
-                  // Photos: delete both raw photo and rendered card.
-                  // Timelapses: delete the .mp4 plus the thumbnail.
-                  if (isPhoto) {
-                    if (rec.photoUri) {
-                      try {
-                        await FileSystem.deleteAsync(resolveUri(rec.photoUri), {
-                          idempotent: true,
-                        });
-                      } catch {}
-                    }
-                    if (rec.cardUri) {
-                      try {
-                        await FileSystem.deleteAsync(resolveUri(rec.cardUri), {
-                          idempotent: true,
-                        });
-                      } catch {}
-                    }
-                  } else {
+      },
+      {
+        label: 'Save to Gallery',
+        onPress: async () => {
+          try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status === 'granted') {
+              await MediaLibrary.saveToLibraryAsync(sharePath);
+              Alert.alert('Saved', savedLabel);
+            }
+          } catch {}
+        },
+      },
+      {
+        label: deleteLabel,
+        destructive: true,
+        onPress: () => {
+          Alert.alert(deleteLabel, 'Are you sure?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                removeRecording(rec.id);
+                // Photos: delete both raw photo and rendered card.
+                // Timelapses: delete the .mp4 plus the thumbnail.
+                if (isPhoto) {
+                  if (rec.photoUri) {
                     try {
-                      await FileSystem.deleteAsync(sharePath, { idempotent: true });
+                      await FileSystem.deleteAsync(resolveUri(rec.photoUri), {
+                        idempotent: true,
+                      });
                     } catch {}
-                    if (rec.thumbnailUri) {
-                      try {
-                        await FileSystem.deleteAsync(resolveUri(rec.thumbnailUri), {
-                          idempotent: true,
-                        });
-                      } catch {}
-                    }
                   }
-                },
+                  if (rec.cardUri) {
+                    try {
+                      await FileSystem.deleteAsync(resolveUri(rec.cardUri), {
+                        idempotent: true,
+                      });
+                    } catch {}
+                  }
+                } else {
+                  try {
+                    await FileSystem.deleteAsync(sharePath, { idempotent: true });
+                  } catch {}
+                  if (rec.thumbnailUri) {
+                    try {
+                      await FileSystem.deleteAsync(resolveUri(rec.thumbnailUri), {
+                        idempotent: true,
+                      });
+                    } catch {}
+                  }
+                }
               },
-            ]);
-          }
+            },
+          ]);
         },
-      );
-    },
-    [removeRecording],
-  );
+      },
+    ];
+  }, [actionSheetRec, removeRecording]);
 
   // ─── Derived values ─────────────────────────────────────────────────────
 
@@ -390,6 +397,12 @@ export default function ProfileScreen() {
         visible={showPhotoPreview}
         cardUri={photoPreviewUri}
         onClose={() => setShowPhotoPreview(false)}
+      />
+
+      <ActionSheet
+        visible={actionSheetRec !== null && actionSheetOptions.length > 0}
+        onClose={() => setActionSheetRec(null)}
+        options={actionSheetOptions}
       />
     </View>
   );

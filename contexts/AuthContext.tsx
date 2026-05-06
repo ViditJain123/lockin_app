@@ -4,6 +4,11 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, AppStateStatus, Platform } from 'react-native';
 
+import {
+  ANDROID_DEFAULT_NAME,
+  ANDROID_DEFAULT_USER_ID,
+  IS_ANDROID,
+} from '../lib/androidDefaultUser';
 import { resolveAttribution } from '../lib/attribution';
 import { notifyDiscord } from '../lib/discordNotify';
 import { posthog } from '../lib/posthog';
@@ -14,12 +19,34 @@ import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { useTaskStore } from '../store/useTaskStore';
 
+// Fake Supabase session used on Android. Android has no signup/auth flow —
+// every install shares this hardcoded identity and never talks to Supabase auth.
+const ANDROID_MOCK_SESSION: Session = {
+  access_token: 'android-local',
+  refresh_token: 'android-local',
+  token_type: 'bearer',
+  expires_in: 0,
+  expires_at: 0,
+  user: {
+    id: ANDROID_DEFAULT_USER_ID,
+    email: undefined,
+    created_at: new Date(0).toISOString(),
+    user_metadata: { full_name: ANDROID_DEFAULT_NAME },
+    app_metadata: {},
+    aud: 'authenticated',
+    role: 'authenticated',
+  } as User,
+};
+
 // Types
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isInitialized: boolean;
   signInWithApple: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<{ needsEmailConfirmation: boolean }>;
+  sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -120,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Handle app state changes for token refresh (network-aware)
   useEffect(() => {
+    if (IS_ANDROID) return;
     const handleAppStateChange = async (state: AppStateStatus) => {
       if (state === 'active') {
         const netState = await NetInfo.fetch();
@@ -137,9 +165,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, []);
 
+  // Android-only: install the hardcoded mock session synchronously on mount.
+  // No Supabase auth listener runs on Android, so this is the only path that
+  // populates `session` and flips `isInitialized` for the platform.
+  useEffect(() => {
+    if (!IS_ANDROID) return;
+    setSession(ANDROID_MOCK_SESSION);
+    lastValidSession.current = ANDROID_MOCK_SESSION;
+    useTaskStore.getState().setUserId(ANDROID_DEFAULT_USER_ID);
+    setIsInitialized(true);
+  }, []);
+
   // Listen for auth state changes - the INITIAL_SESSION event fires
   // asynchronously once the cached session is restored from AsyncStorage
   useEffect(() => {
+    if (IS_ANDROID) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('[Auth] Auth state changed:', event);
@@ -272,6 +312,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with Apple using native iOS authentication
   const signInWithApple = async () => {
+    if (IS_ANDROID) {
+      console.log('[Auth] Android uses default account — signInWithApple is a no-op');
+      return;
+    }
     if (Platform.OS !== 'ios') {
       console.log('[Auth] Apple Sign-In is only available on iOS');
       return;
@@ -333,6 +377,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    if (IS_ANDROID) {
+      console.log('[Auth] Android uses default account — signInWithEmail is a no-op');
+      return;
+    }
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) throw error;
+  };
+
+  const signUpWithEmail = async (email: string, password: string) => {
+    if (IS_ANDROID) {
+      console.log('[Auth] Android uses default account — signUpWithEmail is a no-op');
+      return { needsEmailConfirmation: false };
+    }
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+    });
+    if (error) throw error;
+    // If Supabase has email confirmations enabled, session is null until the
+    // user clicks the confirmation link. Caller surfaces a "check your email"
+    // state in that case.
+    return { needsEmailConfirmation: !data.session };
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    if (IS_ANDROID) {
+      console.log('[Auth] Android uses default account — sendPasswordReset is a no-op');
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    if (error) throw error;
+  };
+
   // Clear all user-specific data on logout for data isolation between accounts
   const clearAllUserData = () => {
     useOnboardingStore.getState().clearQuizAnswers();
@@ -342,6 +423,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = async () => {
+    if (IS_ANDROID) {
+      console.log('[Auth] Android uses default account — signOut is a no-op');
+      return;
+    }
     try {
       isSigningOut.current = true;
 
@@ -375,6 +460,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Delete account permanently via edge function
   const deleteAccount = async () => {
+    if (IS_ANDROID) {
+      console.log('[Auth] Android uses default account — deleteAccount is a no-op');
+      return;
+    }
     try {
       const accessToken = session?.access_token;
       if (!accessToken) {
@@ -416,6 +505,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     isInitialized,
     signInWithApple,
+    signInWithEmail,
+    signUpWithEmail,
+    sendPasswordReset,
     signOut,
     deleteAccount,
   };

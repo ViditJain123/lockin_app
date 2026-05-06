@@ -73,6 +73,7 @@ import CrystalReceivedModal from '../components/CrystalReceivedModal';
 import { getCrystalById } from '../constants/Crystals';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
+import { IS_ANDROID } from '../lib/androidDefaultUser';
 import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
 import { parseUTMParams, storePendingAttribution } from '../lib/attribution';
@@ -532,7 +533,20 @@ function RootLayoutNav() {
           {currentQuestionIndex === 18 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
-              onContinue={goToNextQuestion}
+              onContinue={Platform.OS === 'ios' ? goToNextQuestion : () => {
+                // Android skips the final AppSelectionScreen (FamilyControls
+                // is iOS-only), so the completion side effects that normally
+                // run from AppSelectionScreen.onContinue have to fire here.
+                if (session?.user?.id) {
+                  const { sleepTime, targetHours } = quizAnswers;
+                  upsertUserRow(session.user.id, {
+                    sleep_time: convertSleepTimeTo24h(sleepTime),
+                    target_hours: targetHours,
+                  }).catch((err) => console.warn('[Onboarding] Failed to sync:', err));
+                }
+                posthog.capture('onboarding_completed');
+                completeQuizFunnel();
+              }}
             />
           )}
           {/* Question 20: App Selection (final step, completes funnel) */}
@@ -593,12 +607,13 @@ function RootLayoutNav() {
   }
 
   // Wait for subscription store to initialize before deciding paywall
-  if (hasCompletedOnboarding && !subscriptionInitialized) {
+  // (Android skips both checks — there's no paywall on that platform.)
+  if (!IS_ANDROID && hasCompletedOnboarding && !subscriptionInitialized) {
     return null; // Keep splash screen visible
   }
 
   // Hard paywall gate — block access if not subscribed
-  if (hasCompletedOnboarding && !isSubscribed) {
+  if (!IS_ANDROID && hasCompletedOnboarding && !isSubscribed) {
     return (
       <GestureHandlerRootView style={styles.container}>
         <TabletContainer>

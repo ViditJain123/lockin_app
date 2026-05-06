@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AppleSignInButton from '../../AppleSignInButton';
+import EmailAuthForm from '../../EmailAuthForm';
 import LCBody from '../lc/LCBody';
 import LCDisplay from '../lc/LCDisplay';
 import LCEyebrow from '../lc/LCEyebrow';
@@ -63,13 +64,21 @@ export default function QuizLoginScreen({
             />
           </View>
           <LCBody align="center" style={{ marginTop: 16, paddingHorizontal: 24 }}>
-            One-tap sign-in. We never see your password.
+            Sign in to save your progress and sync across devices.
           </LCBody>
         </View>
       </View>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 28 }]}>
         <AppleSignInButton />
+        {Platform.OS === 'ios' ? (
+          <View style={styles.orDividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.orText}>OR</Text>
+            <View style={styles.divider} />
+          </View>
+        ) : null}
+        <EmailAuthForm />
         <Text style={styles.terms}>
           BY CONTINUING YOU AGREE TO OUR{' '}
           <Text style={styles.termsAccent}>TERMS</Text> · <Text style={styles.termsAccent}>PRIVACY</Text>
@@ -115,6 +124,23 @@ const styles = StyleSheet.create({
   bottom: {
     paddingHorizontal: 20,
     gap: 14,
+  },
+  orDividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  orText: {
+    color: LC.textMute,
+    fontSize: 10,
+    fontFamily: Fonts.monoMedium,
+    letterSpacing: 2,
+    paddingHorizontal: 12,
   },
   terms: {
     fontFamily: Fonts.monoRegular,

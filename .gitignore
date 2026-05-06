@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Firebase / FCM (download from Firebase console; do not commit)
+google-services.json
+GoogleService-Info.plist
+
 # Metro
 .metro-health-check*
 

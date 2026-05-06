@@ -1,11 +1,6 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules } from 'react-native';
 
 const { TimelapseModule } = NativeModules;
-
-const noop = async () => {};
-const noopString = async () => '';
-
-const isIOS = Platform.OS === 'ios';
 
 export function startRecording(
   width: number,
@@ -16,17 +11,14 @@ export function startRecording(
   timerFilter: string,
   timerScale: number
 ): Promise<string> {
-  if (!isIOS) return noopString();
   return TimelapseModule.startRecording(width, height, orientation, timerX, timerY, timerFilter, timerScale);
 }
 
 export function addFrame(base64: string, elapsedSeconds: number): Promise<void> {
-  if (!isIOS) return noop();
   return TimelapseModule.addFrame(base64, elapsedSeconds);
 }
 
 export function addCompositeFrame(cameraImagePath: string, overlayBase64: string): Promise<void> {
-  if (!isIOS) return noop();
   return TimelapseModule.addCompositeFrame(cameraImagePath, overlayBase64);
 }
 
@@ -34,7 +26,6 @@ export function stopRecording(
   sessionDurationSeconds: number,
   taskName: string = ''
 ): Promise<string> {
-  if (!isIOS) return noopString();
   return TimelapseModule.stopRecording(sessionDurationSeconds, taskName);
 }
 
@@ -43,7 +34,6 @@ export function finalizePendingRecording(
   sessionDurationSeconds: number,
   taskName: string = ''
 ): Promise<string> {
-  if (!isIOS) return noopString();
   return TimelapseModule.finalizePendingRecording(
     pendingDirPath,
     sessionDurationSeconds,
@@ -52,6 +42,5 @@ export function finalizePendingRecording(
 }
 
 export function cancelRecording(): Promise<void> {
-  if (!isIOS) return noop();
   return TimelapseModule.cancelRecording();
 }
