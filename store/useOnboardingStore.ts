@@ -14,15 +14,15 @@ import { getLocalDateString, getTomorrowDateString } from '../lib/dateUtils';
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
 // Total number of quiz questions (including login screen)
-export const TOTAL_QUIZ_QUESTIONS = 20;
+export const TOTAL_QUIZ_QUESTIONS = 21;
 
 // Indices that depend on iOS-only FamilyControls / DeviceActivity APIs and
 // don't have an Android equivalent. The navigation actions skip these on
 // Android so the user never lands on a screen that can't function.
-//   13 → ScreenTimePermissionScreen
-//   19 → AppSelectionScreen (final app-lock step)
+//   14 → ScreenTimePermissionScreen
+//   20 → AppSelectionScreen (final app-lock step)
 const PLATFORM_SKIP_INDICES = new Set<number>(
-  Platform.OS === 'ios' ? [] : [13, 19],
+  Platform.OS === 'ios' ? [] : [14, 20],
 );
 
 // Interface for sleep time

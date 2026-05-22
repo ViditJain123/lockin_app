@@ -49,18 +49,18 @@
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera for timelapse recording</string>
-    <key>NSLocationWhenInUseUsageDescription</key>
-    <string>This app does not use your location</string>
     <key>NSFamilyControlsUsageDescription</key>
     <string>LockIn uses Screen Time to help you manage app usage and build better habits</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>This app does not use your location</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your microphone</string>
     <key>NSMotionUsageDescription</key>
     <string>Used to detect device orientation for timer display</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Save timelapse videos to your gallery</string>
+    <string>Save your grind timelapses and photo cards to your gallery</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Access your photos to save timelapse videos</string>
+    <string>Access your photos to save grind timelapses and photo cards</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
@@ -69,6 +69,25 @@
     <true/>
     <key>REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP</key>
     <string>$(REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP)</string>
+    <key>UIAppFonts</key>
+    <array>
+      <string>Quicksand_300Light.ttf</string>
+      <string>Quicksand_400Regular.ttf</string>
+      <string>Quicksand_500Medium.ttf</string>
+      <string>Quicksand_600SemiBold.ttf</string>
+      <string>Quicksand_700Bold.ttf</string>
+      <string>Inter_400Regular.ttf</string>
+      <string>Inter_500Medium.ttf</string>
+      <string>Inter_600SemiBold.ttf</string>
+      <string>Inter_700Bold.ttf</string>
+      <string>Inter_800ExtraBold.ttf</string>
+      <string>BebasNeue_400Regular.ttf</string>
+      <string>JetBrainsMono_400Regular.ttf</string>
+      <string>JetBrainsMono_500Medium.ttf</string>
+      <string>JetBrainsMono_600SemiBold.ttf</string>
+      <string>JetBrainsMono_700Bold.ttf</string>
+      <string>SpaceMono-Regular.ttf</string>
+    </array>
     <key>UIBackgroundModes</key>
     <array>
       <string>remote-notification</string>

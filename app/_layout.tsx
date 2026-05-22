@@ -46,6 +46,7 @@ import GoalsQuestionScreen from '../components/quiz/questions/GoalsQuestionScree
 import LifetimeUsageScreen from '../components/quiz/questions/LifetimeUsageScreen';
 import LockInSavingsScreen from '../components/quiz/questions/LockInSavingsScreen';
 import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
+import RatingScreen from '../components/quiz/questions/RatingScreen';
 import ScienceReplacementScreen from '../components/quiz/questions/ScienceReplacementScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
 import SleepTimeQuestionScreen from '../components/quiz/questions/SleepTimeQuestionScreen';
@@ -445,16 +446,24 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 9: Lifetime Usage */}
+          {/* Question 9: Rating */}
           {currentQuestionIndex === 8 && (
+            <RatingScreen
+              userName={quizAnswers.name}
+              onContinue={goToNextQuestion}
+              onBack={goToPreviousQuestion}
+            />
+          )}
+          {/* Question 10: Lifetime Usage */}
+          {currentQuestionIndex === 9 && (
             <LifetimeUsageScreen
               screenTime={quizAnswers.screenTime}
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 10: LockIn Savings */}
-          {currentQuestionIndex === 9 && (
+          {/* Question 11: LockIn Savings */}
+          {currentQuestionIndex === 10 && (
             <LockInSavingsScreen
               screenTime={quizAnswers.screenTime}
               desiredScreenTime={quizAnswers.desiredScreenTime}
@@ -462,15 +471,15 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 11: Science Replacement */}
-          {currentQuestionIndex === 10 && (
+          {/* Question 12: Science Replacement */}
+          {currentQuestionIndex === 11 && (
             <ScienceReplacementScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 12: Sleep Time */}
-          {currentQuestionIndex === 11 && (
+          {/* Question 13: Sleep Time */}
+          {currentQuestionIndex === 12 && (
             <SleepTimeQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -481,8 +490,8 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 13: Target Hours */}
-          {currentQuestionIndex === 12 && (
+          {/* Question 14: Target Hours */}
+          {currentQuestionIndex === 13 && (
             <TargetHoursQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -493,15 +502,15 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 14: Screen Time Permission */}
-          {currentQuestionIndex === 13 && (
+          {/* Question 15: Screen Time Permission */}
+          {currentQuestionIndex === 14 && (
             <ScreenTimePermissionScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 15: How It Works */}
-          {currentQuestionIndex === 14 && (
+          {/* Question 16: How It Works */}
+          {currentQuestionIndex === 15 && (
             <HowItWorksScreen
               userName={quizAnswers.name}
               targetHours={quizAnswers.targetHours}
@@ -509,28 +518,28 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 16: Notification Permission */}
-          {currentQuestionIndex === 15 && (
+          {/* Question 17: Notification Permission */}
+          {currentQuestionIndex === 16 && (
             <NotificationPermissionScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 17: Login Screen */}
-          {currentQuestionIndex === 16 && (
+          {/* Question 18: Login Screen */}
+          {currentQuestionIndex === 17 && (
             <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 18: Payment Screen */}
-          {currentQuestionIndex === 17 && (
+          {/* Question 19: Payment Screen */}
+          {currentQuestionIndex === 18 && (
             <PaymentScreen
               onContinue={goToNextQuestion}
             />
           )}
-          {/* Question 19: Payment Success Screen */}
-          {currentQuestionIndex === 18 && (
+          {/* Question 20: Payment Success Screen */}
+          {currentQuestionIndex === 19 && (
             <PaymentSuccessScreen
               userName={quizAnswers.name}
               onContinue={Platform.OS === 'ios' ? goToNextQuestion : () => {
@@ -549,8 +558,8 @@ function RootLayoutNav() {
               }}
             />
           )}
-          {/* Question 20: App Selection (final step, completes funnel) */}
-          {currentQuestionIndex === 19 && (
+          {/* Question 21: App Selection (final step, completes funnel) */}
+          {currentQuestionIndex === 20 && (
             <AppSelectionScreen
               familyActivitySelection={quizAnswers.familyActivitySelection}
               onSelectionChange={(selection) => setAnswer('familyActivitySelection', selection)}
