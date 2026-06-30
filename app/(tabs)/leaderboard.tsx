@@ -323,7 +323,7 @@ const plain = StyleSheet.create({
 
 // ─── Screen ───────────────────────────────────────────────────────────────
 
-const VISIBLE_PLAIN_MAX_RANK = 6;
+const VISIBLE_PLAIN_MAX_RANK = 50;
 
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();

@@ -16,7 +16,7 @@
     "ios": {
       "bundleIdentifier": "com.lockin.club",
       "appleTeamId": "CCQU7Z66V5",
-      "buildNumber": "2",
+      "buildNumber": "4",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "associatedDomains": [
