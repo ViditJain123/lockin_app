@@ -13,7 +13,7 @@ interface Props {
 
 export default function SummaryCard({ title, hours, percentChange, unit }: Props) {
   const isPositive = percentChange !== null && percentChange >= 0;
-  const changeColor = isPositive ? '#34C759' : '#FF3B5C';
+  const changeColor = isPositive ? '#34C759' : '#FF6600';
   const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
 
   const formatValue = (h: number): string => {
@@ -44,7 +44,7 @@ export default function SummaryCard({ title, hours, percentChange, unit }: Props
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',

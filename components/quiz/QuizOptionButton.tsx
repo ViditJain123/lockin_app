@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   },
   containerSelected: {
     borderColor: BrandColors.primary.main,
-    backgroundColor: 'rgba(255, 59, 92, 0.1)',
+    backgroundColor: 'rgba(255,102,0, 0.1)',
   },
   containerPressed: {
     opacity: 0.8,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconContainerSelected: {
-    backgroundColor: 'rgba(255, 59, 92, 0.2)',
+    backgroundColor: 'rgba(255,102,0, 0.2)',
   },
   iconText: {
     fontSize: 18,

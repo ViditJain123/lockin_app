@@ -99,7 +99,7 @@ export default function AddTaskModal({ visible, onClose }: AddTaskModalProps) {
             <Switch
               value={isDaily}
               onValueChange={setIsDaily}
-              trackColor={{ false: '#3A3A3C', true: '#FF3B5C' }}
+              trackColor={{ false: '#333333', true: '#FF6600' }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#1A1A1A',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,

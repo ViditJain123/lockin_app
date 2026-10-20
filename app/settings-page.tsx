@@ -400,7 +400,7 @@ export default function SettingsPageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   header: {
     flexDirection: 'row',
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   claimModalConfirmText: {
     fontFamily: Fonts.bold,
     fontSize: 17,
-    color: '#000',
+    color: '#0E0E0E',
   },
   claimModalCancelButton: {
     width: '100%',

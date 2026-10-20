@@ -132,7 +132,7 @@ export default function IPhoneVideoFrame({ source, height, style }: Props) {
 
 const styles = StyleSheet.create({
   shadow: {
-    shadowColor: '#000',
+    shadowColor: '#0E0E0E',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.55,
     shadowRadius: 30,
@@ -143,16 +143,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#3a3a3c',
+    borderColor: '#333333',
   },
   screen: {
     overflow: 'hidden',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   dynamicIsland: {
     position: 'absolute',
     alignSelf: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
     zIndex: 2,
   },
   homeIndicator: {

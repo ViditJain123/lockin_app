@@ -50,3 +50,17 @@ export function sessionStart(): void {
 export function sessionStop(): void {
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
+
+/**
+ * Heavy thud as the mascot lands on the opening screen.
+ */
+export function mascotLand(): void {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+}
+
+/**
+ * Soft tap timed with the mascot's wink.
+ */
+export function mascotWink(): void {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+}

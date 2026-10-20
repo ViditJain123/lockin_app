@@ -77,7 +77,7 @@ export default function StatsGrid({ stats, columns = 2 }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
     padding: 12,
   },

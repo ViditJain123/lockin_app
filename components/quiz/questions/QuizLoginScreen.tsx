@@ -105,9 +105,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,59,92,0.10)',
+    backgroundColor: 'rgba(255,102,0,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
   },
   brandDot: {
     width: 6,

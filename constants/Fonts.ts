@@ -25,6 +25,9 @@ export const Fonts = {
   monoMedium: 'JetBrainsMono_500Medium',
   monoSemiBold: 'JetBrainsMono_600SemiBold',
   monoBold: 'JetBrainsMono_700Bold',
+
+  // DM Sans (LOCKIN CLUB wordmark)
+  dmSansBold: 'DMSans_700Bold',
 } as const;
 
 // Type for font family

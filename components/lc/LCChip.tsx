@@ -23,9 +23,9 @@ const TONES: Record<LCChipTone, { bg: string; color: string; border: string }> =
     border: 'rgba(255,255,255,0.08)',
   },
   red: {
-    bg: 'rgba(255,59,92,0.14)',
+    bg: 'rgba(255,102,0,0.14)',
     color: LC.red,
-    border: 'rgba(255,59,92,0.3)',
+    border: 'rgba(255,102,0,0.3)',
   },
   green: {
     bg: 'rgba(74,222,128,0.12)',

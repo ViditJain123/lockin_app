@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    backgroundColor: 'rgba(255,59,92,0.08)',
+    backgroundColor: 'rgba(255,102,0,0.08)',
     opacity: 0.9,
   },
   scrollContent: {
@@ -485,9 +485,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,59,92,0.12)',
+    backgroundColor: 'rgba(255,102,0,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
   },
   streakEmoji: {
     fontSize: 12,
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.35)',
+    borderColor: 'rgba(255,102,0,0.35)',
     backgroundColor: '#1a1210',
     shadowColor: LC.red,
     shadowOffset: { width: 0, height: 16 },
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(255,59,92,0.12)',
+    backgroundColor: 'rgba(255,102,0,0.12)',
   },
   ruleH: {
     position: 'absolute',
@@ -654,7 +654,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.4)',
+    borderColor: 'rgba(255,102,0,0.4)',
     zIndex: 2,
   },
   adaptiveDot: {
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 140,
     lineHeight: 120,
-    color: 'rgba(255,59,92,0.08)',
+    color: 'rgba(255,102,0,0.08)',
     letterSpacing: -4,
   },
   heroEyebrow: {
@@ -839,9 +839,9 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 6,
-    backgroundColor: 'rgba(255,59,92,0.12)',
+    backgroundColor: 'rgba(255,102,0,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 26,
     letterSpacing: 2,
-    color: '#000',
+    color: '#0E0E0E',
     includeFontPadding: false,
   },
   claimSubLabel: {
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     fontFamily: Fonts.bold,
     fontSize: 17,
-    color: '#000',
+    color: '#0E0E0E',
   },
   modalCancelButton: {
     width: '100%',

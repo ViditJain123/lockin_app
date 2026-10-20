@@ -4,14 +4,14 @@
     "slug": "lockin_app",
     "version": "1.0.5",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.jpg",
+    "icon": "./assets/images/icon.png",
     "scheme": "lockinapp",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/logo.jpg",
+      "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "bundleIdentifier": "com.lockin.club",
@@ -22,7 +22,7 @@
       "associatedDomains": [
         "applinks:lockin.club"
       ],
-      "icon": "./assets/images/logo.jpg",
+      "icon": "./assets/images/icon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "Required for timelapse recording and to capture a photo at the end of your grind",
         "NSPhotoLibraryAddUsageDescription": "Save your grind timelapses and photo cards to your gallery",
@@ -37,8 +37,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.jpg",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FF6600"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -120,8 +120,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.jpg",
-          "color": "#000000"
+          "icon": "./assets/images/adaptive-icon.png",
+          "color": "#FF6600"
         }
       ],
       [

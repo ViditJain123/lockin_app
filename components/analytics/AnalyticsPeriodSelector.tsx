@@ -38,7 +38,7 @@ export default function AnalyticsPeriodSelector({ selected, onSelect }: Props) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 4,
   },
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   pillSelected: {
-    backgroundColor: '#FF3B5C',
+    backgroundColor: '#FF6600',
   },
   pillText: {
     fontSize: 14,

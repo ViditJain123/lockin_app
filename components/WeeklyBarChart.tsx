@@ -101,7 +101,7 @@ export default function WeeklyBarChart({
                       height: barHeight,
                       backgroundColor: day.isToday
                         ? LC.red
-                        : 'rgba(244,241,234,0.6)',
+                        : 'rgba(255,255,255,0.6)',
                     },
                     day.isToday && styles.todayBarGlow,
                   ]}

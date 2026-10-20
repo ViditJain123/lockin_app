@@ -35,7 +35,7 @@ export default function CloudBackground({ height = 250 }: CloudBackgroundProps) 
             <Stop offset="0%" stopColor={BrandColors.primary.main} stopOpacity={0.5} />
             <Stop offset="40%" stopColor={BrandColors.primary.gradientEnd} stopOpacity={0.3} />
             <Stop offset="70%" stopColor={BrandColors.primary.dark} stopOpacity={0.15} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
+            <Stop offset="100%" stopColor="#0E0E0E" stopOpacity={0} />
           </RadialGradient>
 
           {/* Right cloud gradient - positioned off-screen right */}
@@ -43,14 +43,14 @@ export default function CloudBackground({ height = 250 }: CloudBackgroundProps) 
             <Stop offset="0%" stopColor={BrandColors.primary.gradientStart} stopOpacity={0.45} />
             <Stop offset="35%" stopColor={BrandColors.primary.main} stopOpacity={0.25} />
             <Stop offset="65%" stopColor={BrandColors.primary.gradientEnd} stopOpacity={0.1} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
+            <Stop offset="100%" stopColor="#0E0E0E" stopOpacity={0} />
           </RadialGradient>
 
           {/* Center subtle glow */}
           <RadialGradient id="centerGlow" cx="50%" cy="0%" r="100%">
             <Stop offset="0%" stopColor={BrandColors.primary.main} stopOpacity={0.2} />
             <Stop offset="50%" stopColor={BrandColors.primary.dark} stopOpacity={0.08} />
-            <Stop offset="100%" stopColor="#000000" stopOpacity={0} />
+            <Stop offset="100%" stopColor="#0E0E0E" stopOpacity={0} />
           </RadialGradient>
         </Defs>
 

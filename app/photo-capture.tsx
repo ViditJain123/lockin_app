@@ -170,7 +170,7 @@ export default function PhotoCaptureScreen() {
   if (!permission) {
     return (
       <View style={styles.centerContainer}>
-        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#0E0E0E', '#1A1A1A']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator size="large" color="white" />
       </View>
     );
@@ -179,7 +179,7 @@ export default function PhotoCaptureScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.centerContainer}>
-        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#0E0E0E', '#1A1A1A']} style={StyleSheet.absoluteFill} />
         <View style={styles.permissionContent}>
           <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
@@ -202,7 +202,7 @@ export default function PhotoCaptureScreen() {
 
   return (
     <View style={styles.container} onLayout={handleContainerLayout}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E0E0E" />
 
       {/* Camera preview */}
       <View
@@ -290,17 +290,17 @@ export default function PhotoCaptureScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   previewContainer: {
     position: 'absolute',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
     overflow: 'hidden',
   },
   topRow: {
@@ -317,9 +317,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,59,92,0.12)',
+    backgroundColor: 'rgba(255,102,0,0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
   },
   eyebrowText: {
     fontFamily: Fonts.monoSemiBold,

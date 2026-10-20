@@ -83,7 +83,7 @@ export default function MonthlyBarChart({ referenceDate, activityByDate }: Props
                     height: barHeight,
                     backgroundColor: d.isToday
                       ? LC.red
-                      : 'rgba(244,241,234,0.55)',
+                      : 'rgba(255,255,255,0.55)',
                   },
                   d.isToday && styles.todayBarGlow,
                 ]}

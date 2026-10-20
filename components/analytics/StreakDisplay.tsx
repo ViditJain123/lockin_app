@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   fullContainer: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
     paddingVertical: 20,
     alignItems: 'center',

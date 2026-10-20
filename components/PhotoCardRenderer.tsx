@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   card: {
     aspectRatio: 9 / 16,
     width: '100%',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
     borderWidth: 6,
     borderColor: LC.red,
     overflow: 'hidden',
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     right: 12,
     bottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.45)',
+    borderColor: 'rgba(255,102,0,0.45)',
   },
   brandRow: {
     position: 'absolute',

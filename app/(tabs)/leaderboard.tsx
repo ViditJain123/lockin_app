@@ -86,15 +86,15 @@ const podium = StyleSheet.create({
     padding: 18,
     paddingHorizontal: 18,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,59,92,0.08)',
+    backgroundColor: 'rgba(255,102,0,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.35)',
+    borderColor: 'rgba(255,102,0,0.35)',
     overflow: 'hidden',
     marginBottom: 10,
   },
   youWrap: {
-    backgroundColor: 'rgba(255,59,92,0.14)',
-    borderColor: 'rgba(255,59,92,0.5)',
+    backgroundColor: 'rgba(255,102,0,0.14)',
+    borderColor: 'rgba(255,102,0,0.5)',
   },
   watermark: {
     position: 'absolute',
@@ -103,7 +103,7 @@ const podium = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 180,
     lineHeight: 160,
-    color: 'rgba(255,59,92,0.07)',
+    color: 'rgba(255,102,0,0.07)',
     letterSpacing: -4,
   },
   row: {
@@ -200,8 +200,8 @@ const elevated = StyleSheet.create({
     marginBottom: 6,
   },
   youRow: {
-    backgroundColor: 'rgba(255,59,92,0.1)',
-    borderColor: 'rgba(255,59,92,0.4)',
+    backgroundColor: 'rgba(255,102,0,0.1)',
+    borderColor: 'rgba(255,102,0,0.4)',
   },
   rank: {
     fontFamily: Fonts.display,
@@ -281,9 +281,9 @@ const plain = StyleSheet.create({
     marginBottom: 2,
   },
   youRow: {
-    backgroundColor: 'rgba(255,59,92,0.1)',
+    backgroundColor: 'rgba(255,102,0,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.4)',
+    borderColor: 'rgba(255,102,0,0.4)',
   },
   rank: {
     fontFamily: Fonts.monoRegular,

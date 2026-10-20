@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: LC.bgElev,
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 130,
     lineHeight: 110,
-    color: 'rgba(255,59,92,0.06)',
+    color: 'rgba(255,102,0,0.06)',
     letterSpacing: -4,
   },
 });

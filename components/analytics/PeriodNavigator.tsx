@@ -24,7 +24,7 @@ export default function PeriodNavigator({ label, canGoBack, canGoForward, onBack
         <Ionicons
           name="chevron-back"
           size={20}
-          color={canGoBack ? '#FF3B5C' : 'rgba(255,255,255,0.2)'}
+          color={canGoBack ? '#FF6600' : 'rgba(255,255,255,0.2)'}
         />
       </Pressable>
 
@@ -39,7 +39,7 @@ export default function PeriodNavigator({ label, canGoBack, canGoForward, onBack
         <Ionicons
           name="chevron-forward"
           size={20}
-          color={canGoForward ? '#FF3B5C' : 'rgba(255,255,255,0.2)'}
+          color={canGoForward ? '#FF6600' : 'rgba(255,255,255,0.2)'}
         />
       </Pressable>
     </View>

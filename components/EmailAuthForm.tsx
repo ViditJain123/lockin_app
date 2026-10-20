@@ -144,7 +144,7 @@ export default function EmailAuthForm({ onSubmitStart, onSubmitEnd }: EmailAuthF
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator size="small" color="#000000" />
+          <ActivityIndicator size="small" color="#0E0E0E" />
         ) : (
           <Text style={styles.submitText}>{submitLabel}</Text>
         )}
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   submitText: {
-    color: '#000000',
+    color: '#0E0E0E',
     fontSize: 16,
     fontFamily: Fonts.semiBold,
     letterSpacing: 0.3,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
   },
   error: {
-    color: '#ff7a8c',
+    color: '#FF8533',
     fontSize: 13,
     fontFamily: Fonts.regular,
     paddingHorizontal: 4,

@@ -10,7 +10,7 @@
 // - 'force': Always show onboarding (ignores completion state)
 // - 'normal': Production behavior (show onboarding only if not completed)
 // ============================================================
-export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'skip';
+export const ONBOARDING_DEV_MODE: 'skip' | 'force' | 'normal' = 'normal';
 
 // ============================================================
 // NOTIFICATION DEV MODE:

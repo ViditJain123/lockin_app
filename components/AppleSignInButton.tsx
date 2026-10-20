@@ -87,11 +87,11 @@ export default function AppleSignInButton({
     >
       <View style={styles.content}>
         {isLoading ? (
-          <ActivityIndicator size="small" color="#000000" />
+          <ActivityIndicator size="small" color="#0E0E0E" />
         ) : (
           <>
             <View style={styles.iconContainer}>
-              <Ionicons name="logo-apple" size={22} color="#000000" />
+              <Ionicons name="logo-apple" size={22} color="#0E0E0E" />
             </View>
             <Text style={styles.text}>Continue with Apple</Text>
           </>
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    shadowColor: '#000',
+    shadowColor: '#0E0E0E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    color: '#000000',
+    color: '#0E0E0E',
     fontSize: 16,
     fontFamily: Fonts.semiBold,
     letterSpacing: 0.3,

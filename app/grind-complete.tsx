@@ -311,7 +311,7 @@ export default function GrindCompleteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   content: {
     flex: 1,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     fontFamily: Fonts.bold,
     fontSize: 17,
-    color: '#000',
+    color: '#0E0E0E',
   },
   modalCancelButton: {
     width: '100%',

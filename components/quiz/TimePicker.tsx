@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     height: ITEM_HEIGHT,
     borderRadius: 12,
     borderWidth: 2,
-    backgroundColor: 'rgba(255, 59, 92, 0.1)',
+    backgroundColor: 'rgba(255,102,0, 0.1)',
     zIndex: -1,
   },
   gradientTop: {

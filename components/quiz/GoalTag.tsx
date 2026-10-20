@@ -47,10 +47,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
+    backgroundColor: 'rgba(255,102,0, 0.15)',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 59, 92, 0.4)',
+    borderColor: 'rgba(255,102,0, 0.4)',
     paddingVertical: 10,
     paddingHorizontal: 16,
     gap: 8,

@@ -10,7 +10,7 @@ interface TabletContainerProps {
 
 export default function TabletContainer({
   children,
-  backgroundColor = '#000',
+  backgroundColor = '#0E0E0E',
 }: TabletContainerProps) {
   if (!isTablet()) {
     return <>{children}</>;

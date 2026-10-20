@@ -16,22 +16,22 @@ import { buttonPress } from '../lib/haptics';
 // 3D Button Colors - Reddish Pink Brand Theme
 const COLORS = {
   // Main gradient (top to bottom of button face) - extended for smooth blend
-  gradientTop: '#FF6B82',    // Lighter pink at top
-  gradientMid: '#F04560',    // Mid pink
-  gradientBottom: '#C83050', // Bottom of button face (blends into shadow)
+  gradientTop: '#FF8533',    // Lighter pink at top
+  gradientMid: '#FF6600',    // Mid pink
+  gradientBottom: '#E05A00', // Bottom of button face (blends into shadow)
 
   // 3D depth effect
   highlight: 'rgba(255, 255, 255, 0.25)', // Top edge highlight (subtle)
-  shadow: '#A02040',         // Bottom edge shadow (darker, matches gradient end)
+  shadow: '#B34700',         // Bottom edge shadow (darker, matches gradient end)
 
   // Text
   text: '#FFFFFF',
 
   // Disabled state colors (grayed out)
   disabledGradientTop: '#4A4A4C',
-  disabledGradientMid: '#3A3A3C',
+  disabledGradientMid: '#333333',
   disabledGradientBottom: '#2C2C2E',
-  disabledShadow: '#1C1C1E',
+  disabledShadow: '#1A1A1A',
   disabledText: 'rgba(255, 255, 255, 0.4)',
 };
 

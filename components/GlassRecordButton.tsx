@@ -20,7 +20,7 @@ const INNER_RECORDING_SIZE = 30;
 const RECORDING_BORDER_RADIUS = 7;
 
 // Colors
-const IOS_SYSTEM_RED = '#FF3B30';
+const IOS_SYSTEM_RED = '#FF6600';
 const RING_COLOR = '#FFFFFF';
 
 // Animation timing

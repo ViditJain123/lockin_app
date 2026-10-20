@@ -93,7 +93,7 @@ export default function TimelapsePreviewSheet({ visible, videoUri, sessionDurati
 
           {isTooShort && (
             <View style={styles.warningBanner}>
-              <Ionicons name="warning" size={16} color="#000" />
+              <Ionicons name="warning" size={16} color="#0E0E0E" />
               <Text style={styles.warningText}>
                 Recording under 4 min — timelapse won't play here. Save to gallery to view.
               </Text>
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    backgroundColor: '#000000',
+    backgroundColor: '#0E0E0E',
   },
   content: {
     flex: 1,
@@ -187,6 +187,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: Fonts.semiBold,
-    color: '#000',
+    color: '#0E0E0E',
   },
 });

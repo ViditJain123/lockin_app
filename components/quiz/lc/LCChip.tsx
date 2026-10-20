@@ -20,9 +20,9 @@ const TONES: Record<Tone, { bg: string; color: string; border: string }> = {
     border: 'rgba(255,255,255,0.08)',
   },
   red: {
-    bg: 'rgba(255,59,92,0.14)',
+    bg: 'rgba(255,102,0,0.14)',
     color: LC.red,
-    border: 'rgba(255,59,92,0.3)',
+    border: 'rgba(255,102,0,0.3)',
   },
   green: {
     bg: 'rgba(74,222,128,0.12)',
@@ -35,9 +35,9 @@ const TONES: Record<Tone, { bg: string; color: string; border: string }> = {
     border: 'rgba(255,255,255,0.12)',
   },
   amber: {
-    bg: 'rgba(251,191,36,0.12)',
+    bg: 'rgba(255,201,60,0.12)',
     color: LC.amber,
-    border: 'rgba(251,191,36,0.3)',
+    border: 'rgba(255,201,60,0.3)',
   },
 };
 

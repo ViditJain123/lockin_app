@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: LC.bgElev,
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },

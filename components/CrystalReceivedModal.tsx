@@ -62,7 +62,7 @@ export default function CrystalReceivedModal({
     <Modal visible={visible} animationType="fade" transparent={false} onRequestClose={onClose}>
       <View style={styles.container}>
         <LinearGradient
-          colors={['#000000', '#0a0a0a', '#000000']}
+          colors={['#0E0E0E', '#0E0E0E', '#0E0E0E']}
           style={StyleSheet.absoluteFill}
         />
         {/* Tier-tinted ambient glow */}
@@ -123,7 +123,7 @@ export default function CrystalReceivedModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   glow: {
     position: 'absolute',

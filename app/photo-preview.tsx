@@ -279,7 +279,7 @@ export default function PhotoPreviewScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E0E0E" />
 
       {/* Top chrome */}
       <View style={[styles.topRow, { paddingTop: insets.top + 12 }]}>

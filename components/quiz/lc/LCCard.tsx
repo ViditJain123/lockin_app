@@ -26,7 +26,7 @@ export default function LCCard({
         {
           borderRadius: LC_RADIUS[radius],
           backgroundColor: armed ? LC.redTint : LC.bgCard,
-          borderColor: armed ? 'rgba(255,59,92,0.4)' : LC.border,
+          borderColor: armed ? 'rgba(255,102,0,0.4)' : LC.border,
           padding,
           shadowColor: armed ? LC.red : 'transparent',
           shadowOpacity: armed ? 0.25 : 0,

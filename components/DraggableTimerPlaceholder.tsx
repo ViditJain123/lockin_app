@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   brandClub: {
     fontSize: 11,
     fontFamily: 'Menlo-Bold',
-    color: '#FF3B5C',
+    color: '#FF6600',
     letterSpacing: 0.5,
   },
   dateStampContainer: {

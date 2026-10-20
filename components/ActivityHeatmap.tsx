@@ -15,15 +15,15 @@ const CELL_SIZE = 11;
 const CELL_GAP = 3;
 const DAY_LABEL_WIDTH = 28;
 
-const BRAND_PINK = '#FF3B5C';
+const BRAND_PINK = '#FF6600';
 
 // Color levels for the heatmap (from no activity to high activity)
 const COLORS = {
   empty: '#1a1a1a',
-  level1: 'rgba(255, 59, 92, 0.2)',
-  level2: 'rgba(255, 59, 92, 0.4)',
-  level3: 'rgba(255, 59, 92, 0.6)',
-  level4: 'rgba(255, 59, 92, 0.85)',
+  level1: 'rgba(255,102,0, 0.2)',
+  level2: 'rgba(255,102,0, 0.4)',
+  level3: 'rgba(255,102,0, 0.6)',
+  level4: 'rgba(255,102,0, 0.85)',
   level5: BRAND_PINK,
 };
 
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: 16,
     paddingHorizontal: 12,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
   },
   heatmapContainer: {

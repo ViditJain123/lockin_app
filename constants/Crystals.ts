@@ -13,11 +13,11 @@ export interface CrystalDefinition {
 }
 
 export const TIER_COLORS: Record<CrystalTier, string> = {
-  common: '#f4f1ea',
+  common: '#FFFFFF',
   uncommon: '#60a5fa',
   rare: '#a855f7',
-  epic: '#fbbf24',
-  mythic: '#FF3B5C',
+  epic: '#FFC93C',
+  mythic: '#FF6600',
 };
 
 export const TIER_LABELS: Record<CrystalTier, string> = {

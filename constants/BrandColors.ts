@@ -2,45 +2,53 @@
 // Centralized theme colors for consistent styling throughout the app
 
 export const BrandColors = {
-  // Primary gradient colors (red/pink theme)
+  // Core brand palette
+  palette: {
+    orange: '#FF6600',
+    yellow: '#FFC93C',
+    ink: '#0E0E0E',
+    white: '#FFFFFF',
+  },
+
+  // Primary gradient colors (orange theme)
   primary: {
-    gradientStart: '#FF6B82',   // Lighter pink
-    gradientMid: '#F04560',     // Mid pink/red
-    gradientEnd: '#C83050',     // Darker red
-    main: '#FF3B5C',            // Main brand color
-    dark: '#A02040',            // Dark variant
+    gradientStart: '#FF8533',   // Lighter orange
+    gradientMid: '#FF6600',     // Brand orange
+    gradientEnd: '#E05A00',     // Darker orange
+    main: '#FF6600',            // Main brand color
+    dark: '#B34700',            // Dark variant
   },
 
   // Progress bar colors
   progressBar: {
     background: 'rgba(255, 255, 255, 0.15)',
-    fill: '#FF3B5C',
-    fillGradientStart: '#FF6B82',
-    fillGradientEnd: '#E03050',
+    fill: '#FF6600',
+    fillGradientStart: '#FF8533',
+    fillGradientEnd: '#E05A00',
   },
 
   // Input field colors
   input: {
-    background: '#1C1C1E',
-    border: '#3A3A3C',
-    borderFocused: '#FF3B5C',
+    background: '#1A1A1A',
+    border: '#333333',
+    borderFocused: '#FF6600',
     placeholder: 'rgba(255, 255, 255, 0.4)',
     text: '#FFFFFF',
   },
 
   // Button states
   button: {
-    activeGradient: ['#FF6B82', '#F04560', '#C83050', '#A02040'] as const,
-    disabledBackground: '#3A3A3C',
+    activeGradient: ['#FF8533', '#FF6600', '#E05A00', '#B34700'] as const,
+    disabledBackground: '#333333',
     disabledText: 'rgba(255, 255, 255, 0.4)',
   },
 
   // Cloud/aurora background
   cloud: {
-    primary: 'rgba(255, 59, 92, 0.4)',
-    secondary: 'rgba(240, 69, 96, 0.3)',
-    tertiary: 'rgba(200, 48, 80, 0.2)',
-    glow: 'rgba(255, 107, 130, 0.15)',
+    primary: 'rgba(255,102,0, 0.4)',
+    secondary: 'rgba(255,102,0, 0.3)',
+    tertiary: 'rgba(224,90,0, 0.2)',
+    glow: 'rgba(255,133,51, 0.15)',
   },
 
   // Text colors
@@ -48,14 +56,14 @@ export const BrandColors = {
     primary: '#FFFFFF',
     secondary: 'rgba(255, 255, 255, 0.7)',
     muted: 'rgba(255, 255, 255, 0.5)',
-    accent: '#FF3B5C',
+    accent: '#FF6600',
   },
 
   // Background colors
   background: {
-    primary: '#000000',
-    secondary: '#0A0A0A',
-    card: '#1C1C1E',
+    primary: '#0E0E0E',
+    secondary: '#0E0E0E',
+    card: '#1A1A1A',
   },
 } as const;
 
@@ -70,7 +78,7 @@ export type BrandColorKey = keyof typeof BrandColors;
 
 export const LC = {
   // Surfaces
-  bg: '#0a0a0a',
+  bg: '#0E0E0E',
   bgElev: '#141414',
   bgCard: '#1a1a1a',
 
@@ -79,18 +87,18 @@ export const LC = {
   borderStrong: 'rgba(255,255,255,0.15)',
 
   // Text
-  text: '#f4f1ea',
-  textDim: 'rgba(244,241,234,0.6)',
-  textMute: 'rgba(244,241,234,0.35)',
+  text: '#FFFFFF',
+  textDim: 'rgba(255,255,255,0.6)',
+  textMute: 'rgba(255,255,255,0.35)',
 
-  // Accent (red hot-stamp)
-  red: '#FF3B5C',
-  redDeep: '#A02040',
-  redGlow: 'rgba(255,59,92,0.25)',
+  // Accent (brand orange; `red*` names kept for compatibility)
+  red: '#FF6600',
+  redDeep: '#B34700',
+  redGlow: 'rgba(255,102,0,0.25)',
 
   // Utility
   green: '#4ade80',
-  amber: '#fbbf24',
+  amber: '#FFC93C',
 
   // Receipt paper (thermal-printer reward card)
   paper: '#e9e4d8',

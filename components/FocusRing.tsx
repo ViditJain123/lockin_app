@@ -4,7 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { Fonts } from '../constants/Fonts';
 
-const BRAND_PINK = '#FF3B5C';
+const BRAND_PINK = '#FF6600';
 
 interface FocusRingProps {
   currentHours: number;
@@ -45,7 +45,7 @@ export default function FocusRing({ currentHours, targetHours, size: sizeProp }:
               cx={size / 2}
               cy={size / 2}
               r={radius}
-              stroke="rgba(255, 59, 92, 0.2)"
+              stroke="rgba(255,102,0, 0.2)"
               strokeWidth={strokeWidth}
               fill="transparent"
             />
@@ -101,7 +101,7 @@ export default function FocusRing({ currentHours, targetHours, size: sizeProp }:
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#1A1A1A',
     borderRadius: 16,
     padding: 16,
   },

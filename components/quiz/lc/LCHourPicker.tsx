@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: LC.bgCard,
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.3)',
+    borderColor: 'rgba(255,102,0,0.3)',
     shadowColor: LC.red,
     shadowOpacity: 0.25,
     shadowRadius: 22,

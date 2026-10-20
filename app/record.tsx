@@ -611,7 +611,7 @@ export default function CameraScreen() {
   if (!permission) {
     return (
       <View style={styles.centerContainer}>
-        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#0E0E0E', '#1A1A1A']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator size="large" color="white" />
       </View>
     );
@@ -621,7 +621,7 @@ export default function CameraScreen() {
   if (!permission.granted) {
     return (
       <View style={styles.centerContainer}>
-        <LinearGradient colors={['#000000', '#1a1a2e']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#0E0E0E', '#1A1A1A']} style={StyleSheet.absoluteFill} />
         <View style={styles.permissionContent}>
           <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
@@ -643,7 +643,7 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container} onLayout={handleContainerLayout}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E0E0E" />
 
       {/* Dev button */}
       {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
@@ -800,17 +800,17 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
   },
   previewContainer: {
     position: 'absolute',
-    backgroundColor: '#000',
+    backgroundColor: '#0E0E0E',
     overflow: 'hidden',
   },
   bottomControls: {

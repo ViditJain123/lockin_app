@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    backgroundColor: '#000000',
+    backgroundColor: '#0E0E0E',
   },
   content: {
     flex: 1,

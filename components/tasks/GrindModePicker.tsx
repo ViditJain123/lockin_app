@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.35)',
+    borderColor: 'rgba(255,102,0,0.35)',
     backgroundColor: '#1a1210',
     shadowColor: LC.red,
     shadowOffset: { width: 0, height: 16 },
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(255,59,92,0.12)',
+    backgroundColor: 'rgba(255,102,0,0.12)',
   },
   ruleH: {
     position: 'absolute',
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,92,0.4)',
+    borderColor: 'rgba(255,102,0,0.4)',
     zIndex: 2,
   },
   adaptiveDot: {
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 110,
     lineHeight: 100,
-    color: 'rgba(255,59,92,0.08)',
+    color: 'rgba(255,102,0,0.08)',
     letterSpacing: -3,
   },
   heroEyebrow: {

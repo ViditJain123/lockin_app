@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   receiptWrap: {
     marginTop: 24,
     alignSelf: 'center',
-    shadowColor: '#000',
+    shadowColor: '#0E0E0E',
     shadowOpacity: 0.5,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },

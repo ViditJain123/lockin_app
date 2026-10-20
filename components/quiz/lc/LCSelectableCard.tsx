@@ -42,7 +42,7 @@ export default function LCSelectableCard({
         layout === 'tile' ? styles.tile : styles.row,
         {
           backgroundColor: selected ? LC.redTint : LC.bgCard,
-          borderColor: selected ? 'rgba(255,59,92,0.5)' : LC.border,
+          borderColor: selected ? 'rgba(255,102,0,0.5)' : LC.border,
           shadowColor: selected ? LC.red : 'transparent',
           shadowOpacity: selected ? 0.35 : 0,
           shadowRadius: 18,

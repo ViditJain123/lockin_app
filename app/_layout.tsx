@@ -1,4 +1,5 @@
 import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
+import { DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -98,6 +99,8 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
+    // DM Sans (wordmark)
+    DMSans_700Bold,
     // Quicksand font weights
     Quicksand_300Light,
     Quicksand_400Regular,
@@ -211,7 +214,7 @@ function RootLayoutNav() {
   useEffect(() => {
     // Force dark mode at the React Native level
     Appearance.setColorScheme('dark');
-    setBackgroundColorAsync('#000000');
+    setBackgroundColorAsync('#0E0E0E');
   }, [colorScheme]);
 
   // Hide splash screen once store hydration and auth initialization are both done
@@ -264,7 +267,7 @@ function RootLayoutNav() {
           ...(iconPath ? { iconAppGroupRelativePath: iconPath } : { iconSystemName: 'lock.shield.fill' }),
           title: 'App is locked',
           subtitle: 'Profile -> Settings -> Claim to unlock',
-          backgroundColor: { red: 0, green: 0, blue: 0 },
+          backgroundColor: { red: 14, green: 14, blue: 14 },
           titleColor: { red: 255, green: 255, blue: 255 },
           subtitleColor: { red: 200, green: 200, blue: 200 },
         },
@@ -328,7 +331,7 @@ function RootLayoutNav() {
     return () => subscription.remove();
   }, [_hasHydrated, isInitialized, session, hasCompletedOnboarding]);
 
-  const backgroundColor = colorScheme === 'dark' ? '#000000' : '#ffffff';
+  const backgroundColor = colorScheme === 'dark' ? '#0E0E0E' : '#ffffff';
 
   // Wait for store hydration and auth initialization before deciding what to show
   if (!_hasHydrated || !isInitialized) {

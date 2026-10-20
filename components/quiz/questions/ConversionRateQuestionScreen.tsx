@@ -223,8 +223,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   optionCardSelected: {
-    backgroundColor: 'rgba(255, 59, 92, 0.15)',
-    borderColor: '#FF3B5C',
+    backgroundColor: 'rgba(255,102,0, 0.15)',
+    borderColor: '#FF6600',
   },
   optionHeader: {
     flexDirection: 'row',
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     color: BrandColors.text.primary,
   },
   optionTitleSelected: {
-    color: '#FF3B5C',
+    color: '#FF6600',
   },
   rateBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   rateBadgeSelected: {
-    backgroundColor: 'rgba(255, 59, 92, 0.3)',
+    backgroundColor: 'rgba(255,102,0, 0.3)',
   },
   rateBadgeText: {
     fontSize: 12,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     color: BrandColors.text.secondary,
   },
   rateBadgeTextSelected: {
-    color: '#FF3B5C',
+    color: '#FF6600',
   },
   radioOuter: {
     width: 22,
@@ -272,13 +272,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#FF3B5C',
+    borderColor: '#FF6600',
   },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#FF3B5C',
+    backgroundColor: '#FF6600',
   },
   optionDescription: {
     fontSize: 14,
