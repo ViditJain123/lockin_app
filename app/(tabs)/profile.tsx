@@ -32,6 +32,7 @@ import { useCrystalStore } from '@/store/useCrystalStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useSessionStore } from '@/store/useSessionStore';
 import { resolveUri, useVideoGalleryStore, type Recording } from '@/store/useVideoGalleryStore';
+import { LCBackButton } from '@/components/lc/LCBackButton';
 
 const GRID_GAP = 4;
 const GRID_COLUMNS = 3;
@@ -253,9 +254,7 @@ export default function ProfileScreen() {
       >
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <Text style={styles.brandMark}>
-            LOCKIN<Text style={styles.brandMarkAccent}>CLUB</Text>
-          </Text>
+          <LCBackButton />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Settings"

@@ -1,196 +1,163 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  InteractionManager,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { setStatusBarStyle } from 'expo-status-bar';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Easing, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
+import ClaimScreenTimeModal, { formatMinutes } from '@/components/ClaimScreenTimeModal';
+import FocusTodayCard from '@/components/dashboard/FocusTodayCard';
+import GlowCard, { GlowShape } from '@/components/dashboard/GlowCard';
 import LevelUpToast from '@/components/LevelUpToast';
-import LockinXPCard from '@/components/LockinXPCard';
-import { LC } from '@/constants/BrandColors';
+import Mascot from '@/components/Mascot';
+import { BrandColors } from '@/constants/BrandColors';
+import { CRYSTALS } from '@/constants/Crystals';
 import { Fonts } from '@/constants/Fonts';
-import { getLocalDateString } from '@/lib/dateUtils';
-import { posthog } from '@/lib/posthog';
+import { useAuth } from '@/contexts/AuthContext';
+import { getLocalDateStringDaysAgo } from '@/lib/dateUtils';
+import { buttonPress, mascotWink } from '@/lib/haptics';
 import { computeXP, levelFromXP } from '@/lib/xp';
 import { useAppLockStore } from '@/store/useAppLockStore';
+import { useCrystalStore } from '@/store/useCrystalStore';
+import { useLeaderboardStore } from '@/store/useLeaderboardStore';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useSessionStore } from '@/store/useSessionStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useVideoGalleryStore } from '@/store/useVideoGalleryStore';
 
-// ─── Tiny SVG icons ────────────────────────────────────────────────────────
+const LIGHT = '#F3F3F1';
+const INK = BrandColors.palette.ink;
+const ORANGE = BrandColors.palette.orange;
 
-function RingClockIcon({ size = 54 }: { size?: number }) {
-  const cx = size / 2;
-  const r = size * 0.39;
+const greetingForNow = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+// 0-3 dots depending on how long the user focused that day
+const intensity = (minutes: number) =>
+  minutes <= 0 ? 0 : minutes < 30 ? 1 : minutes < 90 ? 2 : 3;
+
+const DOT_COLORS = [ORANGE, INK, BrandColors.palette.yellow];
+
+function DayCell({ daysAgo, minutes }: { daysAgo: number; minutes: number }) {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  const isToday = daysAgo === 0;
+  const level = intensity(minutes);
+
   return (
-    <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Circle cx={cx} cy={cx} r={r} stroke={LC.border} strokeWidth={1} fill="none" />
-      <Circle
-        cx={cx}
-        cy={cx}
-        r={r}
-        stroke={LC.red}
-        strokeWidth={2}
-        strokeDasharray={2 * Math.PI * r}
-        strokeDashoffset={2 * Math.PI * r * 0.62}
-        strokeLinecap="round"
-        fill="none"
-        transform={`rotate(-90 ${cx} ${cx})`}
-      />
-      {Array.from({ length: 12 }).map((_, i) => {
-        const a = (i * 30 * Math.PI) / 180;
-        const r1 = r + 1;
-        const r2 = r + 3;
-        return (
-          <Line
+    <View style={styles.dayCell}>
+      <View>
+        <Text style={[styles.dayNumber, isToday && styles.dayNumberToday]}>{date.getDate()}</Text>
+        <Text style={[styles.dayName, isToday && styles.dayNameToday]}>
+          {date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()}
+        </Text>
+      </View>
+      <View style={styles.dots}>
+        {DOT_COLORS.map((color, i) => (
+          <View
             key={i}
-            x1={cx + Math.cos(a) * r1}
-            y1={cx + Math.sin(a) * r1}
-            x2={cx + Math.cos(a) * r2}
-            y2={cx + Math.sin(a) * r2}
-            stroke={LC.textDim}
-            strokeWidth={1}
+            style={[styles.dot, i < level ? { backgroundColor: color } : styles.dotEmpty]}
           />
-        );
-      })}
-    </Svg>
-  );
-}
-
-function ChevronRightIcon({ size = 18 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 6l6 6-6 6"
-        stroke={LC.textDim}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-function CheckSquareIcon({ size = 12 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 12 12" fill="none">
-      <Path
-        d="M1 1h10v10H1z"
-        stroke={LC.red}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M3 6l2 2 4-4"
-        stroke={LC.red}
-        strokeWidth={1.5}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function PlayIcon({ size = 30 }: { size?: number }) {
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Svg width={size * 0.45} height={size * 0.45} viewBox="0 0 10 10">
-        <Path d="M1 1l8 4-8 4V1z" fill={LC.red} />
-      </Svg>
+        ))}
+      </View>
     </View>
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-function formatHoursColon(hours: number): string {
-  if (!Number.isFinite(hours) || hours <= 0) return '0:00';
-  let h = Math.floor(hours);
-  let m = Math.round((hours - h) * 60);
-  if (m === 60) {
-    // Float imprecision can push ~0.9999 hours to round to 60 minutes;
-    // carry the hour so we don't display "3:60" instead of "4:00".
-    h += 1;
-    m = 0;
-  }
-  return `${h}:${m.toString().padStart(2, '0')}`;
+interface Tool {
+  title: string;
+  subtitle: string;
+  shape: GlowShape;
+  onPress: () => void;
 }
 
-function formatHoursLeft(hours: number): string {
-  if (!Number.isFinite(hours) || hours <= 0) return '0:00';
-  return formatHoursColon(hours);
+function ToolRow({ title, tools }: { title: string; tools: Tool[] }) {
+  return (
+    <View style={styles.toolSection}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.cards}
+        decelerationRate="fast"
+      >
+        {tools.map((tool) => (
+          <GlowCard
+            key={tool.title}
+            title={tool.title}
+            subtitle={tool.subtitle}
+            shape={tool.shape}
+            onPress={tool.onPress}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
 }
 
-function formatMinutes(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  if (mins >= 60) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return m > 0 ? `${h}h ${m}m` : `${h}h`;
-  }
-  return `${mins} minute${mins !== 1 ? 's' : ''}`;
-}
-
-// ─── Screen ───────────────────────────────────────────────────────────────
-
-export default function LockInScreen() {
+export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
-  const streak = useProfileStatsStore((s) => s.streak);
-  const hasHydrated = useProfileStatsStore((s) => s.hasHydrated);
-
+  const quizName = useOnboardingStore((s) => s.quizAnswers.name);
   const targetHoursRaw = useOnboardingStore((s) => s.quizAnswers.targetHours);
-  const targetHours = typeof targetHoursRaw === 'number' && targetHoursRaw > 0 ? targetHoursRaw : 0;
+  const targetHours = typeof targetHoursRaw === 'number' && targetHoursRaw > 0 ? targetHoursRaw : 4;
 
+  const streak = useProfileStatsStore((s) => s.streak) ?? 0;
+  const totalHours = useProfileStatsStore((s) => s.total_hours);
+  const grinds = useProfileStatsStore((s) => s.grinds);
   const sessions = useSessionStore((s) => s.sessions);
-  const todayHours = useMemo(() => {
-    const today = getLocalDateString();
-    const todaySec = sessions
-      .filter((s) => s.date === today)
-      .reduce((sum, s) => sum + (s.total_locked_in_seconds || 0), 0);
-    return todaySec / 3600;
-  }, [sessions]);
-
-  const targetPct =
-    targetHours > 0 ? Math.min(todayHours / targetHours, 1) : 0;
-  const hoursLeft = Math.max(targetHours - todayHours, 0);
-
-  const nextTask = useTaskStore((s) =>
-    s.tasks.find((t) => !t.isCompleted),
-  );
+  const tasks = useTaskStore((s) => s.tasks);
+  const openTasks = useMemo(() => tasks.filter((t) => !t.isCompleted), [tasks]);
+  const earnedCrystals = useCrystalStore((s) => s.earnedCrystals.length);
+  const rank = useLeaderboardStore((s) => s.currentUserRank);
+  const recordings = useVideoGalleryStore((s) => s.recordings.length);
 
   const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
+  const isCurrentlyLocked = useAppLockStore((s) => s.isCurrentlyLocked);
   const availableScreenTime = useAppLockStore((s) => s.getAvailableScreenTime());
   const canClaim = !isFullyUnlocked && availableScreenTime >= 60;
   const [showClaimModal, setShowClaimModal] = useState(false);
 
-  // ─── Level-up toast ─────────────────────────────────────────────────────
-  // Tracks the most recently observed level so we can flash the toast
-  // when the user crosses into a new level. We use a ref to avoid firing
-  // on the very first hydration of stats.
-  const totalHoursForXP = useProfileStatsStore((s) => s.total_hours);
-  const grindsForXP = useProfileStatsStore((s) => s.grinds);
+  const rightEyeOpen = useSharedValue(1);
+
+  // Light status bar text everywhere else in the app; dark on this light header
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('dark');
+      return () => setStatusBarStyle('light');
+    }, [])
+  );
+
+  // Rank for the Ranks card; the leaderboard screen refreshes it in full
+  useEffect(() => {
+    const { lastFetched, fetchLeaderboard } = useLeaderboardStore.getState();
+    if (user?.id && !lastFetched) fetchLeaderboard(user.id);
+  }, [user?.id]);
+
+  // Focus minutes per local day, from the same session data as analytics
+  const minutesByDay = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const s of sessions) {
+      totals.set(s.date, (totals.get(s.date) ?? 0) + (s.total_locked_in_seconds || 0));
+    }
+    return (daysAgo: number) => (totals.get(getLocalDateStringDaysAgo(daysAgo)) ?? 0) / 60;
+  }, [sessions]);
+  const weekMinutes = [6, 5, 4, 3, 2, 1, 0].map(minutesByDay);
+
+  // Flash the level-up toast when the user crosses into a new level
   const currentLevel = useMemo(
-    () => levelFromXP(computeXP({ totalHours: totalHoursForXP, totalGrinds: grindsForXP })),
-    [totalHoursForXP, grindsForXP]
+    () => levelFromXP(computeXP({ totalHours, totalGrinds: grinds })),
+    [totalHours, grinds]
   );
   const lastLevelRef = useRef<number | null>(null);
   const [toastLevel, setToastLevel] = useState<number | null>(null);
@@ -205,750 +172,376 @@ export default function LockInScreen() {
     lastLevelRef.current = currentLevel;
   }, [currentLevel]);
 
-  const goTimelapse = () => router.push('/record' as any);
-  const goStopwatch = () => router.push('/stopwatch' as any);
+  const firstName =
+    quizName?.trim() || user?.user_metadata?.full_name?.split(' ')[0] || 'friend';
 
-  const handleClaimConfirm = () => {
-    posthog.capture('screen_time_claim_confirm_tapped', {
-      available_screen_time_seconds: availableScreenTime,
-      source: 'home_screen',
-    });
-    setShowClaimModal(false);
-    // Defer the native FamilyControls bridge call off the modal-dismiss frame
-    // (mirrors the pattern in grind-complete.tsx that fixed a 1h15m crash).
-    InteractionManager.runAfterInteractions(() => {
-      try {
-        useAppLockStore.getState().unlockApps();
-        posthog.capture('screen_time_claimed', {
-          available_screen_time_seconds: availableScreenTime,
-          source: 'home_screen',
-        });
-      } catch (err: any) {
-        posthog.capture('home_claim_error', {
-          phase: 'unlock',
-          error: err?.message ?? String(err),
-        });
-      }
-    });
+  const winkMascot = () => {
+    mascotWink();
+    rightEyeOpen.value = withSequence(
+      withTiming(0, { duration: 80, easing: Easing.in(Easing.quad) }),
+      withTiming(0, { duration: 90 }),
+      withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) })
+    );
   };
 
+  const blockedSubtitle = isFullyUnlocked
+    ? 'Unlocked today'
+    : isCurrentlyLocked
+      ? 'Locked'
+      : 'Screen time on';
+
+  const lockInTools: Tool[] = [
+    { title: 'Timelapse', subtitle: 'Camera on', shape: 'wave', onPress: () => router.push('/record' as any) },
+    { title: 'Stopwatch', subtitle: 'No camera', shape: 'orb', onPress: () => router.push('/stopwatch' as any) },
+    ...(Platform.OS === 'ios'
+      ? [{ title: 'Blocked Apps', subtitle: blockedSubtitle, shape: 'crown' as const, onPress: () => router.push('/blocked-apps' as any) }]
+      : []),
+    {
+      title: 'Tasks',
+      subtitle: openTasks.length > 0 ? `${openTasks.length} to do` : 'All clear',
+      shape: 'ripple',
+      onPress: () => router.push('/tasks' as any),
+    },
+  ];
+
+  const progressTools: Tool[] = [
+    {
+      title: 'Trophies',
+      subtitle: `${earnedCrystals} / ${CRYSTALS.length} earned`,
+      shape: 'peak',
+      onPress: () => router.push({ pathname: '/profile', params: { tab: 'medals' } } as any),
+    },
+    { title: 'Ranks', subtitle: rank ? `You're #${rank}` : 'Leaderboard', shape: 'crown', onPress: () => router.push('/leaderboard' as any) },
+    { title: 'Stats', subtitle: `Level ${currentLevel}`, shape: 'wave', onPress: () => router.push('/analytics' as any) },
+    { title: 'Timelapses', subtitle: `${recordings} recorded`, shape: 'orb', onPress: () => router.push('/profile' as any) },
+  ];
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Ambient red glow */}
-      <View pointerEvents="none" style={styles.ambientGlow} />
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Light fill above the top edge when pulling down */}
+        <View style={styles.overscrollFill} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Top row — logo + streak chip */}
-        <View style={styles.topRow}>
-          <Text style={styles.brandMark}>
-            LOCKIN<Text style={styles.brandMarkAccent}>CLUB</Text>
-          </Text>
-          {hasHydrated && streak != null && streak > 0 ? (
-            <View style={styles.streakChip}>
-              <Text style={styles.streakEmoji}>🔥</Text>
-              <Text style={styles.streakText}>{streak} DAY</Text>
-            </View>
-          ) : null}
-        </View>
+        <View style={[styles.top, { paddingTop: insets.top + 8 }]}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              onPress={() => {
+                buttonPress();
+                router.push('/settings-page');
+              }}
+              style={styles.menuButton}
+              hitSlop={8}
+            >
+              <View style={styles.menuLineLong} />
+              <View style={styles.menuLineShort} />
+            </Pressable>
+            <Text style={styles.headerTitle}>Dashboard</Text>
+            <Pressable onPress={winkMascot} hitSlop={8} accessibilityLabel="Lockin Club mascot">
+              <Mascot size={44} rightEyeOpen={rightEyeOpen} />
+            </Pressable>
+          </View>
 
-        {/* Banner */}
-        <View style={styles.bannerBlock}>
-          <Text style={styles.bannerEyebrow}>◆ PICK YOUR WEAPON</Text>
-          <Text style={styles.bannerTitle}>
-            HOW WILL{'\n'}YOU <Text style={styles.bannerTitleAccent}>LOCK IN?</Text>
-          </Text>
-        </View>
+          {/* Hero: greeting + last four days */}
+          <View style={styles.hero}>
+            <Svg style={styles.heroGlow} width={260} height={260}>
+              <Defs>
+                <RadialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0" stopColor={ORANGE} stopOpacity={0.28} />
+                  <Stop offset="0.6" stopColor={BrandColors.palette.yellow} stopOpacity={0.12} />
+                  <Stop offset="1" stopColor={BrandColors.palette.yellow} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle cx={130} cy={130} r={130} fill="url(#heroGlow)" />
+            </Svg>
 
-        {/* Today's target mini-status */}
-        {targetHours > 0 ? (
-          <View style={styles.targetCard}>
-            <View style={styles.targetCardRow}>
-              <Text style={styles.targetCardEyebrow}>
-                TODAY · TARGET {targetHours}H
+            <View style={styles.greeting}>
+              <Text style={styles.greetingSmall}>{greetingForNow()},</Text>
+              <Text style={styles.greetingName} numberOfLines={1} adjustsFontSizeToFit>
+                {firstName}
               </Text>
-              <Text style={styles.targetCardSubText}>
-                {formatHoursLeft(hoursLeft)} LEFT
+              <Text style={styles.greetingLine}>
+                It's time to <Text style={styles.greetingAccent}>lock in.</Text>
               </Text>
             </View>
-            <View style={styles.targetCardProgressRow}>
-              <Text style={styles.targetCardHours}>{formatHoursColon(todayHours)}</Text>
-              <View style={styles.targetCardTrack}>
-                <View
-                  style={[
-                    styles.targetCardFill,
-                    { width: `${Math.round(targetPct * 100)}%` },
-                  ]}
-                />
+
+            <View style={styles.dayGrid}>
+              <View style={styles.dayRow}>
+                <DayCell daysAgo={3} minutes={minutesByDay(3)} />
+                <DayCell daysAgo={2} minutes={minutesByDay(2)} />
+              </View>
+              <View style={styles.dayRow}>
+                <DayCell daysAgo={1} minutes={minutesByDay(1)} />
+                <DayCell daysAgo={0} minutes={minutesByDay(0)} />
               </View>
             </View>
           </View>
-        ) : null}
 
-        {/* Claim Screen Time CTA */}
-        {canClaim ? (
-          <Pressable onPress={() => setShowClaimModal(true)} style={styles.claimWrap}>
-            <View style={styles.claimCta}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.claimLabel}>CLAIM SCREEN TIME</Text>
-                <Text style={styles.claimSubLabel}>
-                  {formatMinutes(availableScreenTime)} available
-                </Text>
-              </View>
-              <PlayIcon size={30} />
-            </View>
-          </Pressable>
-        ) : null}
+          <FocusTodayCard
+            todayMinutes={minutesByDay(0)}
+            targetHours={targetHours}
+            weekMinutes={weekMinutes}
+            streak={streak}
+          />
 
-        {/* Hero — TIMELAPSE card */}
-        <Pressable onPress={goTimelapse} style={styles.heroWrap}>
-          <View style={styles.heroCard}>
-            {/* Warm lit background gradient (layered Views) */}
-            <View style={styles.heroGlow1} pointerEvents="none" />
-            <View style={styles.heroGlow2} pointerEvents="none" />
-
-            {/* Rule-of-thirds lines */}
-            {[0.33, 0.66].map((p) => (
-              <View
-                key={`h${p}`}
-                pointerEvents="none"
-                style={[styles.ruleH, { top: `${p * 100}%` }]}
-              />
-            ))}
-            {[0.33, 0.66].map((p) => (
-              <View
-                key={`v${p}`}
-                pointerEvents="none"
-                style={[styles.ruleV, { left: `${p * 100}%` }]}
-              />
-            ))}
-
-            {/* RECOMMENDED flag */}
-            <View style={styles.recommendedFlag}>
-              <Text style={styles.recommendedText}>★ RECOMMENDED</Text>
-            </View>
-
-            {/* Adaptive badge (replaces 120×) */}
-            <View style={styles.adaptiveBadge}>
-              <View style={styles.adaptiveDot} />
-              <Text style={styles.adaptiveText}>ADAPTIVE</Text>
-            </View>
-
-            {/* Content */}
-            <View style={styles.heroContent}>
-              <Text style={styles.heroWatermark}>01</Text>
-              <Text style={styles.heroEyebrow}>MODE 01</Text>
-              <Text style={styles.heroTitle}>
-                TIMELAPSE{'\n'}
-                <Text style={styles.heroTitleAccent}>GRIND</Text>
+          {/* Earned screen time, ready to spend */}
+          {canClaim && (
+            <Pressable
+              onPress={() => {
+                buttonPress();
+                setShowClaimModal(true);
+              }}
+              style={({ pressed }) => [styles.claim, pressed && styles.claimPressed]}
+            >
+              <Ionicons name="hourglass" size={18} color={BrandColors.palette.white} />
+              <Text style={styles.claimText}>
+                Claim {formatMinutes(availableScreenTime)} of screen time
               </Text>
-              <Text style={styles.heroDesc}>
-                Camera rolls. Share-ready timelapses you can flex on the leaderboard.
-              </Text>
-
-              {/* CTA */}
-              <View style={styles.heroCta}>
-                <Text style={styles.heroCtaLabel}>START RECORDING</Text>
-                <PlayIcon size={30} />
-              </View>
-            </View>
-          </View>
-        </Pressable>
-
-        {/* Divider */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerLabel}>OR KEEP IT LOWKEY</Text>
-          <View style={styles.dividerLine} />
+              <Ionicons name="chevron-forward" size={16} color={BrandColors.palette.white} />
+            </Pressable>
+          )}
         </View>
 
-        {/* Secondary — STOPWATCH card */}
-        <Pressable onPress={goStopwatch} style={styles.secondaryWrap}>
-          <View style={styles.secondaryCard}>
-            <View style={styles.secondaryIconWrap}>
-              <RingClockIcon size={54} />
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <View style={styles.secondaryEyebrowRow}>
-                <Text style={styles.secondaryEyebrow}>MODE 02</Text>
-                <View style={styles.secondaryEyebrowDot} />
-                <Text style={styles.secondaryEyebrow}>NO CAMERA</Text>
-              </View>
-              <Text style={styles.secondaryTitle}>STOPWATCH GRIND</Text>
-              <Text style={styles.secondaryDesc}>
-                Just a timer. Same 1:1 reward. No video.
+        {/* Dark tools section */}
+        <View style={[styles.bottom, { paddingBottom: insets.bottom + 32 }]}>
+          <View style={styles.notch}>
+            <Ionicons name="chevron-up" size={16} color={INK} />
+          </View>
+
+          {openTasks[0] && (
+            <Pressable onPress={() => router.push('/tasks' as any)} style={styles.nextTask}>
+              <Text style={styles.nextTaskLabel}>NEXT UP</Text>
+              <Text style={styles.nextTaskTitle} numberOfLines={1}>
+                {openTasks[0].title}
               </Text>
-            </View>
-            <ChevronRightIcon size={18} />
-          </View>
-        </Pressable>
+            </Pressable>
+          )}
 
-        {/* Lockin XP card */}
-        <View style={styles.xpCardWrap}>
-          <LockinXPCard onPress={() => router.push({ pathname: '/profile', params: { tab: 'medals' } } as any)} />
+          <ToolRow title="Lock in" tools={lockInTools} />
+          <ToolRow title="Progress" tools={progressTools} />
         </View>
-
-        {/* Next task pill */}
-        {nextTask ? (
-          <View style={styles.nextTaskWrap}>
-            <View style={styles.nextTaskPill}>
-              <View style={styles.nextTaskIconBox}>
-                <CheckSquareIcon size={12} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.nextTaskEyebrow}>NEXT UP</Text>
-                <Text style={styles.nextTaskTitle} numberOfLines={1}>
-                  {nextTask.title}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
       </ScrollView>
 
-      {/* Claim Screen Time Confirmation Modal */}
-      <Modal
+      <ClaimScreenTimeModal
         visible={showClaimModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowClaimModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Start Screen Time?</Text>
-            <Text style={styles.modalBody}>
-              You'll be able to use your phone for the next{' '}
-              <Text style={styles.modalBold}>{formatMinutes(availableScreenTime)}</Text>
-            </Text>
-            <Pressable style={styles.modalConfirmButton} onPress={handleClaimConfirm}>
-              <Text style={styles.modalConfirmText}>Start Timer</Text>
-            </Pressable>
-            <Pressable
-              style={styles.modalCancelButton}
-              onPress={() => setShowClaimModal(false)}
-            >
-              <Text style={styles.modalCancelText}>Not Now</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Level-up toast */}
+        onClose={() => setShowClaimModal(false)}
+        source="dashboard"
+      />
       <LevelUpToast level={toastLevel} onDismiss={() => setToastLevel(null)} />
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LC.bg,
-  },
-  ambientGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-    backgroundColor: 'rgba(255,102,0,0.08)',
-    opacity: 0.9,
+    backgroundColor: INK,
   },
   scrollContent: {
-    paddingBottom: 140,
+    flexGrow: 1,
   },
-  // Top row
-  topRow: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  brandMark: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 20,
-    letterSpacing: 3,
-    color: LC.text,
-    textTransform: 'uppercase',
-  },
-  brandMarkAccent: {
-    color: LC.red,
-  },
-  streakChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,102,0,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,102,0,0.3)',
-  },
-  streakEmoji: {
-    fontSize: 12,
-  },
-  streakText: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 10,
-    color: LC.red,
-    letterSpacing: 1,
-  },
-  // Banner
-  bannerBlock: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
-  },
-  bannerEyebrow: {
-    fontFamily: Fonts.monoSemiBold,
-    fontSize: 10,
-    letterSpacing: 3,
-    color: LC.red,
-    textTransform: 'uppercase',
-  },
-  bannerTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 48,
-    lineHeight: 56,
-    color: LC.text,
-    letterSpacing: 0.5,
-    marginTop: 6,
-    includeFontPadding: false,
-  },
-  bannerTitleAccent: {
-    color: LC.red,
-  },
-  // Target card
-  targetCard: {
-    marginHorizontal: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
-    marginBottom: 14,
-  },
-  targetCardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  targetCardEyebrow: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    color: LC.textMute,
-    textTransform: 'uppercase',
-  },
-  targetCardSubText: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 10,
-    color: LC.textDim,
-    letterSpacing: 0.5,
-  },
-  targetCardProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 6,
-  },
-  targetCardHours: {
-    fontFamily: Fonts.display,
-    fontSize: 20,
-    lineHeight: 26,
-    color: LC.text,
-    letterSpacing: 0.5,
-    includeFontPadding: false,
-  },
-  targetCardTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  targetCardFill: {
-    height: '100%',
-    backgroundColor: LC.red,
-  },
-  // Hero card
-  heroWrap: {
-    paddingHorizontal: 16,
-  },
-  heroCard: {
-    position: 'relative',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,102,0,0.35)',
-    backgroundColor: '#1a1210',
-    shadowColor: LC.red,
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.18,
-    shadowRadius: 40,
-    elevation: 8,
-  },
-  heroGlow1: {
+  overscrollFill: {
     position: 'absolute',
-    top: -60,
-    left: -40,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(180,110,60,0.25)',
-  },
-  heroGlow2: {
-    position: 'absolute',
-    bottom: -40,
-    right: -40,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(255,102,0,0.12)',
-  },
-  ruleH: {
-    position: 'absolute',
+    top: -1000,
     left: 0,
     right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: 1000,
+    backgroundColor: LIGHT,
   },
-  ruleV: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  recommendedFlag: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    backgroundColor: LC.red,
-    zIndex: 2,
-  },
-  recommendedText: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 9,
-    color: '#fff',
-    letterSpacing: 1.5,
-  },
-  adaptiveBadge: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,102,0,0.4)',
-    zIndex: 2,
-  },
-  adaptiveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: LC.red,
-    shadowColor: LC.red,
-    shadowOpacity: 0.9,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 2,
-  },
-  adaptiveText: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 9,
-    color: LC.red,
-    letterSpacing: 1.5,
-  },
-  heroContent: {
-    position: 'relative',
-    paddingTop: 54,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  heroWatermark: {
-    position: 'absolute',
-    right: 12,
-    top: 28,
-    fontFamily: Fonts.display,
-    fontSize: 140,
-    lineHeight: 120,
-    color: 'rgba(255,102,0,0.08)',
-    letterSpacing: -4,
-  },
-  heroEyebrow: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 10,
-    letterSpacing: 2,
-    color: LC.textMute,
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 44,
-    lineHeight: 52,
-    color: LC.text,
-    letterSpacing: 0.5,
-    marginTop: 4,
-    includeFontPadding: false,
-  },
-  heroTitleAccent: {
-    color: LC.red,
-  },
-  heroDesc: {
-    fontFamily: Fonts.interRegular,
-    fontSize: 12,
-    color: LC.textDim,
-    marginTop: 10,
-    lineHeight: 17,
-    maxWidth: 260,
-  },
-  heroCta: {
-    marginTop: 16,
-    paddingVertical: 12,
+  top: {
+    backgroundColor: LIGHT,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: LC.red,
+    paddingBottom: 28,
+  },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: LC.red,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    elevation: 6,
+    height: 68,
+    paddingLeft: 22,
+    paddingRight: 12,
+    borderRadius: 34,
+    backgroundColor: BrandColors.palette.white,
+    shadowColor: INK,
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
   },
-  heroCtaLabel: {
-    fontFamily: Fonts.display,
-    fontSize: 20,
-    lineHeight: 26,
-    letterSpacing: 2,
-    color: '#fff',
-    includeFontPadding: false,
-  },
-  // Divider
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: LC.border,
-  },
-  dividerLabel: {
-    fontFamily: Fonts.monoSemiBold,
-    fontSize: 9,
-    color: LC.textMute,
-    letterSpacing: 2.5,
-    textTransform: 'uppercase',
-  },
-  // Secondary card
-  secondaryWrap: {
-    paddingHorizontal: 16,
-  },
-  // Lockin XP card wrap
-  xpCardWrap: {
-    paddingHorizontal: 16,
-    marginTop: 14,
-  },
-  secondaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
-  },
-  secondaryIconWrap: {
-    width: 54,
-    height: 54,
-    alignItems: 'center',
+  menuButton: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
-  },
-  secondaryEyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
   },
-  secondaryEyebrow: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 9,
-    letterSpacing: 1.5,
-    color: LC.textMute,
-    textTransform: 'uppercase',
-  },
-  secondaryEyebrowDot: {
-    width: 2,
+  menuLineLong: {
+    width: 22,
     height: 2,
     borderRadius: 1,
-    backgroundColor: LC.textMute,
+    backgroundColor: INK,
   },
-  secondaryTitle: {
-    fontFamily: Fonts.display,
+  menuLineShort: {
+    width: 14,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: INK,
+  },
+  headerTitle: {
     fontSize: 22,
-    lineHeight: 28,
-    color: LC.text,
-    letterSpacing: 0.5,
+    fontFamily: Fonts.medium,
+    color: INK,
+  },
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 26,
+    paddingHorizontal: 6,
+  },
+  heroGlow: {
+    position: 'absolute',
+    left: -90,
+    top: -30,
+  },
+  greeting: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  greetingSmall: {
+    fontSize: 17,
+    fontFamily: Fonts.medium,
+    color: 'rgba(14, 14, 14, 0.5)',
+  },
+  greetingName: {
+    fontSize: 40,
+    fontFamily: Fonts.semiBold,
+    color: INK,
     marginTop: 2,
-    includeFontPadding: false,
   },
-  secondaryDesc: {
-    fontFamily: Fonts.interRegular,
-    fontSize: 12,
-    color: LC.textDim,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  // Next task pill
-  nextTaskWrap: {
-    paddingHorizontal: 16,
+  greetingLine: {
+    fontSize: 16,
+    fontFamily: Fonts.medium,
+    color: 'rgba(14, 14, 14, 0.7)',
     marginTop: 10,
   },
-  nextTaskPill: {
+  greetingAccent: {
+    fontFamily: Fonts.bold,
+    color: ORANGE,
+  },
+  dayGrid: {
+    gap: 22,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    gap: 22,
+  },
+  dayCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dayNumber: {
+    fontSize: 34,
+    lineHeight: 38,
+    fontFamily: Fonts.light,
+    color: 'rgba(14, 14, 14, 0.35)',
+    textAlign: 'center',
+  },
+  dayNumberToday: {
+    fontFamily: Fonts.regular,
+    color: INK,
+  },
+  dayName: {
+    fontSize: 13,
+    fontFamily: Fonts.medium,
+    color: 'rgba(14, 14, 14, 0.35)',
+    textAlign: 'center',
+  },
+  dayNameToday: {
+    color: INK,
+  },
+  dots: {
+    gap: 5,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  dotEmpty: {
+    backgroundColor: 'rgba(14, 14, 14, 0.15)',
+  },
+  claim: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: LC.borderStrong,
+    marginTop: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: ORANGE,
   },
-  nextTaskIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,102,0,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,102,0,0.3)',
+  claimPressed: {
+    opacity: 0.85,
+  },
+  claimText: {
+    flex: 1,
+    fontSize: 16,
+    fontFamily: Fonts.bold,
+    color: BrandColors.palette.white,
+  },
+  bottom: {
+    flexGrow: 1,
+    backgroundColor: INK,
+    paddingTop: 22,
+  },
+  notch: {
+    position: 'absolute',
+    top: -1,
+    alignSelf: 'center',
+    width: 84,
+    height: 24,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    backgroundColor: LIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nextTaskEyebrow: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: LC.textMute,
-    textTransform: 'uppercase',
+  nextTask: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    backgroundColor: '#1A1A1A',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  nextTaskLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.monoSemiBold,
+    letterSpacing: 1.5,
+    color: ORANGE,
   },
   nextTaskTitle: {
-    fontFamily: Fonts.interMedium,
-    fontSize: 13,
-    color: LC.text,
-    marginTop: 2,
-  },
-  // Claim Screen Time CTA
-  claimWrap: {
-    paddingHorizontal: 16,
-    marginBottom: 14,
-  },
-  claimCta: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#34d399',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#34d399',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  claimLabel: {
-    fontFamily: Fonts.display,
-    fontSize: 20,
-    lineHeight: 26,
-    letterSpacing: 2,
-    color: '#0E0E0E',
-    includeFontPadding: false,
-  },
-  claimSubLabel: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    color: 'rgba(0,0,0,0.6)',
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  modalTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 22,
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  modalBody: {
-    fontFamily: Fonts.regular,
+    marginTop: 4,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    fontFamily: Fonts.semiBold,
+    color: BrandColors.palette.white,
   },
-  modalBold: {
-    fontFamily: Fonts.bold,
-    color: '#34d399',
+  toolSection: {
+    marginTop: 10,
   },
-  modalConfirmButton: {
-    width: '100%',
-    backgroundColor: '#34d399',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  modalConfirmText: {
-    fontFamily: Fonts.bold,
-    fontSize: 17,
-    color: '#0E0E0E',
-  },
-  modalCancelButton: {
-    width: '100%',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalCancelText: {
+  sectionTitle: {
+    fontSize: 24,
     fontFamily: Fonts.medium,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
+    color: BrandColors.palette.white,
+    paddingHorizontal: 22,
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  cards: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
 });

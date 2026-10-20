@@ -24,6 +24,7 @@ import {
 } from '@/lib/tinybird';
 import { useSessionStore, type LocalSession } from '@/store/useSessionStore';
 import type { AnalyticsTab } from '@/types/analytics';
+import { LCBackButton } from '@/components/lc/LCBackButton';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -555,6 +556,7 @@ export default function AnalyticsScreen() {
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {/* Sticky header */}
       <View style={styles.header}>
+        <LCBackButton />
         <Text style={styles.eyebrow}>PROGRESS</Text>
         <Text style={styles.title}>THE TAPE.</Text>
       </View>

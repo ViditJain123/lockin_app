@@ -1,37 +1,25 @@
-import { Tabs } from 'expo-router';
+import { Stack } from 'expo-router';
 import React from 'react';
 
-import { LCTabBar } from '@/components/lc/LCTabBar';
+import { LC } from '@/constants/BrandColors';
 
-export default function TabLayout() {
+// Single-dashboard navigation: `index` is the dashboard and every other
+// screen in this group is pushed on top of it with a back button.
+export default function DashboardLayout() {
   return (
-    <Tabs
+    <Stack
       initialRouteName="index"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          elevation: 0,
-        },
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: LC.bg },
       }}
-      tabBar={(props) => <LCTabBar {...props} />}
     >
-      {/*
-        TAB ORDER (LEFT -> CENTER -> RIGHT)
-        1. analytics  — STATS
-        2. tasks      — TASKS
-        3. index      — LOCK IN (Pick Your Weapon; center elevated button)
-        4. leaderboard — RANKS
-        5. profile    — ME
-        Order here must match TAB_ORDER in components/lc/LCTabBar.tsx.
-      */}
-      <Tabs.Screen name="analytics" />
-      <Tabs.Screen name="tasks" />
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="leaderboard" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="analytics" />
+      <Stack.Screen name="tasks" />
+      <Stack.Screen name="leaderboard" />
+      <Stack.Screen name="profile" />
+    </Stack>
   );
 }

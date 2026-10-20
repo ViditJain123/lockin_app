@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { LCBackButton } from '@/components/lc/LCBackButton';
 
 export default function TasksScreen() {
   const insets = useSafeAreaInsets();
@@ -83,6 +84,7 @@ export default function TasksScreen() {
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {/* Header */}
       <View style={styles.header}>
+        <LCBackButton />
         <Text style={styles.eyebrow}>
           {openTasks.length > 0
             ? `TODAY · ${openTasks.length} LEFT`

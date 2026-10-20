@@ -17,6 +17,7 @@ import {
   useLeaderboardStore,
   type LeaderboardUser,
 } from '@/store/useLeaderboardStore';
+import { LCBackButton } from '@/components/lc/LCBackButton';
 
 const MONTH_NAMES = [
   'JANUARY',
@@ -421,6 +422,7 @@ export default function LeaderboardScreen() {
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       {/* Header */}
       <View style={styles.header}>
+        <LCBackButton />
         <Text style={styles.eyebrow}>{eyebrowText}</Text>
         <Text style={styles.title}>THE RANKS.</Text>
       </View>
