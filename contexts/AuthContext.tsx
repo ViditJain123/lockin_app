@@ -15,7 +15,6 @@ import { posthog } from '../lib/posthog';
 import { supabase } from '../lib/supabase';
 import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
 import { useCrystalStore } from '../store/useCrystalStore';
-import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { useTaskStore } from '../store/useTaskStore';
 
@@ -123,7 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[Auth] Session recovery failed, clearing session');
         setSession(null);
         lastValidSession.current = null;
-        await useSubscriptionStore.getState().logoutUser();
       } catch (err) {
         console.error('[Auth] Session recovery error:', err);
         setSession(null);
@@ -203,8 +201,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!isInitialized) setIsInitialized(true);
 
           if (event === 'SIGNED_IN' && newSession) {
-            console.log('[Auth] Logging in to RevenueCat with user ID:', newSession.user.id);
-            await useSubscriptionStore.getState().loginUser(newSession.user.id);
             useTaskStore.getState().setUserId(newSession.user.id);
             // Identify user in PostHog
             posthog.identify(newSession.user.id, {
@@ -284,8 +280,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[Auth] SIGNED_OUT received while online, clearing session');
           setSession(null);
           lastValidSession.current = null;
-          console.log('[Auth] Logging out from RevenueCat');
-          await useSubscriptionStore.getState().logoutUser();
           return;
         }
 
@@ -440,10 +434,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear all user data stores for data isolation
       clearAllUserData();
 
-      // Logout from RevenueCat and reset subscription state
-      await useSubscriptionStore.getState().logoutUser();
-      useSubscriptionStore.getState().reset();
-
       const { error } = await supabase.auth.signOut();
       if (error) {
         isSigningOut.current = false;
@@ -488,8 +478,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       lastValidSession.current = null;
       clearAllUserData();
-      await useSubscriptionStore.getState().logoutUser();
-      useSubscriptionStore.getState().reset();
 
       // Sign out locally to clean up Supabase client state
       await supabase.auth.signOut();

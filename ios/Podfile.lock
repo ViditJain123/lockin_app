@@ -119,6 +119,8 @@ PODS:
     - ExpoModulesCore
   - ExpoSplashScreen (31.0.13):
     - ExpoModulesCore
+  - ExpoStoreReview (9.0.9):
+    - ExpoModulesCore
   - ExpoSystemUI (6.0.9):
     - ExpoModulesCore
   - ExpoVideoThumbnails (10.0.8):
@@ -131,11 +133,6 @@ PODS:
   - hermes-engine (0.81.5):
     - hermes-engine/Pre-built (= 0.81.5)
   - hermes-engine/Pre-built (0.81.5)
-  - PurchasesHybridCommon (17.30.1):
-    - RevenueCat (= 5.56.0)
-  - PurchasesHybridCommonUI (17.30.1):
-    - PurchasesHybridCommon (= 17.30.1)
-    - RevenueCatUI (= 5.56.0)
   - RCTDeprecation (0.81.5)
   - RCTRequired (0.81.5)
   - RCTTypeSafety (0.81.5):
@@ -1907,9 +1904,6 @@ PODS:
   - ReactNativeDependencies (0.81.5)
   - ReactNativeDeviceActivity (0.5.1):
     - ExpoModulesCore
-  - RevenueCat (5.56.0)
-  - RevenueCatUI (5.56.0):
-    - RevenueCat (= 5.56.0)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -1954,12 +1948,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNPaywalls (9.7.5):
-    - PurchasesHybridCommonUI (= 17.30.1)
-    - React-Core
-  - RNPurchases (9.7.5):
-    - PurchasesHybridCommon (= 17.30.1)
-    - React-Core
   - RNReanimated (4.1.6):
     - hermes-engine
     - RCTRequired
@@ -2230,6 +2218,7 @@ DEPENDENCIES:
   - ExpoSensors (from `../node_modules/expo-sensors/ios`)
   - ExpoSharing (from `../node_modules/expo-sharing/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
+  - ExpoStoreReview (from `../node_modules/expo-store-review/ios`)
   - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
   - ExpoVideoThumbnails (from `../node_modules/expo-video-thumbnails/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
@@ -2309,8 +2298,6 @@ DEPENDENCIES:
   - ReactNativeDeviceActivity (from `../node_modules/react-native-device-activity/ios`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
-  - RNPaywalls (from `../node_modules/react-native-purchases-ui`)
-  - RNPurchases (from `../node_modules/react-native-purchases`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -2319,10 +2306,6 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - PurchasesHybridCommon
-    - PurchasesHybridCommonUI
-    - RevenueCat
-    - RevenueCatUI
     - ZXingObjC
 
 EXTERNAL SOURCES:
@@ -2376,6 +2359,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-sharing/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
+  ExpoStoreReview:
+    :path: "../node_modules/expo-store-review/ios"
   ExpoSystemUI:
     :path: "../node_modules/expo-system-ui/ios"
   ExpoVideoThumbnails:
@@ -2533,10 +2518,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-async-storage/async-storage"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
-  RNPaywalls:
-    :path: "../node_modules/react-native-purchases-ui"
-  RNPurchases:
-    :path: "../node_modules/react-native-purchases"
   RNReanimated:
     :path: "../node_modules/react-native-reanimated"
   RNScreens:
@@ -2574,14 +2555,13 @@ SPEC CHECKSUMS:
   ExpoSensors: 8f9fe9a9ffd36ca9c2f0fe40dafc0a063f844420
   ExpoSharing: 0d983394ed4a80334bab5a0d5384f75710feb7e8
   ExpoSplashScreen: bc3cffefca2716e5f22350ca109badd7e50ec14d
+  ExpoStoreReview: 32bb43b6fae9c8db3e33cad69996dff3785eef5f
   ExpoSystemUI: 2ad325f361a2fcd96a464e8574e19935c461c9cc
   ExpoVideoThumbnails: 503a79271416c8723f04b55ea4737282513ebe4f
   ExpoWebBrowser: 970dd4c64c29c955c3af664c8058ba768a4c9187
   ExtensionStorage: 5796de20bf181317c376d693fedb64c6781a33ba
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
   hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
-  PurchasesHybridCommon: c0bc3edee10a8742e9a238247944b4be044ff177
-  PurchasesHybridCommonUI: b3d0bc51d9016e15b68d48ea9f297d202720df4a
   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
   RCTRequired: 8f3cfc90cc25cf6e420ddb3e7caaaabc57df6043
   RCTTypeSafety: 16a4144ca3f959583ab019b57d5633df10b5e97c
@@ -2652,12 +2632,8 @@ SPEC CHECKSUMS:
   ReactCommon: 08810150b1206cc44aecf5f6ae19af32f29151a8
   ReactNativeDependencies: 71ce9c28beb282aa720ea7b46980fff9669f428a
   ReactNativeDeviceActivity: bdb8dc74ea0db77484d4f8823cf2abd8b4660c80
-  RevenueCat: 9e2a13bead55198a72272ff105a7265e9510cd11
-  RevenueCatUI: 2200b8ec1cadb1c69c6f05452144184f929eadef
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
   RNGestureHandler: 2914750df066d89bf9d8f48a10ad5f0051108ac3
-  RNPaywalls: ab90f4c038b0913ffee94c180cb94c29b0fcc149
-  RNPurchases: ae1f8f522674a7938dd26eba6c103c40d049dfee
   RNReanimated: e5c702a3e24cc1c68b2de67671713f35461678f4
   RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
   RNSVG: 31d6639663c249b7d5abc9728dde2041eb2a3c34
@@ -2667,4 +2643,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 76861bd43945edea6573803237162ec6c7d8d9f3
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.17.0

@@ -13,16 +13,21 @@ import { getLocalDateString, getTomorrowDateString } from '../lib/dateUtils';
 // Storage keys
 const ONBOARDING_STORAGE_KEY = 'lockin-onboarding-state';
 
-// Total number of quiz questions (including login screen)
-export const TOTAL_QUIZ_QUESTIONS = 21;
+// Number of questions shown in the quiz progress bar
+export const TOTAL_QUIZ_QUESTIONS = 5;
+
+// Total number of screens in the quiz funnel:
+//   0-4 questions (name, goals, screen time, sleep time, target hours)
+//   5 Screen Time permission, 6 notifications, 7 login, 8 welcome, 9 app selection
+export const TOTAL_QUIZ_SCREENS = 10;
 
 // Indices that depend on iOS-only FamilyControls / DeviceActivity APIs and
 // don't have an Android equivalent. The navigation actions skip these on
 // Android so the user never lands on a screen that can't function.
-//   14 → ScreenTimePermissionScreen
-//   20 → AppSelectionScreen (final app-lock step)
+//   5 → ScreenTimePermissionScreen
+//   9 → AppSelectionScreen (final app-lock step)
 const PLATFORM_SKIP_INDICES = new Set<number>(
-  Platform.OS === 'ios' ? [] : [14, 20],
+  Platform.OS === 'ios' ? [] : [5, 9],
 );
 
 // Interface for sleep time
@@ -202,15 +207,15 @@ export const useOnboardingStore = create<OnboardingState>()(
       goToNextQuestion: () => {
         const { currentQuestionIndex } = get();
         let next = currentQuestionIndex + 1;
-        while (PLATFORM_SKIP_INDICES.has(next) && next < TOTAL_QUIZ_QUESTIONS) {
+        while (PLATFORM_SKIP_INDICES.has(next) && next < TOTAL_QUIZ_SCREENS) {
           next++;
         }
-        if (next < TOTAL_QUIZ_QUESTIONS) {
+        if (next < TOTAL_QUIZ_SCREENS) {
           set({ currentQuestionIndex: next });
         }
         // If we ran off the end (Android skipping the final app-lock step),
         // the screen at currentQuestionIndex is responsible for completing
-        // the funnel — see _layout.tsx PaymentSuccessScreen onContinue.
+        // the funnel — see the welcome screen's onContinue in _layout.tsx.
       },
 
       // Move to previous question

@@ -36,23 +36,12 @@ import { PostHogProvider } from 'posthog-react-native';
 
 import AuthScreen from '../components/AuthScreen';
 import TabletContainer from '../components/TabletContainer';
-import HardPaywallScreen from '../components/HardPaywallScreen';
 import OnboardingScreen from '../components/OnboardingScreen';
-import AgeQuestionScreen from '../components/quiz/questions/AgeQuestionScreen';
-import AppsQuestionScreen from '../components/quiz/questions/AppsQuestionScreen';
-import DependenceResultScreen from '../components/quiz/questions/DependenceResultScreen';
-import DesiredScreenTimeQuestionScreen from '../components/quiz/questions/DesiredScreenTimeQuestionScreen';
 import GoalsQuestionScreen from '../components/quiz/questions/GoalsQuestionScreen';
-import LifetimeUsageScreen from '../components/quiz/questions/LifetimeUsageScreen';
-import LockInSavingsScreen from '../components/quiz/questions/LockInSavingsScreen';
 import NameQuestionScreen from '../components/quiz/questions/NameQuestionScreen';
-import RatingScreen from '../components/quiz/questions/RatingScreen';
-import ScienceReplacementScreen from '../components/quiz/questions/ScienceReplacementScreen';
 import ScreenTimeQuestionScreen from '../components/quiz/questions/ScreenTimeQuestionScreen';
 import SleepTimeQuestionScreen from '../components/quiz/questions/SleepTimeQuestionScreen';
-import SocialProofScreen from '../components/quiz/questions/SocialProofScreen';
 import TargetHoursQuestionScreen from '../components/quiz/questions/TargetHoursQuestionScreen';
-import { useIsSubscribed, useSubscriptionStore } from '../store/useSubscriptionStore';
 // Family Controls screens
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -64,16 +53,15 @@ import {
   updateShield,
 } from 'react-native-device-activity';
 import AppSelectionScreen from '../components/quiz/questions/AppSelectionScreen';
-import HowItWorksScreen from '../components/quiz/questions/HowItWorksScreen';
 import NotificationPermissionScreen from '../components/quiz/questions/NotificationPermissionScreen';
-import PaymentScreen from '../components/quiz/questions/PaymentScreen';
-import PaymentSuccessScreen from '../components/quiz/questions/PaymentSuccessScreen';
+import WelcomeScreen from '../components/quiz/questions/WelcomeScreen';
 import QuizLoginScreen from '../components/quiz/questions/QuizLoginScreen';
 import ScreenTimePermissionScreen from '../components/quiz/questions/ScreenTimePermissionScreen';
 import CrystalReceivedModal from '../components/CrystalReceivedModal';
 import { getCrystalById } from '../constants/Crystals';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useNotificationSetup } from '../hooks/useNotificationSetup';
+import { cancelTrialEndNotification } from '../lib/notificationService';
 import { IS_ANDROID } from '../lib/androidDefaultUser';
 import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
@@ -137,8 +125,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      // Initialize subscription store (which initializes StoreKit)
-      useSubscriptionStore.getState().initialize();
+      // The app is free now; clear any trial reminder scheduled by older builds
+      cancelTrialEndNotification().catch(() => {});
       // Preload crystal assets (fire and forget)
       preloadAllCrystals();
     }
@@ -164,10 +152,6 @@ function RootLayoutNav() {
   // Force dark mode throughout the app
   const colorScheme = 'dark' as const;
   const { session, isInitialized } = useAuth();
-
-  // Subscription state
-  const isSubscribed = useIsSubscribed();
-  const subscriptionInitialized = useSubscriptionStore((state) => state.isInitialized);
 
   // Onboarding state
   const {
@@ -393,93 +377,8 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 4: Desired Screen Time */}
+          {/* Question 4: Sleep Time */}
           {currentQuestionIndex === 3 && (
-            <DesiredScreenTimeQuestionScreen
-              currentStep={currentQuestionIndex + 1}
-              totalSteps={TOTAL_QUIZ_QUESTIONS}
-              userName={quizAnswers.name}
-              desiredScreenTime={quizAnswers.desiredScreenTime}
-              onDesiredScreenTimeChange={(hours) => setAnswer('desiredScreenTime', hours)}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 5: Social Proof */}
-          {currentQuestionIndex === 4 && (
-            <SocialProofScreen
-              userName={quizAnswers.name}
-              selectedGoals={quizAnswers.goals}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 6: Problematic Apps */}
-          {currentQuestionIndex === 5 && (
-            <AppsQuestionScreen
-              currentStep={currentQuestionIndex + 1}
-              totalSteps={TOTAL_QUIZ_QUESTIONS}
-              selectedApps={quizAnswers.problematicApps}
-              onAppsChange={(apps) => setAnswer('problematicApps', apps)}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 7: Age */}
-          {currentQuestionIndex === 6 && (
-            <AgeQuestionScreen
-              currentStep={currentQuestionIndex + 1}
-              totalSteps={TOTAL_QUIZ_QUESTIONS}
-              selectedAge={quizAnswers.age}
-              onAgeChange={(age) => setAnswer('age', age)}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 8: Dependence Result */}
-          {currentQuestionIndex === 7 && (
-            <DependenceResultScreen
-              screenTime={quizAnswers.screenTime}
-              desiredScreenTime={quizAnswers.desiredScreenTime}
-              problematicApps={quizAnswers.problematicApps}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 9: Rating */}
-          {currentQuestionIndex === 8 && (
-            <RatingScreen
-              userName={quizAnswers.name}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 10: Lifetime Usage */}
-          {currentQuestionIndex === 9 && (
-            <LifetimeUsageScreen
-              screenTime={quizAnswers.screenTime}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 11: LockIn Savings */}
-          {currentQuestionIndex === 10 && (
-            <LockInSavingsScreen
-              screenTime={quizAnswers.screenTime}
-              desiredScreenTime={quizAnswers.desiredScreenTime}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 12: Science Replacement */}
-          {currentQuestionIndex === 11 && (
-            <ScienceReplacementScreen
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 13: Sleep Time */}
-          {currentQuestionIndex === 12 && (
             <SleepTimeQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -490,8 +389,8 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 14: Target Hours */}
-          {currentQuestionIndex === 13 && (
+          {/* Question 5: Target Hours */}
+          {currentQuestionIndex === 4 && (
             <TargetHoursQuestionScreen
               currentStep={currentQuestionIndex + 1}
               totalSteps={TOTAL_QUIZ_QUESTIONS}
@@ -502,45 +401,30 @@ function RootLayoutNav() {
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 15: Screen Time Permission */}
-          {currentQuestionIndex === 14 && (
+          {/* Screen Time Permission (iOS) */}
+          {currentQuestionIndex === 5 && (
             <ScreenTimePermissionScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 16: How It Works */}
-          {currentQuestionIndex === 15 && (
-            <HowItWorksScreen
-              userName={quizAnswers.name}
-              targetHours={quizAnswers.targetHours}
-              onContinue={goToNextQuestion}
-              onBack={goToPreviousQuestion}
-            />
-          )}
-          {/* Question 17: Notification Permission */}
-          {currentQuestionIndex === 16 && (
+          {/* Notification Permission */}
+          {currentQuestionIndex === 6 && (
             <NotificationPermissionScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 18: Login Screen */}
-          {currentQuestionIndex === 17 && (
+          {/* Login */}
+          {currentQuestionIndex === 7 && (
             <QuizLoginScreen
               onContinue={goToNextQuestion}
               onBack={goToPreviousQuestion}
             />
           )}
-          {/* Question 19: Payment Screen */}
-          {currentQuestionIndex === 18 && (
-            <PaymentScreen
-              onContinue={goToNextQuestion}
-            />
-          )}
-          {/* Question 20: Payment Success Screen */}
-          {currentQuestionIndex === 19 && (
-            <PaymentSuccessScreen
+          {/* Welcome (completes the funnel on Android) */}
+          {currentQuestionIndex === 8 && (
+            <WelcomeScreen
               userName={quizAnswers.name}
               onContinue={Platform.OS === 'ios' ? goToNextQuestion : () => {
                 // Android skips the final AppSelectionScreen (FamilyControls
@@ -558,8 +442,8 @@ function RootLayoutNav() {
               }}
             />
           )}
-          {/* Question 21: App Selection (final step, completes funnel) */}
-          {currentQuestionIndex === 20 && (
+          {/* App Selection (iOS final step, completes funnel) */}
+          {currentQuestionIndex === 9 && (
             <AppSelectionScreen
               familyActivitySelection={quizAnswers.familyActivitySelection}
               onSelectionChange={(selection) => setAnswer('familyActivitySelection', selection)}
@@ -610,24 +494,6 @@ function RootLayoutNav() {
         <TabletContainer>
           <StatusBar style="light" />
           <AuthScreen />
-        </TabletContainer>
-      </GestureHandlerRootView>
-    );
-  }
-
-  // Wait for subscription store to initialize before deciding paywall
-  // (Android skips both checks — there's no paywall on that platform.)
-  if (!IS_ANDROID && hasCompletedOnboarding && !subscriptionInitialized) {
-    return null; // Keep splash screen visible
-  }
-
-  // Hard paywall gate — block access if not subscribed
-  if (!IS_ANDROID && hasCompletedOnboarding && !isSubscribed) {
-    return (
-      <GestureHandlerRootView style={styles.container}>
-        <TabletContainer>
-          <StatusBar style="light" />
-          <HardPaywallScreen />
         </TabletContainer>
       </GestureHandlerRootView>
     );

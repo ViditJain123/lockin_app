@@ -19,15 +19,15 @@ import LCReceipt from '../lc/LCReceipt';
 import { Fonts } from '../../../constants/Fonts';
 import { LC } from '../../../constants/LockinClubColors';
 
-interface PaymentSuccessScreenProps {
+interface WelcomeScreenProps {
   userName: string;
   onContinue: () => void;
 }
 
-export default function PaymentSuccessScreen({
+export default function WelcomeScreen({
   userName,
   onContinue,
-}: PaymentSuccessScreenProps) {
+}: WelcomeScreenProps) {
   const pillScale = useSharedValue(0.6);
   const pillOpacity = useSharedValue(0);
   const titleOp = useSharedValue(0);

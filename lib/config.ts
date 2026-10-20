@@ -32,10 +32,3 @@ export const SESSION_DEV_MODE_ENABLED: boolean = false;
 // - false: Production behavior (normal fingerprint-based deferred matching)
 // ============================================================
 export const ATTRIBUTION_DEV_MODE: boolean = false;
-
-// ============================================================
-// PAYWALL SIGN OUT BUTTON:
-// - true: Shows a "Sign Out" button at the bottom of the hard paywall screen
-// - false: Hides the sign out button (users must subscribe to proceed)
-// ============================================================
-export const PAYWALL_SIGN_OUT_ENABLED: boolean = false;

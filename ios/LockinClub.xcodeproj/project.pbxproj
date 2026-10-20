@@ -20,6 +20,10 @@
 		4F14623D5398452B8178C318 /* Quicksand_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 272E78B396B04EA6AA110A25 /* Quicksand_700Bold.ttf */; };
 		8137068E0F1D4804933734E4 /* Inter_800ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 48B26E55939C4F679ED45795 /* Inter_800ExtraBold.ttf */; };
 		91C58CE7EAAA4D09892CA621 /* Quicksand_500Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4FE09EBBE5CB4477AD609C70 /* Quicksand_500Medium.ttf */; };
+		AA12345600000000000000A1 /* TimelapseModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B1 /* TimelapseModule.swift */; };
+		AA12345600000000000000A2 /* TimelapseModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B2 /* TimelapseModule.m */; };
+		AA12345600000000000000A3 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B3 /* TimelapseFrameOverlay.swift */; };
+		AA12345600000000000000A4 /* IntroOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B4 /* IntroOverlay.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		BC53B6B98FC5443E8C3FCF0D /* Inter_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 661D2E562A6D4748A60D1A4B /* Inter_600SemiBold.ttf */; };
 		DB215D97F9164C2296B21645 /* BebasNeue_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F7435B73E041439181A2FF7F /* BebasNeue_400Regular.ttf */; };
@@ -35,10 +39,6 @@
 		XXBEFFB36AB412820C306DXX /* ShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XX05E83E103BF49F57A457XX /* ShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		XXD33E402502F114432AD3XX /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XXCA68A9416C78B970D1D9XX /* DeviceActivity.framework */; };
 		XXE5C6ED1B941143A02B1EXX /* ActivityMonitorExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = XX7DDE620121E0E26B18E0XX /* ActivityMonitorExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		AA12345600000000000000A1 /* TimelapseModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B1 /* TimelapseModule.swift */; };
-		AA12345600000000000000A2 /* TimelapseModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B2 /* TimelapseModule.m */; };
-		AA12345600000000000000A3 /* TimelapseFrameOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B3 /* TimelapseFrameOverlay.swift */; };
-		AA12345600000000000000A4 /* IntroOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA12345600000000000000B4 /* IntroOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,6 +102,10 @@
 		89C024F65A71705BF4236C05 /* Pods-LockinClub.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LockinClub.release.xcconfig"; path = "Target Support Files/Pods-LockinClub/Pods-LockinClub.release.xcconfig"; sourceTree = "<group>"; };
 		950F2630D8AC42059A12591E /* Inter_400Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Inter_400Regular.ttf; path = "../node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf"; sourceTree = "<group>"; };
 		A83E754EDBC7E34C7EB57AA1 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-LockinClub/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		AA12345600000000000000B1 /* TimelapseModule.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseModule.swift; path = LockinClub/TimelapseModule.swift; sourceTree = "<group>"; };
+		AA12345600000000000000B2 /* TimelapseModule.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapseModule.m; path = LockinClub/TimelapseModule.m; sourceTree = "<group>"; };
+		AA12345600000000000000B3 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = LockinClub/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
+		AA12345600000000000000B4 /* IntroOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = IntroOverlay.swift; path = LockinClub/IntroOverlay.swift; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = LockinClub/SplashScreen.storyboard; sourceTree = "<group>"; };
 		B4CCD1155A4F44869FF67E8F /* Inter_500Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Inter_500Medium.ttf; path = "../node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"; sourceTree = "<group>"; };
 		B90F1CBD20C14EA7A5242463 /* JetBrainsMono_500Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = JetBrainsMono_500Medium.ttf; path = "../node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf"; sourceTree = "<group>"; };
@@ -116,10 +120,6 @@
 		XXB6D82409997898620841XX /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
 		XXCA68A9416C78B970D1D9XX /* DeviceActivity.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
 		XXEC8F4A23169846583657XX /* ShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 4; includeInIndex = 0; path = ShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA12345600000000000000B1 /* TimelapseModule.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseModule.swift; path = LockinClub/TimelapseModule.swift; sourceTree = "<group>"; };
-		AA12345600000000000000B2 /* TimelapseModule.m */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.objc; name = TimelapseModule.m; path = LockinClub/TimelapseModule.m; sourceTree = "<group>"; };
-		AA12345600000000000000B3 /* TimelapseFrameOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TimelapseFrameOverlay.swift; path = LockinClub/TimelapseFrameOverlay.swift; sourceTree = "<group>"; };
-		AA12345600000000000000B4 /* IntroOverlay.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = IntroOverlay.swift; path = LockinClub/IntroOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -596,13 +596,10 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoSystemUI/ExpoSystemUI_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/PurchasesHybridCommon/PurchasesHybridCommon.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNSVG/RNSVGFilters.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-Core/React-Core_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCat/RevenueCat.bundle",
-				"${PODS_CONFIGURATION_BUILD_DIR}/RevenueCatUI/RevenueCat_RevenueCatUI.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
@@ -613,13 +610,10 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoSystemUI_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/PurchasesHybridCommon.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNSVGFilters.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-Core_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat.bundle",
-				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RevenueCat_RevenueCatUI.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
