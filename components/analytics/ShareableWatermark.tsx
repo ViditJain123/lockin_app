@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Fonts } from '@/constants/Fonts';
+import { T } from '@/constants/Theme';
 
 export default function ShareableWatermark() {
   return (
@@ -19,7 +20,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 14,
     fontFamily: Fonts.bold,
-    color: 'rgba(255,255,255,0.08)',
+    color: T.inkMute,
     letterSpacing: 2,
   },
 });

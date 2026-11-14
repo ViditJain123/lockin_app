@@ -35,6 +35,9 @@ interface TimePickerProps {
   period: 'AM' | 'PM';
   onTimeChange: (hour: number, minute: number, period: 'AM' | 'PM') => void;
   accentColor?: string;
+  // Light screens pass their background as the fade colour and ink as text
+  fadeColor?: string;
+  textColor?: string;
 }
 
 interface WheelPickerProps<T> {
@@ -45,6 +48,8 @@ interface WheelPickerProps<T> {
   width: number;
   accentColor: string;
   infiniteScroll?: boolean;
+  fadeRgb: string;
+  textColor?: string;
 }
 
 function WheelPicker<T>({
@@ -55,6 +60,8 @@ function WheelPicker<T>({
   width,
   accentColor,
   infiniteScroll = true,
+  fadeRgb,
+  textColor,
 }: WheelPickerProps<T>) {
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<any>(null);
@@ -122,12 +129,12 @@ function WheelPicker<T>({
     <View style={[styles.wheelContainer, { width }]}>
       {/* Gradient overlays for fade effect */}
       <LinearGradient
-        colors={['rgba(0,0,0,1)', 'rgba(0,0,0,0)']}
+        colors={[`rgba(${fadeRgb},1)`, `rgba(${fadeRgb},0)`]}
         style={styles.gradientTop}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,1)']}
+        colors={[`rgba(${fadeRgb},0)`, `rgba(${fadeRgb},1)`]}
         style={styles.gradientBottom}
         pointerEvents="none"
       />
@@ -203,6 +210,7 @@ function WheelPicker<T>({
               <Text
                 style={[
                   styles.itemText,
+                  textColor ? { color: textColor } : null,
                   isSelected && { color: accentColor },
                 ]}
               >
@@ -231,7 +239,11 @@ export default function TimePicker({
   period,
   onTimeChange,
   accentColor = BrandColors.primary.main, // Brand color accent
+  fadeColor = '#000000',
+  textColor,
 }: TimePickerProps) {
+  // '#RRGGBB' -> 'r,g,b' for the fade gradients
+  const fadeRgb = [1, 3, 5].map((i) => parseInt(fadeColor.slice(i, i + 2), 16)).join(',');
   // Find indices
   const hourIndex = HOURS.indexOf(hour);
   const minuteIndex = MINUTES.indexOf(minute);
@@ -252,6 +264,8 @@ export default function TimePicker({
         formatItem={(h) => h.toString()}
         width={hourWidth}
         accentColor={accentColor}
+        fadeRgb={fadeRgb}
+        textColor={textColor}
       />
 
       {/* Separator */}
@@ -265,6 +279,8 @@ export default function TimePicker({
         formatItem={(m) => m.toString().padStart(2, '0')}
         width={minuteWidth}
         accentColor={accentColor}
+        fadeRgb={fadeRgb}
+        textColor={textColor}
       />
 
       {/* Period picker (AM/PM) */}
@@ -275,6 +291,8 @@ export default function TimePicker({
         formatItem={(p) => p}
         width={periodWidth}
         accentColor={accentColor}
+        fadeRgb={fadeRgb}
+        textColor={textColor}
         infiniteScroll={false}
       />
     </View>

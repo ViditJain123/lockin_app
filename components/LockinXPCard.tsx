@@ -2,7 +2,7 @@ import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { LC } from '@/constants/BrandColors';
+import { T, RADIUS, cardShadow } from '@/constants/Theme';
 import { Fonts } from '@/constants/Fonts';
 import {
   CRYSTALS,
@@ -46,7 +46,7 @@ function LockinXPCard({ onPress }: LockinXPCardProps) {
   );
 
   const currentTier = currentTierForLevel(level);
-  const tierColor = currentTier ? TIER_COLORS[currentTier] : LC.textDim;
+  const tierColor = currentTier ? TIER_COLORS[currentTier] : T.inkMute;
   const tierLabel = currentTier ? TIER_LABELS[currentTier] : 'UNRANKED';
 
   const nextCrystal = nextCrystalLevel(level);
@@ -57,7 +57,7 @@ function LockinXPCard({ onPress }: LockinXPCardProps) {
 
   const dashOffset = RING_CIRC * (1 - fraction);
 
-  // The next crystal label — stays meaningful even when user has all crystals.
+  // The next trophy label — stays meaningful even when user has all trophies.
   const nextCrystalLabel = nextCrystal
     ? `Lv ${nextCrystal.milestoneLevel} (${levelsToNext})`
     : 'ALL CLAIMED';
@@ -80,7 +80,7 @@ function LockinXPCard({ onPress }: LockinXPCardProps) {
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={RING_RADIUS}
-            stroke={LC.border}
+            stroke={T.sunk}
             strokeWidth={RING_STROKE}
             fill="none"
           />
@@ -88,7 +88,7 @@ function LockinXPCard({ onPress }: LockinXPCardProps) {
             cx={RING_SIZE / 2}
             cy={RING_SIZE / 2}
             r={RING_RADIUS}
-            stroke={LC.red}
+            stroke={T.orange}
             strokeWidth={RING_STROKE}
             fill="none"
             strokeDasharray={RING_CIRC}
@@ -115,7 +115,7 @@ function LockinXPCard({ onPress }: LockinXPCardProps) {
         <View style={styles.miniDivider} />
         <View style={styles.miniCell}>
           <Text style={styles.miniValue}>{nextCrystalLabel}</Text>
-          <Text style={styles.miniLabel}>NEXT CRYSTAL</Text>
+          <Text style={styles.miniLabel}>NEXT TROPHY</Text>
         </View>
         <View style={styles.miniDivider} />
         <View style={styles.miniCell}>
@@ -131,13 +131,11 @@ function LockinXPCard({ onPress }: LockinXPCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: LC.bgCard,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: LC.border,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
+    ...cardShadow,
     paddingVertical: 18,
     paddingHorizontal: 18,
-    overflow: 'hidden',
   },
   pressed: {
     opacity: 0.92,
@@ -152,7 +150,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.monoSemiBold,
     fontSize: 10,
     letterSpacing: 2,
-    color: LC.textDim,
+    color: T.inkSoft,
     textTransform: 'uppercase',
   },
   tierLabel: {
@@ -178,19 +176,19 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.monoMedium,
     fontSize: 11,
     letterSpacing: 2,
-    color: LC.textDim,
+    color: T.inkSoft,
   },
   lvNumber: {
     fontFamily: Fonts.display,
     fontSize: 64,
     lineHeight: 64,
-    color: LC.text,
+    color: T.ink,
     letterSpacing: 1,
   },
   xpLine: {
     fontFamily: Fonts.monoMedium,
     fontSize: 11,
-    color: LC.textDim,
+    color: T.inkSoft,
     marginTop: 4,
     letterSpacing: 0.5,
   },
@@ -208,21 +206,21 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 18,
     lineHeight: 22,
-    color: LC.text,
+    color: T.ink,
     letterSpacing: 0.5,
   },
   miniLabel: {
     fontFamily: Fonts.monoMedium,
     fontSize: 8,
     letterSpacing: 1.4,
-    color: LC.textMute,
+    color: T.inkMute,
     textTransform: 'uppercase',
     marginTop: 3,
   },
   miniDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: LC.border,
+    backgroundColor: T.line,
   },
 });
 

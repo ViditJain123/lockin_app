@@ -37,15 +37,19 @@ export function scheduleSleepTimeLock(sleepHour24: number, sleepMinute: number) 
   const endMinute = sleepMinute;
   const endHour = (sleepHour24 + 1) % 24;
 
-  startMonitoring(
-    SLEEP_TIME_ACTIVITY,
-    {
-      intervalStart: { hour: sleepHour24, minute: sleepMinute, second: 0 },
-      intervalEnd: { hour: endHour, minute: endMinute, second: 0 },
-      repeats: true,
-    },
-    []
-  );
+  // Rejects when Screen Time (FamilyControls) is not authorised, e.g. on the
+  // simulator or if the user revoked it — never let that surface as a crash.
+  Promise.resolve(
+    startMonitoring(
+      SLEEP_TIME_ACTIVITY,
+      {
+        intervalStart: { hour: sleepHour24, minute: sleepMinute, second: 0 },
+        intervalEnd: { hour: endHour, minute: endMinute, second: 0 },
+        repeats: true,
+      },
+      []
+    )
+  ).catch((e) => console.warn('[SleepLock] startMonitoring failed:', e?.message ?? e));
 }
 
 export function cancelSleepTimeLock() {

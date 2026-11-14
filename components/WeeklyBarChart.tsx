@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { LC } from '../constants/BrandColors';
 import { Fonts } from '../constants/Fonts';
+import { RADIUS, T } from '../constants/Theme';
 import { getLocalDateString } from '../lib/dateUtils';
 
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -76,15 +76,6 @@ export default function WeeklyBarChart({
   return (
     <View>
       <View style={styles.chart}>
-        {/* horizontal grid lines */}
-        {[0.33, 0.66].map((p) => (
-          <View
-            key={p}
-            pointerEvents="none"
-            style={[styles.gridLine, { bottom: p * CHART_HEIGHT }]}
-          />
-        ))}
-
         {weekData.map((day) => {
           const barHeight =
             day.hours > 0
@@ -93,6 +84,7 @@ export default function WeeklyBarChart({
 
           return (
             <View key={day.date} style={styles.slot}>
+              <View style={styles.track} pointerEvents="none" />
               {barHeight > 0 && (
                 <View
                   style={[
@@ -100,8 +92,8 @@ export default function WeeklyBarChart({
                     {
                       height: barHeight,
                       backgroundColor: day.isToday
-                        ? LC.red
-                        : 'rgba(255,255,255,0.6)',
+                        ? T.orange
+                        : 'rgba(255,102,0,0.45)',
                     },
                     day.isToday && styles.todayBarGlow,
                   ]}
@@ -138,34 +130,31 @@ const styles = StyleSheet.create({
     height: CHART_HEIGHT,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 6,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: LC.border,
+    gap: 8,
     position: 'relative',
-  },
-  gridLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: LC.border,
-    opacity: 0.6,
   },
   slot: {
     flex: 1,
     justifyContent: 'flex-end',
   },
+  track: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: MAX_BAR_HEIGHT,
+    borderRadius: 8,
+    backgroundColor: T.sunk,
+  },
   bar: {
     width: '100%',
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
+    borderRadius: 8,
     position: 'relative',
   },
   todayBarGlow: {
-    shadowColor: LC.red,
+    shadowColor: T.orange,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -177,7 +166,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: Fonts.monoSemiBold,
     fontSize: 9,
-    color: LC.red,
+    color: T.orange,
     letterSpacing: 0.5,
   },
   labelsRow: {
@@ -192,19 +181,17 @@ const styles = StyleSheet.create({
   dayLetter: {
     fontFamily: Fonts.monoMedium,
     fontSize: 10,
-    color: LC.textMute,
+    color: T.inkMute,
     letterSpacing: 0.5,
   },
   todayLetter: {
-    color: LC.red,
+    color: T.orange,
     fontFamily: Fonts.monoBold,
   },
   emptyBox: {
     height: CHART_HEIGHT,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: LC.borderStrong,
+    borderRadius: RADIUS.sm,
+    backgroundColor: T.sunk,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -212,7 +199,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.monoMedium,
     fontSize: 10,
     letterSpacing: 2,
-    color: LC.textMute,
+    color: T.inkMute,
     textTransform: 'uppercase',
   },
 });

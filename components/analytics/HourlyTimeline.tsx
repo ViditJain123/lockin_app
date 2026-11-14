@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T } from '@/constants/Theme';
 import { HourlyData } from '@/types/analytics';
 
 const HOUR_LABELS: { hour: number; label: string }[] = [
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 2,
     borderBottomWidth: 1,
-    borderBottomColor: LC.border,
+    borderBottomColor: T.lineStrong,
     position: 'relative',
   },
   gridLine: {
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: LC.border,
+    backgroundColor: T.line,
     opacity: 0.5,
   },
   slot: {
@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '100%',
-    backgroundColor: LC.red,
-    borderTopLeftRadius: 1.5,
-    borderTopRightRadius: 1.5,
+    backgroundColor: T.orange,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   labelsRow: {
     position: 'relative',
@@ -111,16 +111,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     fontFamily: Fonts.monoRegular,
     fontSize: 9,
-    color: LC.textMute,
+    color: T.inkMute,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   emptyBox: {
     height: CHART_HEIGHT + 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: LC.borderStrong,
+    borderRadius: RADIUS.sm,
+    backgroundColor: T.sunk,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -128,7 +126,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.monoMedium,
     fontSize: 10,
     letterSpacing: 2,
-    color: LC.textMute,
+    color: T.inkMute,
     textTransform: 'uppercase',
   },
 });

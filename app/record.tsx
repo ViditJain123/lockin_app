@@ -1,16 +1,20 @@
 import CountdownOverlay from '@/components/CountdownOverlay';
 import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholder';
 import GlassIconButton from '@/components/GlassIconButton';
-import GlassRecordButton from '@/components/GlassRecordButton';
+import { formatHM } from '@/components/dashboard/TodayCard';
+import SessionToast from '@/components/session/SessionToast';
+import ShutterButton from '@/components/session/ShutterButton';
+import { useSessionMilestones } from '@/components/session/useSessionMilestones';
 import ShortTimelapseWarningModal from '@/components/ShortTimelapseWarningModal';
 import TimelapsePreviewSheet from '@/components/TimelapsePreviewSheet';
-import { LC } from '@/constants/BrandColors';
+import { T } from '@/constants/Theme';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/contexts/AuthContext';
 import { SESSION_DEV_MODE_ENABLED } from '@/lib/config';
 import { getLocalDateString } from '@/lib/dateUtils';
 import * as Haptics from '@/lib/haptics';
 import { posthog } from '@/lib/posthog';
+import { playSound } from '@/lib/sound';
 import * as Timelapse from '@/lib/timelapseModule';
 import { sendSessionEvent } from '@/lib/tinybird';
 import { useAppLockStore } from '@/store/useAppLockStore';
@@ -18,7 +22,6 @@ import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useOrientationDetection } from '@/hooks/useOrientationDetection';
 import { useRecordingStore } from '@/store/useRecordingStore';
 import { useSessionStore } from '@/store/useSessionStore';
-import { useTaskStore } from '@/store/useTaskStore';
 import {
   flushGallery,
   PENDING_RECORDING_KEY,
@@ -96,7 +99,6 @@ export default function CameraScreen() {
   const isPreparing = useRecordingStore((s) => s.isPreparing);
   const isFinishing = useRecordingStore((s) => s.isFinishing);
   const isCountingDown = useRecordingStore((s) => s.isCountingDown);
-  const activeTaskId = useRecordingStore((s) => s.activeTaskId);
   const timerPosition = useRecordingStore((s) => s.timerPosition);
   const timerFilter = useRecordingStore((s) => s.timerFilter);
   const timerScale = useRecordingStore((s) => s.timerScale);
@@ -110,11 +112,6 @@ export default function CameraScreen() {
 
   // Device orientation detection (freezes during recording)
   const deviceOrientation = useOrientationDetection();
-
-  // Active task from Tasks tab
-  const activeTask = useTaskStore((s) =>
-    s.tasks.find((t) => t.id === activeTaskId)
-  );
 
   // Short warning modal
   const [showShortWarning, setShowShortWarning] = useState(false);
@@ -228,7 +225,7 @@ export default function CameraScreen() {
     isSessionActiveRef.current = true;
     setIsSessionActive(true);
 
-    Haptics.sessionStart();
+    // The countdown already played the lock-in sound + haptic pattern
     posthog.capture('session_started');
 
     try {
@@ -244,19 +241,12 @@ export default function CameraScreen() {
       // this key and call finalizePendingRecording on pendingDir.
       if (pendingDir) {
         try {
-          // Snapshot the targeted task title so the intro overlay can include
-          // it on crash recovery too (the recording store doesn't survive a
-          // process kill).
-          const startTaskId = useRecordingStore.getState().activeTaskId;
-          const startTaskName = startTaskId
-            ? useTaskStore.getState().tasks.find((t) => t.id === startTaskId)?.title ?? ''
-            : '';
           await AsyncStorage.setItem(
             PENDING_RECORDING_KEY,
             JSON.stringify({
               pendingDir,
               startedAt: (sessionStartTimeRef.current ?? new Date()).toISOString(),
-              taskName: startTaskName,
+              taskName: '',
             })
           );
         } catch (err) {
@@ -284,7 +274,8 @@ export default function CameraScreen() {
     setIsSessionActive(false);
     setIsFinishing(true);
 
-    Haptics.sessionStop();
+    playSound('unlock');
+    Haptics.unlockPattern();
 
     // Stop adaptive capture loop
     if (captureTimeoutRef.current) {
@@ -334,18 +325,9 @@ export default function CameraScreen() {
     // correlate any future crash to exactly which phase failed. The native
     // module now writes the .mp4 straight into Documents/timelapses/, so we
     // no longer need a JS-side moveAsync.
-    // Snapshot the targeted task title at stop time so the intro overlay can
-    // render it. Read directly from the store rather than a stale closure of
-    // `activeTask`, which would be undefined right after the user picked a
-    // task without re-rendering this callback.
-    const stopTaskId = useRecordingStore.getState().activeTaskId;
-    const stopTaskName = stopTaskId
-      ? useTaskStore.getState().tasks.find((t) => t.id === stopTaskId)?.title ?? ''
-      : '';
-
     let videoPath: string | null = null;
     try {
-      videoPath = await Timelapse.stopRecording(lockedInSeconds, stopTaskName);
+      videoPath = await Timelapse.stopRecording(lockedInSeconds, '');
       posthog.capture('timelapse_save_step', { step: 'encode', sessionId, success: true });
     } catch (e: any) {
       const code = e?.code ?? 'UNKNOWN';
@@ -466,19 +448,7 @@ export default function CameraScreen() {
       videoUri: permanentUri,
       grindDurationSeconds: String(lockedInSeconds),
       lockedInSeconds: String(lockedInSeconds),
-      ...(activeTaskId ? { activeTaskId } : {}),
     };
-
-    // Session is done — auto-check the targeted task so users don't have to
-    // tick it manually after grinding for it. Idempotent; no-op if the task
-    // doesn't exist or is already completed.
-    if (activeTaskId) {
-      useTaskStore.getState().completeTask(activeTaskId);
-    }
-    // Then clear the active task so the next grind started from Home
-    // (untargeted) doesn't carry over a stale task pill. The route param above
-    // already snapshotted the id for grind-complete.
-    useRecordingStore.getState().setActiveTaskId(null);
 
     if (skipPreview) {
       router.push({ pathname: '/grind-complete', params: grindCompleteParams } as any);
@@ -490,7 +460,7 @@ export default function CameraScreen() {
       setPreviewDuration(lockedInSeconds);
       setShowPreview(true);
     }
-  }, [user, setIsSessionActive, setIsFinishing, router, activeTaskId]);
+  }, [user, setIsSessionActive, setIsFinishing, router]);
 
   // Dev simulate session
   const simulateSession = useCallback(() => {
@@ -540,25 +510,29 @@ export default function CameraScreen() {
     }
   }, [router]);
 
-  // Handle record button press
-  const handleRecordPress = useCallback(async () => {
-    if (isPreparing || isFinishing || isCountingDown) return;
+  // Tap the shutter: 3-2-1 countdown, then recording starts
+  const handleStartPress = useCallback(() => {
+    if (isPreparing || isFinishing || isCountingDown || isSessionActive) return;
+    setIsCountingDown(true);
+  }, [isSessionActive, isPreparing, isFinishing, isCountingDown, setIsCountingDown]);
 
-    if (isSessionActive) {
-      // Check short session
-      if (elapsedSecondsRef.current < 60) {
-        // Stop recording first so video is saved, then show warning.
-        // Skip the preview sheet — the warning already communicates the issue.
-        await stopSession(true);
-        setShowShortWarning(true);
-        return;
-      }
-      await stopSession(false);
-    } else {
-      // Start countdown
-      setIsCountingDown(true);
+  // Hold the shutter to the end of the ring: stop and save
+  const handleStopHold = useCallback(async () => {
+    if (!isSessionActive || isFinishing) return;
+    if (elapsedSecondsRef.current < 60) {
+      // Stop recording first so video is saved, then show warning.
+      // Skip the preview sheet — the warning already communicates the issue.
+      await stopSession(true);
+      setShowShortWarning(true);
+      return;
     }
-  }, [isSessionActive, isPreparing, isFinishing, isCountingDown, stopSession, setIsCountingDown]);
+    await stopSession(false);
+  }, [isSessionActive, isFinishing, stopSession]);
+
+  const { toast, setToast, goalProgress, todayMinutes, goalMinutes } = useSessionMilestones(
+    elapsedSeconds,
+    isSessionActive
+  );
 
   // Countdown complete - start recording
   const handleCountdownComplete = useCallback(async () => {
@@ -584,15 +558,15 @@ export default function CameraScreen() {
 
     // Preview always fills full screen width. Vertical space is whatever's left
     // between the exit-button reservation up top and the bottom controls strip.
-    const reservedTop = insets.top + 60;
-    const reservedBottom = insets.bottom + 130;
+    const reservedTop = insets.top + 8;
+    const reservedBottom = insets.bottom + 168;
     const availableHeight = height - reservedTop - reservedBottom;
 
     setPreviewLayout({
-      width,
+      width: width - 16,
       height: availableHeight,
       top: reservedTop,
-      left: 0,
+      left: 8,
     });
   }, [insets.top, insets.bottom]);
 
@@ -640,22 +614,15 @@ export default function CameraScreen() {
   }
 
   const canExit = !isSessionActive && !isPreparing && !isFinishing && !isCountingDown;
+  const recording = isSessionActive || isFinishing;
+  const earnedMin = Math.floor(elapsedSeconds / 60);
+  const goalLeft = Math.max(0, goalMinutes - todayMinutes);
 
   return (
     <View style={styles.container} onLayout={handleContainerLayout}>
       <StatusBar barStyle="light-content" backgroundColor="#0E0E0E" />
 
-      {/* Dev button */}
-      {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
-        <Pressable
-          onPress={simulateSession}
-          style={[styles.devButton, { position: 'absolute', top: insets.top + 8, right: 24, zIndex: 20 }]}
-        >
-          <Text style={styles.devButtonText}>Dev</Text>
-        </Pressable>
-      )}
-
-      {/* Camera preview */}
+      {/* Camera preview — rounded card */}
       <View style={[styles.previewContainer, {
         width: previewLayout.width,
         height: previewLayout.height,
@@ -668,30 +635,31 @@ export default function CameraScreen() {
           facing={facing}
         />
 
-        {/* Rule-of-thirds grid */}
-        {[0.333, 0.667].map((p) => (
-          <View
-            key={`h${p}`}
-            pointerEvents="none"
-            style={[styles.gridLineH, { top: `${p * 100}%` }]}
-          />
+        {/* Soft top/bottom scrims keep the chrome legible on bright scenes */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0)']}
+          style={styles.scrimTop}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.4)']}
+          style={styles.scrimBottom}
+        />
+
+        {/* Rule-of-thirds grid while framing */}
+        {!recording && [0.333, 0.667].map((p) => (
+          <View key={`h${p}`} pointerEvents="none" style={[styles.gridLineH, { top: `${p * 100}%` }]} />
         ))}
-        {[0.333, 0.667].map((p) => (
-          <View
-            key={`v${p}`}
-            pointerEvents="none"
-            style={[styles.gridLineV, { left: `${p * 100}%` }]}
-          />
+        {!recording && [0.333, 0.667].map((p) => (
+          <View key={`v${p}`} pointerEvents="none" style={[styles.gridLineV, { left: `${p * 100}%` }]} />
         ))}
 
-        {/* Corner brackets */}
-        <View pointerEvents="none" style={[styles.cornerBracket, styles.cornerTL]} />
-        <View pointerEvents="none" style={[styles.cornerBracket, styles.cornerTR]} />
-        <View pointerEvents="none" style={[styles.cornerBracket, styles.cornerBL]} />
-        <View pointerEvents="none" style={[styles.cornerBracket, styles.cornerBR]} />
+        {/* Recording frame glow */}
+        {recording && <View pointerEvents="none" style={styles.recFrame} />}
       </View>
 
-      {/* Draggable timer placeholder */}
+      {/* Draggable watermark / timer stamp burned into the video */}
       {containerLayout.width > 0 && previewLayout.height > 0 && (
         <DraggableTimerPlaceholder
           containerWidth={previewLayout.width}
@@ -711,82 +679,93 @@ export default function CameraScreen() {
         />
       )}
 
-      {/* Countdown overlay */}
-      <CountdownOverlay
-        isVisible={isCountingDown}
-        onComplete={handleCountdownComplete}
-      />
-
-      {/* Top pills — task pill is always visible when a task is selected; the
-          REC duration pill only shows during recording / finishing. */}
-      {(activeTask || isSessionActive || isFinishing) && (
-        <View style={[styles.durationContainer, { top: insets.top + 12 }]}>
-          {(isSessionActive || isFinishing) && (
-            <View style={styles.durationPill}>
-              <View style={styles.recordingDot} />
-              <Text style={styles.durationText}>
-                REC · {formatDuration(elapsedSeconds)}
-              </Text>
-            </View>
-          )}
-          {activeTask && (
-            <View style={styles.activeTaskPill}>
-              <View style={styles.taskDot} />
-              <Text style={styles.activeTaskText} numberOfLines={1}>
-                {activeTask.title}
-              </Text>
-            </View>
+      {/* Top chrome over the preview */}
+      <View style={[styles.topBar, { top: previewLayout.top + 14 }]}>
+        <View style={styles.topSide}>
+          {canExit && (
+            <GlassIconButton icon="close" size={40} iconSize={20} onPress={() => router.back()} />
           )}
         </View>
-      )}
 
-      {/* SCREEN TIME EARNED ticker (LC timelapse chrome) — sits just above the bottom controls */}
-      {isSessionActive && (
-        <View
-          pointerEvents="none"
-          style={[styles.earnedTicker, { bottom: insets.bottom + 140 }]}
-        >
-          <Text style={styles.earnedLabel}>SCREEN TIME EARNED</Text>
-          <Text style={styles.earnedValue}>
-            +{Math.floor(elapsedSeconds / 60)}
-            <Text style={styles.earnedUnit}> MIN</Text>
-          </Text>
-        </View>
-      )}
+        {recording ? (
+          <View style={styles.recPill}>
+            <View style={styles.recDot} />
+            <Text style={styles.recTime}>{formatDuration(elapsedSeconds)}</Text>
+          </View>
+        ) : (
+          <View style={styles.modePill}>
+            <Text style={styles.modeText}>TIMELAPSE</Text>
+          </View>
+        )}
 
-      {/* Bottom controls — exit + record + flip, sitting below the preview */}
-      <View style={[styles.bottomControls, { bottom: insets.bottom + 20 }]}>
-        <View style={styles.bottomSideSlot}>
-          {canExit ? (
-            <GlassIconButton
-              icon="close"
-              onPress={() => router.back()}
-            />
-          ) : null}
-        </View>
-        <GlassRecordButton
-          onPress={handleRecordPress}
-          isRecording={isSessionActive || isFinishing}
-          disabled={isPreparing || isFinishing || isCountingDown}
-        />
-        <View style={styles.bottomSideSlot}>
-          {!isCountingDown ? (
-            <GlassIconButton
-              icon="camera-reverse"
-              onPress={toggleCameraFacing}
-              disabled={isSessionActive}
-            />
-          ) : null}
+        <View style={styles.topSide}>
+          {!recording && !isCountingDown && (
+            <GlassIconButton icon="camera-reverse" size={40} iconSize={20} onPress={toggleCameraFacing} />
+          )}
         </View>
       </View>
 
-      {/* Short Timelapse Warning Modal */}
-      <ShortTimelapseWarningModal
-        visible={showShortWarning}
-        onClose={() => setShowShortWarning(false)}
-      />
+      <SessionToast message={toast} top={previewLayout.top + 70} />
 
-      {/* Timelapse preview sheet — same component used on the profile grid */}
+      {/* Framing tip before the first tap */}
+      {!recording && !isCountingDown && previewLayout.height > 0 && (
+        <View pointerEvents="none" style={[styles.tip, { top: previewLayout.top + previewLayout.height - 44 }]}>
+          <Text style={styles.tipText}>Prop your phone up · frame your desk · drag the stamp</Text>
+        </View>
+      )}
+
+      {/* Countdown overlay */}
+      <CountdownOverlay isVisible={isCountingDown} onComplete={handleCountdownComplete} />
+
+      {/* Bottom deck */}
+      <View style={[styles.deck, { paddingBottom: insets.bottom + 8 }]}>
+        <View style={styles.deckSide}>
+          <Text style={styles.deckLabel}>{recording ? 'EARNED' : 'TODAY'}</Text>
+          <Text style={styles.deckValue}>
+            {recording ? `+${earnedMin}` : formatHM(todayMinutes)}
+            {recording && <Text style={styles.deckUnit}> min</Text>}
+          </Text>
+        </View>
+
+        <ShutterButton
+          isRecording={recording}
+          disabled={isPreparing || isFinishing || isCountingDown}
+          onStart={handleStartPress}
+          onStop={handleStopHold}
+          onHoldCancelled={() => setToast('Keep holding to stop')}
+        />
+
+        <View style={[styles.deckSide, styles.deckRight]}>
+          <Text style={styles.deckLabel}>GOAL</Text>
+          <Text style={styles.deckValue}>
+            {goalLeft <= 0 ? 'Done' : formatHM(goalLeft)}
+            {goalLeft > 0 && <Text style={styles.deckUnit}> left</Text>}
+          </Text>
+          <View style={styles.goalTrack}>
+            <View style={[styles.goalFill, { width: `${Math.max(goalProgress * 100, 3)}%` }]} />
+          </View>
+        </View>
+      </View>
+
+      {isFinishing && (
+        <View style={styles.finishing} pointerEvents="none">
+          <ActivityIndicator color={T.white} />
+          <Text style={styles.finishingText}>Developing your timelapse…</Text>
+        </View>
+      )}
+
+      {/* Dev button */}
+      {SESSION_DEV_MODE_ENABLED && !isSessionActive && (
+        <Pressable
+          onPress={simulateSession}
+          style={[styles.devButton, { position: 'absolute', top: previewLayout.top + 70, right: 20, zIndex: 20 }]}
+        >
+          <Text style={styles.devButtonText}>Dev</Text>
+        </Pressable>
+      )}
+
+      <ShortTimelapseWarningModal visible={showShortWarning} onClose={() => setShowShortWarning(false)} />
+
       <TimelapsePreviewSheet
         visible={showPreview}
         videoUri={previewUri}
@@ -810,24 +789,166 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     position: 'absolute',
-    backgroundColor: '#0E0E0E',
+    backgroundColor: '#1A1A1A',
     overflow: 'hidden',
+    borderRadius: 30,
   },
-  bottomControls: {
+  scrimTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+  },
+  scrimBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+  },
+  gridLineH: {
     position: 'absolute',
     left: 0,
     right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  gridLineV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  recFrame: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 30,
+    borderWidth: 3,
+    borderColor: 'rgba(255,102,0,0.85)',
+  },
+  topBar: {
+    position: 'absolute',
+    left: 22,
+    right: 22,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 32,
     zIndex: 10,
   },
-  bottomSideSlot: {
-    width: 56,
-    height: 56,
+  topSide: {
+    width: 40,
+    height: 40,
+  },
+  modePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  modeText: {
+    fontFamily: Fonts.monoSemiBold,
+    fontSize: 11,
+    letterSpacing: 2,
+    color: '#FFFFFF',
+  },
+  recPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: T.orange,
+  },
+  recDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  recTime: {
+    fontFamily: Fonts.monoBold,
+    fontSize: 17,
+    color: '#FFFFFF',
+    fontVariant: ['tabular-nums'],
+  },
+  tip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  tipText: {
+    fontFamily: Fonts.medium,
+    fontSize: 12.5,
+    color: 'rgba(255,255,255,0.85)',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowRadius: 6,
+  },
+  deck: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 168,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 26,
+    zIndex: 10,
+  },
+  deckSide: {
+    width: 88,
+  },
+  deckRight: {
+    alignItems: 'flex-end',
+  },
+  deckLabel: {
+    fontFamily: Fonts.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: 'rgba(255,255,255,0.45)',
+  },
+  deckValue: {
+    marginTop: 2,
+    fontFamily: Fonts.bold,
+    fontSize: 24,
+    color: '#FFFFFF',
+  },
+  deckUnit: {
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+  },
+  goalTrack: {
+    marginTop: 6,
+    width: 72,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  goalFill: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: T.orange,
+  },
+  finishing: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(14,14,14,0.6)',
+    zIndex: 60,
+  },
+  finishingText: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 15,
+    color: '#FFFFFF',
   },
   permissionContent: {
     alignItems: 'center',
@@ -853,125 +974,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     color: 'rgba(255,255,255,0.5)',
     marginTop: 16,
-  },
-  durationContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-    gap: 8,
-  },
-  durationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    gap: 8,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: LC.red,
-    shadowColor: LC.red,
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 2,
-  },
-  durationText: {
-    color: '#fff',
-    fontSize: 11,
-    fontFamily: Fonts.monoBold,
-    letterSpacing: 1,
-    fontVariant: ['tabular-nums'],
-    textTransform: 'uppercase',
-  },
-  activeTaskPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    gap: 8,
-    maxWidth: 260,
-  },
-  taskDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: LC.red,
-  },
-  activeTaskText: {
-    color: '#fff',
-    fontSize: 13,
-    fontFamily: Fonts.interMedium,
-    flexShrink: 1,
-  },
-  // Viewfinder overlay (rule-of-thirds + corner brackets)
-  gridLineH: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    zIndex: 5,
-  },
-  gridLineV: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    zIndex: 5,
-  },
-  cornerBracket: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderColor: '#fff',
-    zIndex: 6,
-  },
-  cornerTL: { top: 8, left: 8, borderTopWidth: 2, borderLeftWidth: 2 },
-  cornerTR: { top: 8, right: 8, borderTopWidth: 2, borderRightWidth: 2 },
-  cornerBL: { bottom: 8, left: 8, borderBottomWidth: 2, borderLeftWidth: 2 },
-  cornerBR: { bottom: 8, right: 8, borderBottomWidth: 2, borderRightWidth: 2 },
-  // SCREEN TIME EARNED ticker
-  earnedTicker: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  earnedLabel: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  earnedValue: {
-    fontFamily: Fonts.display,
-    fontSize: 32,
-    lineHeight: 38,
-    color: '#fff',
-    letterSpacing: 0.5,
-    marginTop: 4,
-    includeFontPadding: false,
-  },
-  earnedUnit: {
-    fontFamily: Fonts.display,
-    fontSize: 18,
-    color: 'rgba(255,255,255,0.6)',
   },
   devButton: {
     backgroundColor: '#2A2A2A',

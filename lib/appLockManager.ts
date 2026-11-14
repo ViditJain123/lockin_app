@@ -50,22 +50,26 @@ export function unlockAppsWithTimer(availableSeconds: number) {
   const thresholdMinutes = Math.floor(availableSeconds / 60);
   const thresholdSeconds = availableSeconds % 60;
 
-  startMonitoring(
-    USAGE_MONITOR,
-    {
-      intervalStart: { hour: 0, minute: 0, second: 0 },
-      intervalEnd: { hour: 23, minute: 59, second: 59 },
-      repeats: false,
-    },
-    [
+  // Rejects when Screen Time (FamilyControls) is not authorised, e.g. on the
+  // simulator or if the user revoked it — never let that surface as a crash.
+  Promise.resolve(
+    startMonitoring(
+      USAGE_MONITOR,
       {
-        eventName: 'usageExpired',
-        familyActivitySelection: selectionToken,
-        threshold: { minute: thresholdMinutes, second: thresholdSeconds },
-        includesPastActivity: false,
+        intervalStart: { hour: 0, minute: 0, second: 0 },
+        intervalEnd: { hour: 23, minute: 59, second: 59 },
+        repeats: false,
       },
-    ]
-  );
+      [
+        {
+          eventName: 'usageExpired',
+          familyActivitySelection: selectionToken,
+          threshold: { minute: thresholdMinutes, second: thresholdSeconds },
+          includesPastActivity: false,
+        },
+      ]
+    )
+  ).catch((e) => console.warn('[AppLock] startMonitoring failed:', e?.message ?? e));
 }
 
 export function relockApps() {

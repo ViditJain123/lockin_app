@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
+import MascotTrophy from '@/components/MascotTrophy';
 import { getCrystalById } from '@/constants/Crystals';
-import { getCrystalAssetModule } from '@/lib/crystalAssetCache';
+import { T } from '@/constants/Theme';
 
 interface CrystalImageProps {
   crystalId: string;
@@ -11,23 +11,18 @@ interface CrystalImageProps {
   locked?: boolean;
 }
 
+// Renders a trophy (a Lockin mascot figure). Kept under its original name so
+// every screen that shows trophies picks up the mascot art automatically.
 function CrystalImage({ crystalId, size, locked = false }: CrystalImageProps) {
-  const assetModule = getCrystalAssetModule(crystalId);
   const crystal = getCrystalById(crystalId);
 
-  if (!assetModule || !crystal) {
+  if (!crystal) {
     return <View style={[styles.fallback, { width: size, height: size }]} />;
   }
 
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
-      <Image
-        source={assetModule}
-        style={[styles.img, { width: size, height: size }]}
-        // tintColor turns unlocked crystals into uniform silhouettes
-        tintColor={locked ? LC.borderStrong : undefined}
-        resizeMode="contain"
-      />
+      <MascotTrophy tier={crystal.tier} accessory={crystal.accessory} size={size} locked={locked} />
     </View>
   );
 }
@@ -37,9 +32,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  img: {},
   fallback: {
-    backgroundColor: LC.bgCard,
+    backgroundColor: T.sunk,
     borderRadius: 12,
   },
 });

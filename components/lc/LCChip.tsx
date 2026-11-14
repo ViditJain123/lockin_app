@@ -5,8 +5,8 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { T } from '@/constants/Theme';
 
 type LCChipTone = 'default' | 'red' | 'green' | 'mute';
 
@@ -18,24 +18,24 @@ type LCChipProps = {
 
 const TONES: Record<LCChipTone, { bg: string; color: string; border: string }> = {
   default: {
-    bg: 'rgba(255,255,255,0.08)',
-    color: LC.text,
-    border: 'rgba(255,255,255,0.08)',
+    bg: T.sunk,
+    color: T.ink,
+    border: T.line,
   },
   red: {
-    bg: 'rgba(255,102,0,0.14)',
-    color: LC.red,
-    border: 'rgba(255,102,0,0.3)',
+    bg: T.orangeSoft,
+    color: T.orangeDeep,
+    border: 'rgba(255,102,0,0.24)',
   },
   green: {
-    bg: 'rgba(74,222,128,0.12)',
-    color: LC.green,
-    border: 'rgba(74,222,128,0.3)',
+    bg: T.goodSoft,
+    color: T.good,
+    border: 'rgba(31,169,113,0.24)',
   },
   mute: {
     bg: 'transparent',
-    color: LC.textDim,
-    border: 'rgba(255,255,255,0.12)',
+    color: T.inkSoft,
+    border: T.lineStrong,
   },
 };
 
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 6,
+    borderRadius: 999,
     borderWidth: 1,
   },
   label: {

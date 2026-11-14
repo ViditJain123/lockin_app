@@ -70,38 +70,38 @@ export const BrandColors = {
 export type BrandColorKey = keyof typeof BrandColors;
 
 // ─────────────────────────────────────────────────────────────
-// LC — Lockin Club redesign tokens (Gritty Hardcore direction)
+// LC — Lockin Club tokens, dark ink / orange / yellow theme (see constants/Theme.ts)
 // Source: design-reference/lockin-club/project/tokens.jsx
 // Kept separate from BrandColors so existing screens are untouched
 // during the rollout. New surfaces should pull from LC.
 // ─────────────────────────────────────────────────────────────
 
 export const LC = {
-  // Surfaces
-  bg: '#0E0E0E',
-  bgElev: '#141414',
-  bgCard: '#1a1a1a',
+  // Surfaces — dark theme (mirrors constants/Theme.ts)
+  bg: '#0A0A0A',
+  bgElev: '#161616',
+  bgCard: '#161616',
 
   // Rules
-  border: 'rgba(255,255,255,0.08)',
-  borderStrong: 'rgba(255,255,255,0.15)',
+  border: 'rgba(255,255,255,0.07)',
+  borderStrong: 'rgba(255,255,255,0.12)',
 
   // Text
-  text: '#FFFFFF',
-  textDim: 'rgba(255,255,255,0.6)',
-  textMute: 'rgba(255,255,255,0.35)',
+  text: '#F5F2EC',
+  textDim: 'rgba(245,242,236,0.64)',
+  textMute: 'rgba(245,242,236,0.38)',
 
   // Accent (brand orange; `red*` names kept for compatibility)
   red: '#FF6600',
-  redDeep: '#B34700',
-  redGlow: 'rgba(255,102,0,0.25)',
+  redDeep: '#C24E00',
+  redGlow: 'rgba(255,102,0,0.30)',
 
   // Utility
-  green: '#4ade80',
+  green: '#3DDC97',
   amber: '#FFC93C',
 
   // Receipt paper (thermal-printer reward card)
-  paper: '#e9e4d8',
+  paper: '#1E1E1E',
 } as const;
 
 export type LCColorKey = keyof typeof LC;

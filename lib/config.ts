@@ -32,3 +32,11 @@ export const SESSION_DEV_MODE_ENABLED: boolean = false;
 // - false: Production behavior (normal fingerprint-based deferred matching)
 // ============================================================
 export const ATTRIBUTION_DEV_MODE: boolean = false;
+
+// ============================================================
+// DEMO DATA:
+// - true: Dashboard + stats show generated lock-in / screen-time / heatmap data
+//   (dev builds only) so the charts can be previewed filled in.
+// - false: Real data only.
+// ============================================================
+export const DEMO_DATA_ENABLED: boolean = __DEV__ && true;

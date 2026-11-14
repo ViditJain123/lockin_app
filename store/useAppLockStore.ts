@@ -3,6 +3,12 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { unlockAppsWithTimer, relockApps as relockAppsManager, fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { useOnboardingStore } from './useOnboardingStore';
+import { useScreenTimeLogStore } from './useScreenTimeLogStore';
+
+// Save the day's spent screen time before counters change or reset
+function logUsed(date: string, seconds: number) {
+  if (seconds > 0) useScreenTimeLogStore.getState().record(date, seconds);
+}
 
 const APP_LOCK_STORAGE_KEY = 'lockin-applock-state';
 
@@ -87,6 +93,7 @@ export const useAppLockStore = create<AppLockState>()(
 
         // Mark all earned time as used when re-locked by threshold
         relockAppsManager();
+        logUsed(get().lastResetDate, earnedScreenTimeSeconds);
         set({
           isCurrentlyLocked: true,
           usedScreenTimeSeconds: earnedScreenTimeSeconds,
@@ -102,6 +109,7 @@ export const useAppLockStore = create<AppLockState>()(
       },
 
       lockAppsForSleep: () => {
+        logUsed(get().lastResetDate, get().usedScreenTimeSeconds);
         set({
           isCurrentlyLocked: true,
           isFullyUnlocked: false,
@@ -117,6 +125,7 @@ export const useAppLockStore = create<AppLockState>()(
         const { lastResetDate } = get();
         if (lastResetDate === today) return;
 
+        logUsed(lastResetDate, get().usedScreenTimeSeconds);
         set({
           earnedScreenTimeSeconds: 0,
           usedScreenTimeSeconds: 0,

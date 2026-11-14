@@ -1,22 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { DeviceActivitySelectionView } from 'react-native-device-activity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 import ClaimScreenTimeModal, { formatMinutes } from '@/components/ClaimScreenTimeModal';
 import { LCBackButton } from '@/components/lc/LCBackButton';
-import { BrandColors } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { buttonPress } from '@/lib/haptics';
 import { upsertUserRow } from '@/lib/supabaseUser';
 import { useAppLockStore } from '@/store/useAppLockStore';
 import { useOnboardingStore } from '@/store/useOnboardingStore';
 
-const ORANGE = BrandColors.palette.orange;
-const YELLOW = BrandColors.palette.yellow;
+const ORANGE = T.orange;
+// Deeper amber reads on white where the brand yellow would wash out
+const YELLOW = '#FFC93C';
 
 export default function BlockedAppsScreen() {
   const insets = useSafeAreaInsets();
@@ -72,6 +74,7 @@ export default function BlockedAppsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <StatusBar style="light" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
@@ -84,8 +87,8 @@ export default function BlockedAppsScreen() {
           <Svg width={220} height={220} style={StyleSheet.absoluteFill}>
             <Defs>
               <RadialGradient id="statusGlow" cx="50%" cy="50%" r="50%">
-                <Stop offset="0" stopColor={status.color} stopOpacity={0.5} />
-                <Stop offset="1" stopColor={BrandColors.palette.ink} stopOpacity={0} />
+                <Stop offset="0" stopColor={status.color} stopOpacity={0.28} />
+                <Stop offset="1" stopColor={status.color} stopOpacity={0} />
               </RadialGradient>
             </Defs>
             <Circle cx={110} cy={110} r={110} fill="url(#statusGlow)" />
@@ -131,7 +134,7 @@ export default function BlockedAppsScreen() {
               <Text style={styles.pendingText}>Change pending — takes effect tomorrow</Text>
             )}
           </View>
-          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.4)" />
+          <Ionicons name="chevron-forward" size={18} color={T.inkMute} />
         </Pressable>
       </ScrollView>
 
@@ -177,7 +180,7 @@ export default function BlockedAppsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BrandColors.palette.ink,
+    backgroundColor: T.canvas,
   },
   content: {
     paddingHorizontal: 20,
@@ -185,7 +188,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     fontFamily: Fonts.semiBold,
-    color: BrandColors.palette.white,
+    color: T.ink,
   },
   statusArt: {
     alignSelf: 'center',
@@ -198,7 +201,7 @@ const styles = StyleSheet.create({
   statusTitle: {
     fontSize: 26,
     fontFamily: Fonts.semiBold,
-    color: BrandColors.palette.white,
+    color: T.ink,
     textAlign: 'center',
   },
   statusSubtitle: {
@@ -206,61 +209,62 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.6)',
+    color: T.inkSoft,
     textAlign: 'center',
     paddingHorizontal: 12,
   },
   card: {
     marginTop: 28,
     padding: 20,
-    borderRadius: 26,
-    backgroundColor: '#1A1A1A',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,201,60,0.25)',
+    borderRadius: RADIUS.lg,
+    backgroundColor: T.card,
+    ...cardShadow,
   },
   cardLabel: {
     fontSize: 11,
-    fontFamily: Fonts.monoSemiBold,
+    fontFamily: Fonts.bold,
     letterSpacing: 1.5,
-    color: YELLOW,
+    color: ORANGE,
   },
   earned: {
     marginTop: 6,
-    fontSize: 40,
-    fontFamily: Fonts.light,
-    color: BrandColors.palette.white,
+    fontSize: 48,
+    lineHeight: 52,
+    fontFamily: Fonts.display,
+    color: T.ink,
   },
   cardHint: {
     marginTop: 4,
     fontSize: 13,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.55)',
+    color: T.inkSoft,
   },
   claimButton: {
     marginTop: 16,
     paddingVertical: 15,
-    borderRadius: 18,
+    borderRadius: RADIUS.md,
     backgroundColor: ORANGE,
     alignItems: 'center',
   },
   claimText: {
     fontSize: 16,
     fontFamily: Fonts.bold,
-    color: BrandColors.palette.white,
+    color: T.white,
   },
   row: {
-    marginTop: 12,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 22,
-    backgroundColor: '#1A1A1A',
+    borderRadius: RADIUS.md,
+    backgroundColor: T.card,
+    ...cardShadow,
   },
   rowIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,102,0,0.15)',
+    backgroundColor: T.orangeSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -271,13 +275,13 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 16,
     fontFamily: Fonts.semiBold,
-    color: BrandColors.palette.white,
+    color: T.ink,
   },
   rowSubtitle: {
     marginTop: 2,
     fontSize: 13,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.55)',
+    color: T.inkSoft,
   },
   pendingText: {
     marginTop: 4,
@@ -290,7 +294,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     flex: 1,
-    backgroundColor: BrandColors.palette.ink,
+    backgroundColor: T.canvas,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -301,12 +305,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontFamily: Fonts.semiBold,
-    color: BrandColors.palette.white,
+    color: T.ink,
   },
   modalCancel: {
     fontSize: 16,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.6)',
+    color: T.inkSoft,
   },
   modalDone: {
     fontSize: 16,
@@ -317,7 +321,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkMute,
     paddingBottom: 8,
   },
   picker: {

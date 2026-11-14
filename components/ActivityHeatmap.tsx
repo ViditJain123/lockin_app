@@ -1,6 +1,9 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
+import { Fonts } from '../constants/Fonts';
+import { RADIUS, T, cardShadow } from '../constants/Theme';
+
 interface DailyActivity {
   date: string;
   totalMinutes: number;
@@ -15,11 +18,11 @@ const CELL_SIZE = 11;
 const CELL_GAP = 3;
 const DAY_LABEL_WIDTH = 28;
 
-const BRAND_PINK = '#FF6600';
+const BRAND_PINK = T.orange;
 
 // Color levels for the heatmap (from no activity to high activity)
 const COLORS = {
-  empty: '#1a1a1a',
+  empty: T.sunk,
   level1: 'rgba(255,102,0, 0.2)',
   level2: 'rgba(255,102,0, 0.4)',
   level3: 'rgba(255,102,0, 0.6)',
@@ -213,8 +216,9 @@ const styles = StyleSheet.create({
   container: {
     paddingVertical: 16,
     paddingHorizontal: 12,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
+    ...cardShadow,
   },
   heatmapContainer: {
     flexDirection: 'row',
@@ -231,7 +235,8 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontFamily: Fonts.medium,
+    color: T.inkMute,
     width: DAY_LABEL_WIDTH,
   },
   scrollContent: {
@@ -244,7 +249,8 @@ const styles = StyleSheet.create({
   monthLabel: {
     position: 'absolute',
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontFamily: Fonts.medium,
+    color: T.inkMute,
   },
   grid: {
     flexDirection: 'row',
@@ -255,7 +261,7 @@ const styles = StyleSheet.create({
   cell: {
     width: CELL_SIZE,
     height: CELL_SIZE,
-    borderRadius: 2,
+    borderRadius: 3,
     marginBottom: CELL_GAP,
   },
 });

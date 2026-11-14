@@ -5,15 +5,15 @@
 import React from 'react';
 import { StyleProp, Text, TextStyle } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
+import { T } from '@/constants/Theme';
 import { Fonts } from '@/constants/Fonts';
 
 type Tone = 'default' | 'red' | 'dim';
 
 const toneColor: Record<Tone, string> = {
-  default: LC.textMute,
-  red: LC.red,
-  dim: LC.textMute,
+  default: T.inkMute,
+  red: T.orange,
+  dim: T.inkMute,
 };
 
 type LCEyebrowProps = {

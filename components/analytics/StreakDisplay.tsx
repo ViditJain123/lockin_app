@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 
 interface Props {
   streak: number;
@@ -32,8 +33,9 @@ const styles = StyleSheet.create({
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.md,
+    ...cardShadow,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
@@ -43,18 +45,19 @@ const styles = StyleSheet.create({
   compactCount: {
     fontSize: 22,
     fontFamily: Fonts.bold,
-    color: '#FF9500',
+    color: T.orange,
     marginLeft: 8,
   },
   compactLabel: {
     fontSize: 15,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkSoft,
     marginLeft: 6,
   },
   fullContainer: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
+    ...cardShadow,
     paddingVertical: 20,
     alignItems: 'center',
   },
@@ -64,13 +67,13 @@ const styles = StyleSheet.create({
   fullCount: {
     fontSize: 36,
     fontFamily: Fonts.bold,
-    color: '#FF9500',
+    color: T.orange,
     marginTop: 4,
   },
   fullLabel: {
     fontSize: 15,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkSoft,
     marginTop: 2,
   },
 });

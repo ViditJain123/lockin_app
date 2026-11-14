@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 
 interface Props {
   title: string;
@@ -13,7 +14,7 @@ interface Props {
 
 export default function SummaryCard({ title, hours, percentChange, unit }: Props) {
   const isPositive = percentChange !== null && percentChange >= 0;
-  const changeColor = isPositive ? '#34C759' : '#FF6600';
+  const changeColor = isPositive ? T.good : T.orange;
   const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
 
   const formatValue = (h: number): string => {
@@ -44,15 +45,16 @@ export default function SummaryCard({ title, hours, percentChange, unit }: Props
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
+    ...cardShadow,
     padding: 20,
     alignItems: 'center',
   },
   title: {
     fontSize: 14,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkSoft,
     marginBottom: 8,
   },
   valueRow: {
@@ -62,12 +64,12 @@ const styles = StyleSheet.create({
   bigNumber: {
     fontSize: 44,
     fontFamily: Fonts.bold,
-    color: '#FFFFFF',
+    color: T.ink,
   },
   unit: {
     fontSize: 18,
     fontFamily: Fonts.medium,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkSoft,
     marginLeft: 6,
   },
   changeRow: {

@@ -1,18 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { setStatusBarStyle } from 'expo-status-bar';
+import React, { useCallback, useState } from 'react';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { DeviceActivitySelectionView } from 'react-native-device-activity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  DeviceActivitySelectionView,
-} from 'react-native-device-activity';
 
-import { useAuth } from '../contexts/AuthContext';
-import { Fonts } from '../constants/Fonts';
-import { useAppLockStore } from '../store/useAppLockStore';
-import { useOnboardingStore, type SleepTime } from '../store/useOnboardingStore';
-import { upsertUserRow, convertSleepTimeTo24h } from '../lib/supabaseUser';
+import ClaimScreenTimeModal from '../components/ClaimScreenTimeModal';
+import AvatarEditSheet from '../components/profile/AvatarEditSheet';
+import InitialsAvatar from '../components/profile/InitialsAvatar';
 import TimePicker from '../components/quiz/TimePicker';
+import { Fonts } from '../constants/Fonts';
+import { cardShadow, RADIUS, T } from '../constants/Theme';
+import { useAuth } from '../contexts/AuthContext';
+import { buttonPress, optionSelect } from '../lib/haptics';
+import { playSound } from '../lib/sound';
+import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
+import { computeXP, levelFromXP } from '../lib/xp';
+import { useAppLockStore } from '../store/useAppLockStore';
+import { useCrystalStore } from '../store/useCrystalStore';
+import { useOnboardingStore, type SleepTime } from '../store/useOnboardingStore';
+import { usePrefsStore } from '../store/usePrefsStore';
+import { useProfileStatsStore } from '../store/useProfileStatsStore';
 
 const TARGET_HOURS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -21,13 +32,101 @@ function formatSleepTimeDisplay(sleepTime: SleepTime): string {
   return `${sleepTime.hour}:${min} ${sleepTime.period}`;
 }
 
+const hoursLabel = (h: number) => `${h} ${h === 1 ? 'hour' : 'hours'}`;
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+function Row({
+  icon,
+  title,
+  value,
+  note,
+  onPress,
+  danger,
+  right,
+  last,
+}: {
+  icon: IconName;
+  title: string;
+  value?: string;
+  note?: string;
+  onPress?: () => void;
+  danger?: boolean;
+  right?: React.ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <>
+      <Pressable
+        style={({ pressed }) => [styles.row, pressed && onPress && styles.rowPressed]}
+        onPress={
+          onPress
+            ? () => {
+                optionSelect();
+                onPress();
+              }
+            : undefined
+        }
+        disabled={!onPress && !right}
+      >
+        <View style={[styles.rowIcon, danger && styles.rowIconDanger]}>
+          <Ionicons name={icon} size={18} color={danger ? T.bad : T.orange} />
+        </View>
+        <View style={styles.rowText}>
+          <Text style={[styles.rowTitle, danger && { color: T.bad }]}>{title}</Text>
+          {note ? <Text style={styles.rowNote}>{note}</Text> : null}
+        </View>
+        {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+        {right ?? (onPress ? <Ionicons name="chevron-forward" size={16} color={T.inkMute} /> : null)}
+      </Pressable>
+      {!last && <View style={styles.separator} />}
+    </>
+  );
+}
+
+function QuickLink({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        buttonPress();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.quick, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={styles.quickIcon}>
+        <Ionicons name={icon} size={20} color={T.orange} />
+      </View>
+      <Text style={styles.quickLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export default function SettingsPageScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut, deleteAccount } = useAuth();
+  const [editAvatar, setEditAvatar] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  const userName = user?.user_metadata?.full_name || 'User';
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('light');
+    }, [])
+  );
+
+  const quizName = useOnboardingStore((s) => s.quizAnswers.name);
+  const userName = quizName?.trim() || user?.user_metadata?.full_name || 'You';
   const userEmail = user?.email || '';
+
+  const totalHours = useProfileStatsStore((s) => s.total_hours);
+  const grinds = useProfileStatsStore((s) => s.grinds);
+  const streak = useProfileStatsStore((s) => s.streak) ?? 0;
+  const trophies = useCrystalStore((s) => s.earnedCrystals.length);
+  const level = levelFromXP(computeXP({ totalHours, totalGrinds: grinds }));
+
+  const soundEnabled = usePrefsStore((s) => s.soundEnabled);
+  const setSoundEnabled = usePrefsStore((s) => s.setSoundEnabled);
 
   // Screen time settings
   const sleepTime = useOnboardingStore((s) => s.quizAnswers.sleepTime);
@@ -58,29 +157,25 @@ export default function SettingsPageScreen() {
           text: 'Delete Account',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
-              'Are you sure?',
-              'All your sessions, badges, and progress will be permanently lost.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete Permanently',
-                  style: 'destructive',
-                  onPress: async () => {
-                    setIsDeletingAccount(true);
-                    try {
-                      await deleteAccount();
-                    } catch (error) {
-                      setIsDeletingAccount(false);
-                      Alert.alert(
-                        'Error',
-                        error instanceof Error ? error.message : 'Failed to delete account. Please try again.'
-                      );
-                    }
-                  },
+            Alert.alert('Are you sure?', 'All your sessions, trophies, and progress will be permanently lost.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete Permanently',
+                style: 'destructive',
+                onPress: async () => {
+                  setIsDeletingAccount(true);
+                  try {
+                    await deleteAccount();
+                  } catch (error) {
+                    setIsDeletingAccount(false);
+                    Alert.alert(
+                      'Error',
+                      error instanceof Error ? error.message : 'Failed to delete account. Please try again.'
+                    );
+                  }
                 },
-              ]
-            );
+              },
+            ]);
           },
         },
       ]
@@ -110,9 +205,7 @@ export default function SettingsPageScreen() {
       upsertUserRow(user.id, {
         pending_sleep_time: time24h,
         pending_settings_date: useOnboardingStore.getState().pendingSettings?.scheduledDate,
-      }).catch((err) =>
-        console.warn('[Settings] Failed to sync pending sleep time:', err)
-      );
+      }).catch((err) => console.warn('[Settings] Failed to sync pending sleep time:', err));
     }
   };
 
@@ -125,9 +218,7 @@ export default function SettingsPageScreen() {
       upsertUserRow(user.id, {
         pending_target_hours: hours,
         pending_settings_date: useOnboardingStore.getState().pendingSettings?.scheduledDate,
-      }).catch((err) =>
-        console.warn('[Settings] Failed to sync pending target hours:', err)
-      );
+      }).catch((err) => console.warn('[Settings] Failed to sync pending target hours:', err));
     }
   };
 
@@ -139,223 +230,272 @@ export default function SettingsPageScreen() {
     if (user?.id) {
       upsertUserRow(user.id, {
         pending_settings_date: useOnboardingStore.getState().pendingSettings?.scheduledDate,
-      }).catch((err) =>
-        console.warn('[Settings] Failed to sync pending app selection:', err)
-      );
+      }).catch((err) => console.warn('[Settings] Failed to sync pending app selection:', err));
     }
   };
+
+  const version = Constants.expoConfig?.version;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="chevron-back" size={22} color={T.ink} />
         </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={{ width: 28 }} />
+        <Text style={styles.headerTitle}>You</Text>
+        <View style={{ width: 42 }} />
       </View>
 
-      <ScrollView>
-        {/* Screen Time Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SCREEN TIME</Text>
-          <View style={styles.card}>
-            {/* Sleep Time */}
-            <Pressable style={styles.row} onPress={() => { setTempSleepTime(sleepTime); setShowSleepTimePicker(true); }}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
-                <Ionicons name="moon" size={20} color="#8b5cf6" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>Sleep Time</Text>
-                <Text style={styles.rowSubtitle}>{formatSleepTimeDisplay(sleepTime)}</Text>
-                {pendingSettings?.sleepTime && (
-                  <Text style={styles.pendingText}>Changing to {formatSleepTimeDisplay(pendingSettings.sleepTime)} tomorrow</Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
-            </Pressable>
-
-            <View style={styles.separator} />
-
-            {/* Daily Target */}
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
+        {/* Profile */}
+        <View style={styles.profile}>
+          <Pressable
+            onPress={() => {
+              optionSelect();
+              setEditAvatar(true);
+            }}
+            style={({ pressed }) => pressed && styles.pressed}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
+          >
+            <InitialsAvatar id={user?.id ?? 'you'} size={64} isMe />
+            <View style={styles.editBadge}>
+              <Ionicons name="camera" size={12} color={T.black} />
+            </View>
+          </Pressable>
+          <View style={styles.profileText}>
+            <Text style={styles.profileName} numberOfLines={1}>
+              {userName}
+            </Text>
+            <Text style={styles.profileMeta}>
+              Level {level} · {trophies} {trophies === 1 ? 'trophy' : 'trophies'} · {streak}d streak
+            </Text>
             <Pressable
-              style={[styles.row, isFullyUnlocked && { opacity: 0.5 }]}
-              onPress={isFullyUnlocked ? undefined : () => setShowTargetPicker(true)}
-              disabled={isFullyUnlocked}
+              onPress={() => {
+                optionSelect();
+                setEditAvatar(true);
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
             >
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(234, 179, 8, 0.15)' }]}>
-                <Ionicons name="flame" size={20} color="#eab308" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>Daily Target</Text>
-                <Text style={styles.rowSubtitle}>
-                  {isFullyUnlocked
-                    ? `${targetHours} ${targetHours === 1 ? 'hour' : 'hours'} — Target reached ✓`
-                    : `${targetHours} ${targetHours === 1 ? 'hour' : 'hours'}`}
-                </Text>
-                {pendingSettings?.targetHours !== undefined && (
-                  <Text style={styles.pendingText}>Changing to {pendingSettings.targetHours} {pendingSettings.targetHours === 1 ? 'hour' : 'hours'} tomorrow</Text>
-                )}
-              </View>
-              {!isFullyUnlocked && <Ionicons name="chevron-forward" size={18} color="#666" />}
+              <Text style={styles.changePhoto}>Change photo</Text>
             </Pressable>
-
-            {/* Blocked Apps + Screen Time controls — iOS-only because they
-                wrap the FamilyControls / DeviceActivity APIs. */}
-            {Platform.OS === 'ios' && (
-              <>
-                <View style={styles.separator} />
-                <Pressable style={styles.row} onPress={() => { setTempSelection(familyActivitySelection); setShowAppPicker(true); }}>
-                  <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                    <Ionicons name="lock-closed" size={20} color="#ef4444" />
-                  </View>
-                  <View style={styles.rowTextContainer}>
-                    <Text style={styles.rowTitle}>Blocked Apps</Text>
-                    <Text style={styles.rowSubtitle}>{familyActivitySelection ? 'Configured' : 'Not set'}</Text>
-                    {pendingSettings?.familyActivitySelection !== undefined && (
-                      <Text style={styles.pendingText}>Change pending — takes effect tomorrow</Text>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#666" />
-                </Pressable>
-
-                {isFullyUnlocked ? (
-                  <>
-                    <View style={styles.separator} />
-                    <View style={styles.row}>
-                      <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-                        <Ionicons name="lock-open" size={20} color="#34d399" />
-                      </View>
-                      <View style={styles.rowTextContainer}>
-                        <Text style={[styles.rowTitle, { color: '#34d399' }]}>Apps Unlocked</Text>
-                        <Text style={styles.rowSubtitle}>Unlocked until {formatSleepTimeDisplay(sleepTime)}</Text>
-                      </View>
-                    </View>
-                  </>
-                ) : canClaim ? (
-                  <>
-                    <View style={styles.separator} />
-                    <Pressable style={styles.row} onPress={() => setShowClaimModal(true)}>
-                      <View style={[styles.iconContainer, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-                        <Ionicons name="play" size={20} color="#34d399" />
-                      </View>
-                      <View style={styles.rowTextContainer}>
-                        <Text style={[styles.rowTitle, { color: '#34d399' }]}>Claim Screen Time</Text>
-                        <Text style={styles.rowSubtitle}>{Math.floor(availableScreenTime / 60)} minutes available</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={18} color="#666" />
-                    </Pressable>
-                  </>
-                ) : null}
-              </>
-            )}
           </View>
         </View>
 
-        {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ACCOUNT</Text>
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
-                <Ionicons name="person" size={20} color="#3b82f6" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={styles.rowTitle}>{userName}</Text>
-                <Text style={styles.rowSubtitle}>{userEmail}</Text>
-              </View>
-            </View>
+        {/* Quick links */}
+        <View style={styles.quickGrid}>
+          <QuickLink
+            icon="trophy-outline"
+            label="Trophies"
+            onPress={() => router.push('/trophies' as any)}
+          />
+          <QuickLink icon="film-outline" label="Timelapses" onPress={() => router.push('/profile' as any)} />
+          <QuickLink icon="stats-chart-outline" label="Stats" onPress={() => router.push('/analytics' as any)} />
+          <QuickLink icon="podium-outline" label="Ranks" onPress={() => router.push('/leaderboard' as any)} />
+        </View>
 
-            <View style={styles.separator} />
+        {/* Your day */}
+        <Text style={styles.sectionTitle}>Your day</Text>
+        <View style={styles.card}>
+          <Row
+            icon="flag-outline"
+            title="Daily goal"
+            value={hoursLabel(targetHours)}
+            note={
+              pendingSettings?.targetHours !== undefined
+                ? `Changes to ${hoursLabel(pendingSettings.targetHours)} tomorrow`
+                : isFullyUnlocked
+                  ? 'Reached today ✓'
+                  : undefined
+            }
+            onPress={isFullyUnlocked ? undefined : () => setShowTargetPicker(true)}
+          />
+          <Row
+            icon="moon-outline"
+            title="Bedtime"
+            value={formatSleepTimeDisplay(sleepTime)}
+            note={
+              pendingSettings?.sleepTime
+                ? `Changes to ${formatSleepTimeDisplay(pendingSettings.sleepTime)} tomorrow`
+                : Platform.OS === 'ios'
+                  ? 'Blocked apps lock at bedtime'
+                  : undefined
+            }
+            onPress={() => {
+              setTempSleepTime(sleepTime);
+              setShowSleepTimePicker(true);
+            }}
+            last={Platform.OS !== 'ios'}
+          />
+          {Platform.OS === 'ios' && (
+            <>
+              <Row
+                icon="lock-closed-outline"
+                title="Blocked apps"
+                value={familyActivitySelection ? 'On' : 'Not set'}
+                note={pendingSettings?.familyActivitySelection !== undefined ? 'Change applies tomorrow' : 'Reels, feeds, anything you doomscroll'}
+                onPress={() => {
+                  setTempSelection(familyActivitySelection);
+                  setShowAppPicker(true);
+                }}
+                last={!isFullyUnlocked && !canClaim}
+              />
+              {isFullyUnlocked ? (
+                <Row icon="lock-open-outline" title="Apps unlocked" note={`Until ${formatSleepTimeDisplay(sleepTime)}`} last />
+              ) : canClaim ? (
+                <Row
+                  icon="hourglass-outline"
+                  title="Use earned screen time"
+                  value={`${Math.floor(availableScreenTime / 60)} min`}
+                  onPress={() => setShowClaimModal(true)}
+                  last
+                />
+              ) : null}
+            </>
+          )}
+        </View>
+        <Text style={styles.footnote}>Goal and bedtime changes start tomorrow, so the goalposts can't move mid-day.</Text>
 
-            <Pressable style={styles.row} onPress={handleLogout}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(236, 72, 153, 0.15)' }]}>
-                <Ionicons name="log-out-outline" size={20} color="#ec4899" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={[styles.rowTitle, { color: '#ec4899' }]}>Log Out</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#666" />
-            </Pressable>
+        {/* Sessions */}
+        <Text style={styles.sectionTitle}>Sessions</Text>
+        <View style={styles.card}>
+          <Row
+            icon="musical-notes-outline"
+            title="Sound effects"
+            note="Countdown, lock-in and milestone sounds"
+            right={
+              <Switch
+                value={soundEnabled}
+                onValueChange={(v) => {
+                  optionSelect();
+                  setSoundEnabled(v);
+                  if (v) playSound('tap');
+                }}
+                trackColor={{ true: T.orange, false: T.sunk }}
+                ios_backgroundColor={T.sunk}
+              />
+            }
+            last
+          />
+        </View>
 
-            <View style={styles.separator} />
+        {/* Account */}
+        <Text style={styles.sectionTitle}>Account</Text>
+        <View style={styles.card}>
+          {userEmail ? <Row icon="person-outline" title={userEmail} /> : null}
+          <Row icon="log-out-outline" title="Log out" onPress={handleLogout} />
+          <Row
+            icon="trash-outline"
+            title={isDeletingAccount ? 'Deleting…' : 'Delete account'}
+            onPress={isDeletingAccount ? undefined : handleDeleteAccount}
+            danger
+            last
+          />
+        </View>
 
-            <Pressable style={styles.row} onPress={handleDeleteAccount} disabled={isDeletingAccount}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
-                <Ionicons name="trash-outline" size={20} color="#ef4444" />
-              </View>
-              <View style={styles.rowTextContainer}>
-                <Text style={[styles.rowTitle, { color: '#ef4444' }]}>
-                  {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
-                </Text>
-              </View>
-              {!isDeletingAccount && <Ionicons name="chevron-forward" size={18} color="#666" />}
-            </Pressable>
-          </View>
+        <View style={styles.footer}>
+          <Text style={styles.footerWordmark}>
+            LOCKIN <Text style={{ color: T.orange }}>CLUB</Text>
+          </Text>
+          {version ? <Text style={styles.footerVersion}>v{version}</Text> : null}
         </View>
       </ScrollView>
 
-      {/* Sleep Time Picker Modal */}
-      <Modal visible={showSleepTimePicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowSleepTimePicker(false)}>
-        <SafeAreaView style={styles.modalContainer}>
+      <AvatarEditSheet visible={editAvatar} onClose={() => setEditAvatar(false)} userId={user?.id ?? 'you'} />
+
+      {/* Bedtime picker */}
+      <Modal
+        visible={showSleepTimePicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSleepTimePicker(false)}
+      >
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowSleepTimePicker(false)}>
-              <Text style={styles.modalCancelText}>Cancel</Text>
+            <Pressable onPress={() => setShowSleepTimePicker(false)} hitSlop={8}>
+              <Text style={styles.modalCancel}>Cancel</Text>
             </Pressable>
-            <Text style={styles.modalTitle}>Sleep Time</Text>
-            <Pressable onPress={handleSaveSleepTime}>
-              <Text style={styles.modalDoneText}>Save</Text>
+            <Text style={styles.modalTitle}>Bedtime</Text>
+            <Pressable onPress={handleSaveSleepTime} hitSlop={8}>
+              <Text style={styles.modalDone}>Save</Text>
             </Pressable>
           </View>
+          <Text style={styles.modalHint}>Lockin nudges you to wind down an hour before, and blocked apps lock at this time.</Text>
           <View style={styles.timePickerContainer}>
             <TimePicker
               hour={tempSleepTime.hour}
               minute={tempSleepTime.minute}
               period={tempSleepTime.period}
               onTimeChange={(hour, minute, period) => setTempSleepTime({ hour, minute, period })}
+              fadeColor={T.canvas}
+              textColor={T.ink}
             />
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
-      {/* Target Hours Picker Modal */}
-      <Modal visible={showTargetPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowTargetPicker(false)}>
-        <SafeAreaView style={styles.modalContainer}>
+      {/* Daily goal picker */}
+      <Modal
+        visible={showTargetPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTargetPicker(false)}
+      >
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowTargetPicker(false)}>
-              <Text style={styles.modalCancelText}>Cancel</Text>
+            <Pressable onPress={() => setShowTargetPicker(false)} hitSlop={8}>
+              <Text style={styles.modalCancel}>Cancel</Text>
             </Pressable>
-            <Text style={styles.modalTitle}>Daily Target</Text>
-            <View style={{ width: 60 }} />
+            <Text style={styles.modalTitle}>Daily goal</Text>
+            <View style={{ width: 56 }} />
           </View>
-          <ScrollView contentContainerStyle={styles.targetList}>
-            {TARGET_HOURS_OPTIONS.map((h) => (
-              <Pressable key={h} style={[styles.targetOption, h === targetHours && styles.targetOptionSelected]} onPress={() => handleSelectTargetHours(h)}>
-                <Text style={[styles.targetOptionText, h === targetHours && styles.targetOptionTextSelected]}>
-                  {h} {h === 1 ? 'hour' : 'hours'}
-                </Text>
-                {h === targetHours && <Ionicons name="checkmark" size={22} color="#007AFF" />}
-              </Pressable>
-            ))}
+          <Text style={styles.modalHint}>How many focused hours a day? Hitting it unlocks your apps until bedtime.</Text>
+          <ScrollView contentContainerStyle={styles.targetGrid}>
+            {TARGET_HOURS_OPTIONS.map((h) => {
+              const selected = h === (pendingSettings?.targetHours ?? targetHours);
+              return (
+                <Pressable
+                  key={h}
+                  style={({ pressed }) => [styles.targetOption, selected && styles.targetOptionSelected, pressed && styles.pressed]}
+                  onPress={() => {
+                    optionSelect();
+                    handleSelectTargetHours(h);
+                  }}
+                >
+                  <Text style={[styles.targetValue, selected && styles.targetValueSelected]}>{h}</Text>
+                  <Text style={[styles.targetUnit, selected && styles.targetValueSelected]}>{h === 1 ? 'hour' : 'hours'}</Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
-        </SafeAreaView>
+        </View>
       </Modal>
 
-      {/* App Selection Modal */}
-      <Modal visible={showAppPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAppPicker(false)}>
-        <SafeAreaView style={styles.modalContainer}>
+      {/* Blocked apps picker */}
+      <Modal
+        visible={showAppPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAppPicker(false)}
+      >
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <View style={{ width: 60 }} />
-            <Text style={styles.modalTitle}>Blocked Apps</Text>
-            <Pressable onPress={handleAppPickerDone}>
-              <Text style={styles.modalDoneText}>Done</Text>
+            <View style={{ width: 56 }} />
+            <Text style={styles.modalTitle}>Blocked apps</Text>
+            <Pressable onPress={handleAppPickerDone} hitSlop={8}>
+              <Text style={styles.modalDone}>Done</Text>
             </Pressable>
           </View>
           {__DEV__ && Platform.OS === 'ios' && !Platform.isPad && (
-            <Text style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: 12, fontSize: 13 }}>
-              Note: App list is empty on Simulator. Test on a physical device.
-            </Text>
+            <Text style={styles.modalHint}>The app list is empty on the Simulator. Test on a physical device.</Text>
           )}
           <View style={{ flex: 1 }}>
             <DeviceActivitySelectionView
@@ -366,33 +506,10 @@ export default function SettingsPageScreen() {
               }}
             />
           </View>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Claim Screen Time Modal */}
-      <Modal visible={showClaimModal} animationType="fade" transparent onRequestClose={() => setShowClaimModal(false)}>
-        <View style={styles.claimModalOverlay}>
-          <View style={styles.claimModalCard}>
-            <Text style={styles.claimModalTitle}>Start Screen Time?</Text>
-            <Text style={styles.claimModalBody}>
-              You'll be able to use your phone for the next{' '}
-              <Text style={styles.claimModalBold}>{Math.floor(availableScreenTime / 60)} minutes</Text>
-            </Text>
-            <Pressable
-              style={styles.claimModalConfirmButton}
-              onPress={() => {
-                setShowClaimModal(false);
-                useAppLockStore.getState().unlockApps();
-              }}
-            >
-              <Text style={styles.claimModalConfirmText}>Start Timer</Text>
-            </Pressable>
-            <Pressable style={styles.claimModalCancelButton} onPress={() => setShowClaimModal(false)}>
-              <Text style={styles.claimModalCancelText}>Not Now</Text>
-            </Pressable>
-          </View>
         </View>
       </Modal>
+
+      <ClaimScreenTimeModal visible={showClaimModal} onClose={() => setShowClaimModal(false)} source="settings" />
     </View>
   );
 }
@@ -400,189 +517,265 @@ export default function SettingsPageScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: T.canvas,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 56,
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: T.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
   },
   headerTitle: {
     fontSize: 18,
-    fontFamily: Fonts.semiBold,
-    color: '#fff',
+    fontFamily: Fonts.bold,
+    color: T.ink,
   },
-  section: {
-    marginTop: 24,
-    paddingHorizontal: 16,
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
+    ...cardShadow,
+  },
+  profileText: {
+    flex: 1,
+  },
+  profileName: {
+    fontFamily: Fonts.bold,
+    fontSize: 22,
+    color: T.ink,
+  },
+  profileMeta: {
+    marginTop: 2,
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    color: T.inkSoft,
+  },
+  changePhoto: {
+    marginTop: 6,
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: T.orange,
+  },
+  editBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: T.white,
+    borderWidth: 2,
+    borderColor: T.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  quick: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.md,
+    ...cardShadow,
+  },
+  quickIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: T.orangeSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: {
+    marginTop: 8,
+    fontFamily: Fonts.semiBold,
+    fontSize: 12,
+    color: T.ink,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontFamily: Fonts.semiBold,
-    color: '#666',
+    fontSize: 14,
+    fontFamily: Fonts.bold,
+    color: T.inkSoft,
+    marginTop: 26,
     marginBottom: 8,
-    marginLeft: 4,
-    letterSpacing: 1,
+    marginHorizontal: 20,
   },
   card: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
+    marginHorizontal: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
     overflow: 'hidden',
+    ...cardShadow,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    minHeight: 60,
   },
-  iconContainer: {
-    width: 36,
-    height: 36,
+  rowPressed: {
+    backgroundColor: T.sunk,
+  },
+  rowIcon: {
+    width: 34,
+    height: 34,
     borderRadius: 10,
+    backgroundColor: T.orangeSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowTextContainer: {
+  rowIconDanger: {
+    backgroundColor: T.badSoft,
+  },
+  rowText: {
     flex: 1,
-    marginLeft: 12,
   },
   rowTitle: {
-    fontSize: 16,
-    fontFamily: Fonts.medium,
-    color: '#fff',
+    fontSize: 15.5,
+    fontFamily: Fonts.semiBold,
+    color: T.ink,
   },
-  rowSubtitle: {
-    fontSize: 13,
-    fontFamily: Fonts.regular,
-    color: '#888',
+  rowNote: {
     marginTop: 2,
-  },
-  pendingText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontFamily: Fonts.medium,
-    color: '#eab308',
-    marginTop: 2,
+    color: T.inkMute,
+  },
+  rowValue: {
+    fontSize: 15,
+    fontFamily: Fonts.semiBold,
+    color: T.inkSoft,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#333',
-    marginLeft: 64,
+    backgroundColor: T.lineStrong,
+    marginLeft: 62,
+  },
+  footnote: {
+    marginTop: 8,
+    marginHorizontal: 20,
+    fontSize: 12,
+    fontFamily: Fonts.medium,
+    color: T.inkMute,
+    lineHeight: 17,
+  },
+  footer: {
+    alignItems: 'center',
+    marginTop: 32,
+    gap: 4,
+  },
+  footerWordmark: {
+    fontFamily: Fonts.dmSansBold,
+    fontSize: 13,
+    letterSpacing: 1.5,
+    color: T.inkMute,
+  },
+  footerVersion: {
+    fontFamily: Fonts.medium,
+    fontSize: 11,
+    color: T.inkMute,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: T.canvas,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
   },
   modalTitle: {
     fontSize: 17,
-    fontFamily: Fonts.semiBold,
-    color: '#fff',
+    fontFamily: Fonts.bold,
+    color: T.ink,
   },
-  modalCancelText: {
-    fontSize: 17,
-    fontFamily: Fonts.regular,
-    color: '#007AFF',
-  },
-  modalDoneText: {
-    fontSize: 17,
+  modalCancel: {
+    fontSize: 16,
     fontFamily: Fonts.semiBold,
-    color: '#007AFF',
+    color: T.inkSoft,
+    width: 56,
+  },
+  modalDone: {
+    fontSize: 16,
+    fontFamily: Fonts.bold,
+    color: T.orange,
+    width: 56,
+    textAlign: 'right',
+  },
+  modalHint: {
+    marginHorizontal: 24,
+    marginTop: 4,
+    fontSize: 14,
+    fontFamily: Fonts.medium,
+    color: T.inkSoft,
+    lineHeight: 20,
   },
   timePickerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  targetList: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+  targetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    padding: 20,
   },
   targetOption: {
-    flexDirection: 'row',
+    width: '30.5%',
+    aspectRatio: 1.15,
+    borderRadius: RADIUS.md,
+    backgroundColor: T.card,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    ...cardShadow,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   targetOptionSelected: {
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    backgroundColor: T.orange,
+    borderColor: T.orange,
   },
-  targetOptionText: {
-    fontSize: 17,
-    fontFamily: Fonts.medium,
-    color: '#fff',
-  },
-  targetOptionTextSelected: {
-    color: '#007AFF',
-  },
-  claimModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  claimModalCard: {
-    width: '100%',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  claimModalTitle: {
+  targetValue: {
+    fontSize: 30,
     fontFamily: Fonts.bold,
-    fontSize: 22,
-    color: '#FFFFFF',
-    marginBottom: 12,
+    color: T.ink,
   },
-  claimModalBody: {
-    fontFamily: Fonts.regular,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+  targetUnit: {
+    fontSize: 12,
+    fontFamily: Fonts.semiBold,
+    color: T.inkMute,
   },
-  claimModalBold: {
-    fontFamily: Fonts.bold,
-    color: '#34d399',
-  },
-  claimModalConfirmButton: {
-    width: '100%',
-    backgroundColor: '#34d399',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  claimModalConfirmText: {
-    fontFamily: Fonts.bold,
-    fontSize: 17,
-    color: '#0E0E0E',
-  },
-  claimModalCancelButton: {
-    width: '100%',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  claimModalCancelText: {
-    fontFamily: Fonts.medium,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
+  targetValueSelected: {
+    color: T.white,
   },
 });

@@ -242,15 +242,15 @@ export async function scheduleDevReengagementNotifications(): Promise<void> {
 }
 
 /**
- * Schedule a daily 6am reminder to plan tasks
+ * Schedule a daily 6am nudge to start the day with a session instead of a feed
  */
 export async function scheduleDailyTaskReminder(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync('daily-tasks-reminder');
   await Notifications.scheduleNotificationAsync({
     identifier: 'daily-tasks-reminder',
     content: {
-      title: 'Plan your day',
-      body: 'Set your tasks and lock in',
+      title: 'Lock in before you scroll',
+      body: 'Start today with a session, not a feed.',
       sound: 'default',
       ...(Platform.OS === 'android' && { channelId: 'daily-reminders' }),
     },

@@ -2,7 +2,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
-  ImageBackground,
   InteractionManager,
   Modal,
   Pressable,
@@ -10,24 +9,28 @@ import {
   Text,
   View,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Ribbon from '../assets/images/ribbon.svg';
-import TimelapseStar from '../assets/images/timelapse_start.svg';
 import Button3D from '../components/Button3D';
+import Mascot from '../components/Mascot';
 import { Fonts } from '../constants/Fonts';
+import { RADIUS, T, cardShadow } from '../constants/Theme';
 import { useAppLockStore } from '../store/useAppLockStore';
 import { useOnboardingStore } from '../store/useOnboardingStore';
 import { posthog } from '../lib/posthog';
 
 const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, 430);
+const BADGE_SIZE = SCREEN_WIDTH * 0.72;
+const MASCOT_SIZE = SCREEN_WIDTH * 0.34;
 
 const MOTIVATIONAL_MESSAGES = [
   "You just outworked 99% of people.",
@@ -107,6 +110,7 @@ export default function GrindCompleteScreen() {
   const messageTranslateY = useSharedValue(20);
   const buttonOpacity = useSharedValue(0);
   const buttonTranslateY = useSharedValue(30);
+  const mascotWink = useSharedValue(1);
 
   useEffect(() => {
     posthog.capture('grind_complete_mounted', {
@@ -133,10 +137,17 @@ export default function GrindCompleteScreen() {
 
     buttonOpacity.value = withDelay(1200, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
     buttonTranslateY.value = withDelay(1200, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
+
+    // Celebratory wink once the mascot has landed
+    mascotWink.value = withDelay(
+      1100,
+      withSequence(withTiming(0, { duration: 120 }), withDelay(260, withTiming(1, { duration: 160 })))
+    );
   }, []);
 
   const ribbonAnimStyle = useAnimatedStyle(() => ({
     opacity: ribbonOpacity.value,
+    transform: [{ scale: ribbonScale.value }],
   }));
 
   const starAnimStyle = useAnimatedStyle(() => ({
@@ -216,19 +227,21 @@ export default function GrindCompleteScreen() {
   };
 
   return (
-    <ImageBackground
-      source={require('../assets/images/night-sky-background.jpeg')}
-      style={styles.container}
-      resizeMode="cover"
-    >
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 30 }]}>
-        {/* Ribbon + Star */}
+        {/* Celebration badge: orange halo + mascot */}
         <View style={styles.badgeArea}>
-          <Animated.View style={[styles.ribbonContainer, ribbonAnimStyle]}>
-            <Ribbon width={SCREEN_WIDTH} height={SCREEN_WIDTH} />
+          <Animated.View style={[styles.haloOuter, ribbonAnimStyle]}>
+            <View style={styles.haloInner} />
           </Animated.View>
           <Animated.View style={[styles.starContainer, starAnimStyle]}>
-            <TimelapseStar width={SCREEN_WIDTH * 0.4} height={SCREEN_WIDTH * 0.4} />
+            <View style={styles.mascotDisc}>
+              <Mascot size={MASCOT_SIZE} rightEyeOpen={mascotWink} />
+            </View>
+          </Animated.View>
+          <Animated.View style={[styles.eyebrowPill, titleAnimStyle]}>
+            <Text style={styles.eyebrowText}>SESSION COMPLETE</Text>
           </Animated.View>
         </View>
 
@@ -269,7 +282,12 @@ export default function GrindCompleteScreen() {
           {canClaim ? (
             <View style={styles.buttonRow}>
               <View style={styles.halfButton}>
-                <Button3D title="Done" onPress={handleDone} />
+                <Pressable
+                  style={({ pressed }) => [styles.secondaryButton, pressed && { opacity: 0.75 }]}
+                  onPress={handleDone}
+                >
+                  <Text style={styles.secondaryButtonText}>Done</Text>
+                </Pressable>
               </View>
               <View style={styles.halfButton}>
                 <Button3D title="Claim" onPress={() => setShowClaimModal(true)} />
@@ -304,95 +322,136 @@ export default function GrindCompleteScreen() {
           </View>
         </View>
       </Modal>
-    </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: T.canvas,
   },
   content: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
   },
   badgeArea: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 30,
-    height: SCREEN_WIDTH,
+    marginBottom: 20,
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
   },
-  ribbonContainer: {
+  haloOuter: {
     position: 'absolute',
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
+    backgroundColor: T.orangeSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  haloInner: {
+    width: BADGE_SIZE * 0.78,
+    height: BADGE_SIZE * 0.78,
+    borderRadius: (BADGE_SIZE * 0.78) / 2,
+    backgroundColor: 'rgba(255,102,0,0.14)',
   },
   starContainer: {
     position: 'absolute',
   },
+  mascotDisc: {
+    width: BADGE_SIZE * 0.56,
+    height: BADGE_SIZE * 0.56,
+    borderRadius: (BADGE_SIZE * 0.56) / 2,
+    backgroundColor: T.orange,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: T.orange,
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  eyebrowPill: {
+    position: 'absolute',
+    bottom: BADGE_SIZE * 0.06,
+    backgroundColor: T.card,
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    ...cardShadow,
+  },
+  eyebrowText: {
+    fontFamily: Fonts.bold,
+    fontSize: 11,
+    letterSpacing: 1.6,
+    color: T.orange,
+  },
   title: {
     fontFamily: Fonts.bold,
     fontSize: 28,
-    color: '#FFFFFF',
+    color: T.ink,
     textAlign: 'center',
     marginBottom: 8,
   },
   motivationalMessage: {
     fontFamily: Fonts.medium,
     fontSize: 15,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkSoft,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   statsCard: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: 20,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
+    paddingVertical: 22,
     paddingHorizontal: 12,
+    ...cardShadow,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statLabel: {
-    fontFamily: Fonts.medium,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    fontFamily: Fonts.semiBold,
+    fontSize: 11,
+    color: T.inkMute,
     textAlign: 'center',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginBottom: 6,
   },
   statValue: {
-    fontFamily: Fonts.bold,
-    fontSize: 28,
-    color: '#FFFFFF',
+    fontFamily: Fonts.display,
+    fontSize: 38,
+    lineHeight: 42,
+    color: T.ink,
     textAlign: 'center',
   },
   earnedValue: {
-    color: '#34d399',
+    color: T.orange,
   },
   statDivider: {
     width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    height: 44,
+    backgroundColor: T.line,
   },
   unlockedNote: {
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.semiBold,
     fontSize: 14,
-    color: '#34d399',
+    color: T.good,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 14,
   },
   buttonContainer: {
     width: '100%',
-    paddingHorizontal: 10,
+    paddingHorizontal: 6,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -400,6 +459,19 @@ const styles = StyleSheet.create({
   },
   halfButton: {
     flex: 1,
+  },
+  secondaryButton: {
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: T.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
+  },
+  secondaryButtonText: {
+    fontFamily: Fonts.bold,
+    fontSize: 17,
+    color: T.ink,
   },
   // Modal styles
   modalOverlay: {
@@ -411,34 +483,33 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
     padding: 28,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    ...cardShadow,
   },
   modalTitle: {
     fontFamily: Fonts.bold,
     fontSize: 22,
-    color: '#FFFFFF',
+    color: T.ink,
     marginBottom: 12,
   },
   modalBody: {
     fontFamily: Fonts.regular,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: T.inkSoft,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
   },
   modalBold: {
     fontFamily: Fonts.bold,
-    color: '#34d399',
+    color: T.orange,
   },
   modalConfirmButton: {
     width: '100%',
-    backgroundColor: '#34d399',
+    backgroundColor: T.orange,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
@@ -447,7 +518,7 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     fontFamily: Fonts.bold,
     fontSize: 17,
-    color: '#0E0E0E',
+    color: T.white,
   },
   modalCancelButton: {
     width: '100%',
@@ -455,8 +526,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: {
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.semiBold,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkSoft,
   },
 });

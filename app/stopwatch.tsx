@@ -1,38 +1,61 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useKeepAwake } from 'expo-keep-awake';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import 'react-native-get-random-values';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { v4 as uuidv4 } from 'uuid';
 
-import { LC } from '@/constants/BrandColors';
+import CountdownOverlay from '@/components/CountdownOverlay';
+import { formatHM, REELS_PER_MINUTE } from '@/components/dashboard/TodayCard';
+import Mascot from '@/components/Mascot';
+import SessionToast from '@/components/session/SessionToast';
+import ShutterButton from '@/components/session/ShutterButton';
+import { useSessionMilestones } from '@/components/session/useSessionMilestones';
 import { Fonts } from '@/constants/Fonts';
+import { cardShadow, T } from '@/constants/Theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLocalDateString } from '@/lib/dateUtils';
 import * as Haptics from '@/lib/haptics';
 import { posthog } from '@/lib/posthog';
+import { playSound } from '@/lib/sound';
 import { sendSessionEvent } from '@/lib/tinybird';
 import { useAppLockStore } from '@/store/useAppLockStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useRecordingStore } from '@/store/useRecordingStore';
 import { useSessionStore } from '@/store/useSessionStore';
-import { useTaskStore } from '@/store/useTaskStore';
 
-const RING_SIZE = 300;
-const RING_RADIUS = 140;
-const RING_INNER_RADIUS = 100;
+const RING = 248;
+const RING_STROKE = 8;
+const AMBIENT_AFTER_MS = 12_000;
+const AWAY_NOTIFICATION_ID = 'phone-down-away';
 
 function formatElapsed(seconds: number): string {
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
   const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+  return hrs > 0 ? `${hrs}:${pad(mins)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
 }
 
-export default function StopwatchScreen() {
+/**
+ * Phone-down mode: a lock-in without the camera. Only time spent with Lockin
+ * open counts — leaving the app pauses the session, and coming back tells you
+ * how long you were gone. After a few seconds untouched the screen dims to a
+ * quiet ambient clock so the phone can sit face-up on the desk.
+ */
+export default function PhoneDownScreen() {
   useKeepAwake();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -40,80 +63,134 @@ export default function StopwatchScreen() {
 
   const isSessionActive = useRecordingStore((s) => s.isSessionActive);
   const isFinishing = useRecordingStore((s) => s.isFinishing);
-  const activeTaskId = useRecordingStore((s) => s.activeTaskId);
   const setIsSessionActive = useRecordingStore((s) => s.setIsSessionActive);
   const setIsFinishing = useRecordingStore((s) => s.setIsFinishing);
 
-  const activeTask = useTaskStore((s) =>
-    s.tasks.find((t) => t.id === activeTaskId),
-  );
-
+  const [isCountingDown, setIsCountingDown] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const elapsedRef = useRef(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [awayCount, setAwayCount] = useState(0);
+  const [awaySeconds, setAwaySeconds] = useState(0);
+  const [ambient, setAmbient] = useState(false);
+
+  // Focused time = accumulated + (now - activeSince) while foregrounded
+  const accumulatedMsRef = useRef(0);
+  const activeSinceRef = useRef<number | null>(null);
+  const awaySinceRef = useRef<number | null>(null);
   const sessionStartRef = useRef<Date | null>(null);
   const isActiveRef = useRef(false);
+  const ambientTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep the elapsed counter steady if the user foregrounds/backgrounds —
-  // recompute from wall-clock when returning to foreground.
+  const { toast, setToast, goalProgress, todayMinutes, goalMinutes } = useSessionMilestones(
+    elapsedSeconds,
+    isSessionActive
+  );
+
+  const focusedSeconds = useCallback(() => {
+    const live = activeSinceRef.current ? Date.now() - activeSinceRef.current : 0;
+    return Math.floor((accumulatedMsRef.current + live) / 1000);
+  }, []);
+
+  // Tick
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const id = setInterval(() => setElapsedSeconds(focusedSeconds()), 500);
+    return () => clearInterval(id);
+  }, [isSessionActive, focusedSeconds]);
+
+  // Leaving the app pauses the clock; returning resumes it and says how long you were gone
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && isActiveRef.current && sessionStartRef.current) {
-        const secs = Math.floor(
-          (Date.now() - sessionStartRef.current.getTime()) / 1000,
-        );
-        elapsedRef.current = secs;
-        setElapsedSeconds(secs);
+      if (!isActiveRef.current) return;
+      if (state !== 'active') {
+        if (activeSinceRef.current) {
+          accumulatedMsRef.current += Date.now() - activeSinceRef.current;
+          activeSinceRef.current = null;
+          awaySinceRef.current = Date.now();
+        }
+        // Only nudge once really backgrounded (not for Control Centre pulls)
+        if (state === 'background') {
+          Notifications.scheduleNotificationAsync({
+            identifier: AWAY_NOTIFICATION_ID,
+            content: {
+              title: 'Your lock-in is paused',
+              body: 'Nothing on there is worth it. Come back and keep the clock running.',
+            },
+            trigger: null,
+          }).catch(() => {});
+        }
+      } else if (!activeSinceRef.current) {
+        activeSinceRef.current = Date.now();
+        Notifications.dismissNotificationAsync(AWAY_NOTIFICATION_ID).catch(() => {});
+        const gone = awaySinceRef.current ? Math.round((Date.now() - awaySinceRef.current) / 1000) : 0;
+        awaySinceRef.current = null;
+        // Ignore blips like pulling down Control Centre
+        if (gone >= 3) {
+          setAwayCount((n) => n + 1);
+          setAwaySeconds((s) => s + gone);
+          playSound('away');
+          Haptics.awayWarning();
+          setToast(`You left for ${gone < 60 ? `${gone}s` : formatHM(gone / 60)} · that didn't count`);
+          wake();
+        }
       }
     });
     return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Timer tick
-  useEffect(() => {
-    if (isSessionActive) {
-      intervalRef.current = setInterval(() => {
-        elapsedRef.current += 1;
-        setElapsedSeconds(elapsedRef.current);
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isSessionActive]);
+  // Ambient dim after a while untouched
+  const scheduleAmbient = useCallback(() => {
+    if (ambientTimerRef.current) clearTimeout(ambientTimerRef.current);
+    ambientTimerRef.current = setTimeout(() => {
+      if (isActiveRef.current) setAmbient(true);
+    }, AMBIENT_AFTER_MS);
+  }, []);
 
-  // Cleanup on unmount — release the recording flag if we leave mid-session.
+  const wake = useCallback(() => {
+    setAmbient(false);
+    if (isActiveRef.current) scheduleAmbient();
+  }, [scheduleAmbient]);
+
+  // Release the recording flag if we leave mid-session
   useEffect(() => {
     return () => {
-      if (isActiveRef.current) {
-        setIsSessionActive(false);
-      }
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (isActiveRef.current) setIsSessionActive(false);
+      if (ambientTimerRef.current) clearTimeout(ambientTimerRef.current);
+      Notifications.dismissNotificationAsync(AWAY_NOTIFICATION_ID).catch(() => {});
     };
   }, [setIsSessionActive]);
 
-  const handleStart = useCallback(() => {
-    elapsedRef.current = 0;
-    setElapsedSeconds(0);
+  const startSession = useCallback(() => {
+    accumulatedMsRef.current = 0;
+    activeSinceRef.current = Date.now();
     sessionStartRef.current = new Date();
     isActiveRef.current = true;
+    setElapsedSeconds(0);
+    setAwayCount(0);
+    setAwaySeconds(0);
     setIsSessionActive(true);
-    Haptics.sessionStart();
-    posthog.capture('session_started', { mode: 'stopwatch' });
-  }, [setIsSessionActive]);
+    scheduleAmbient();
+    posthog.capture('session_started', { mode: 'phone_down' });
+  }, [setIsSessionActive, scheduleAmbient]);
+
+  const handleCountdownComplete = useCallback(() => {
+    setIsCountingDown(false);
+    startSession();
+  }, [startSession]);
 
   const handleStop = useCallback(async () => {
     const endTime = new Date();
     const startTime = sessionStartRef.current || endTime;
-    const lockedInSeconds = elapsedRef.current;
+    const lockedInSeconds = focusedSeconds();
 
     isActiveRef.current = false;
+    activeSinceRef.current = null;
+    if (ambientTimerRef.current) clearTimeout(ambientTimerRef.current);
+    setAmbient(false);
     setIsSessionActive(false);
     setIsFinishing(true);
-    Haptics.sessionStop();
+    playSound('unlock');
+    Haptics.unlockPattern();
 
     const sessionId = uuidv4();
     const dateStr = getLocalDateString(startTime);
@@ -128,9 +205,11 @@ export default function StopwatchScreen() {
     });
 
     posthog.capture('session_completed', {
-      mode: 'stopwatch',
+      mode: 'phone_down',
       locked_in_seconds: lockedInSeconds,
       duration_seconds: Math.round((endTime.getTime() - startTime.getTime()) / 1000),
+      away_count: awayCount,
+      away_seconds: awaySeconds,
     });
 
     useAppLockStore.getState().creditEarnedTime(lockedInSeconds);
@@ -145,193 +224,159 @@ export default function StopwatchScreen() {
       total_locked_in_seconds: lockedInSeconds,
       timestamp: endTime.toISOString(),
     }).catch((err) => {
-      console.warn('[Stopwatch] Tinybird send FAILED:', err);
+      console.warn('[PhoneDown] Tinybird send FAILED:', err);
     });
 
     setIsFinishing(false);
 
-    // Auto-check the targeted task so the user doesn't have to tick it
-    // manually after grinding for it. Idempotent.
-    if (activeTaskId) {
-      useTaskStore.getState().completeTask(activeTaskId);
-    }
-    // Then clear the active task so the next grind from Home doesn't carry
-    // over a stale pill. The route param below already snapshotted the task
-    // id for downstream screens.
-    useRecordingStore.getState().setActiveTaskId(null);
-
     router.replace({
       pathname: '/photo-capture',
-      params: {
-        lockedInSeconds: String(lockedInSeconds),
-        sessionId,
-        ...(activeTaskId ? { activeTaskId } : {}),
-      },
+      params: { lockedInSeconds: String(lockedInSeconds), sessionId },
     } as any);
-  }, [user, setIsSessionActive, setIsFinishing, router, activeTaskId]);
+  }, [user, setIsSessionActive, setIsFinishing, router, focusedSeconds, awayCount, awaySeconds]);
 
-  const handleExit = useCallback(() => {
-    // No confirm — just leave. Session flag gets cleared on unmount.
-    router.back();
-  }, [router]);
+  // Mascot: slow breathing while locked in, the odd blink
+  const breathe = useSharedValue(0);
+  const eye = useSharedValue(1);
+  useEffect(() => {
+    breathe.value = isSessionActive
+      ? withRepeat(
+          withSequence(
+            withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: 2400, easing: Easing.inOut(Easing.sin) })
+          ),
+          -1
+        )
+      : withTiming(0);
+    eye.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 3600 }),
+        withTiming(0, { duration: 90 }),
+        withTiming(1, { duration: 120 })
+      ),
+      -1
+    );
+  }, [isSessionActive, breathe, eye]);
 
-  const canExit = !isSessionActive && !isFinishing;
-  const earnedMinutes = Math.round(elapsedSeconds / 60);
-  const progress = isSessionActive ? Math.min(elapsedSeconds / 3600, 1) : 0; // 1hr arc
-  const circumference = 2 * Math.PI * RING_RADIUS;
-  const dashOffset = circumference * (1 - progress);
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + breathe.value * 0.04 }, { translateY: -breathe.value * 3 }],
+  }));
+
+  const ambientStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(ambient ? 1 : 0, { duration: ambient ? 900 : 250 }),
+  }));
+
+  const r = (RING - RING_STROKE) / 2;
+  const circ = 2 * Math.PI * r;
+  const earnedMinutes = Math.floor(elapsedSeconds / 60);
+  const canExit = !isSessionActive && !isFinishing && !isCountingDown;
+  const goalLeft = Math.max(0, goalMinutes - todayMinutes);
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={LC.bg} />
+    <View style={styles.container} onTouchStart={isSessionActive ? wake : undefined}>
+      <StatusBar barStyle="light-content" />
 
-      {/* Top chrome */}
-      <View style={[styles.topChrome, { paddingTop: insets.top + 12 }]}>
-        {canExit ? (
-          <Pressable
-            onPress={handleExit}
-            style={({ pressed }) => [styles.exitBtn, pressed && styles.pressed]}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Exit stopwatch"
-          >
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-              <Path d="M6 6l12 12M18 6L6 18" stroke={LC.text} strokeWidth={2} strokeLinecap="round" />
-            </Svg>
-          </Pressable>
-        ) : (
-          <View style={styles.exitBtn} />
-        )}
-
-        <View style={styles.recPill}>
-          <View style={[styles.recDot, isSessionActive && styles.recDotActive]} />
-          <Text style={styles.recPillText}>
-            {isSessionActive ? 'LOCKED IN · STOPWATCH' : 'STOPWATCH · IDLE'}
+      {/* Top bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.side}>
+          {canExit && (
+            <Pressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Ionicons name="close" size={20} color={T.ink} />
+            </Pressable>
+          )}
+        </View>
+        <View style={[styles.modePill, isSessionActive && styles.modePillLive]}>
+          {isSessionActive && <View style={styles.liveDot} />}
+          <Text style={[styles.modeText, isSessionActive && styles.modeTextLive]}>
+            {isSessionActive ? 'LOCKED IN' : 'PHONE DOWN'}
           </Text>
         </View>
+        <View style={styles.side} />
       </View>
 
-      {/* Task pill (if any) */}
-      {activeTask ? (
-        <View style={styles.taskPillWrap}>
-          <View style={styles.taskPill}>
-            <View style={styles.taskDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.taskEyebrow}>CURRENT TASK</Text>
-              <Text style={styles.taskTitle} numberOfLines={1}>
-                {activeTask.title}
+      <SessionToast message={toast} top={insets.top + 64} variant="light" />
+
+      {/* Centre */}
+      <View style={styles.center}>
+        <View style={styles.ringWrap}>
+          <Svg width={RING} height={RING} style={StyleSheet.absoluteFill}>
+            <Circle cx={RING / 2} cy={RING / 2} r={r} stroke={T.sunk} strokeWidth={RING_STROKE} fill="none" />
+            {goalProgress >= 0.01 && (
+              <Circle
+                cx={RING / 2}
+                cy={RING / 2}
+                r={r}
+                stroke={T.orange}
+                strokeWidth={RING_STROKE}
+                strokeLinecap="round"
+                fill="none"
+                strokeDasharray={`${circ * goalProgress} ${circ}`}
+                transform={`rotate(-90 ${RING / 2} ${RING / 2})`}
+              />
+            )}
+          </Svg>
+          <Animated.View style={mascotStyle}>
+            <Mascot size={132} rightEyeOpen={eye} />
+          </Animated.View>
+        </View>
+
+        <Text style={styles.timer}>{formatElapsed(elapsedSeconds)}</Text>
+
+        {isSessionActive ? (
+          <Text style={styles.sub}>
+            <Text style={styles.subStrong}>+{earnedMinutes} min</Text> earned · ~{earnedMinutes * REELS_PER_MINUTE} reels skipped
+          </Text>
+        ) : (
+          <Text style={styles.sub}>No camera. Just you and the work.</Text>
+        )}
+
+        <View style={styles.chips}>
+          <View style={styles.chip}>
+            <Ionicons name="flag-outline" size={13} color={T.orange} />
+            <Text style={styles.chipText}>{goalLeft <= 0 ? 'Goal done today' : `${formatHM(goalLeft)} to goal`}</Text>
+          </View>
+          {awayCount > 0 && (
+            <View style={[styles.chip, styles.chipWarn]}>
+              <Ionicons name="exit-outline" size={13} color={T.bad} />
+              <Text style={[styles.chipText, { color: T.bad }]}>
+                Left {awayCount}× · {formatHM(awaySeconds / 60) === '0m' ? `${awaySeconds}s` : formatHM(awaySeconds / 60)}
               </Text>
             </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* Center timer */}
-      <View style={styles.center}>
-        <Svg width={RING_SIZE} height={RING_SIZE} style={styles.ringAbs}>
-          <Circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_RADIUS}
-            stroke={LC.border}
-            strokeWidth={1}
-            fill="none"
-          />
-          <Circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={(RING_RADIUS + RING_INNER_RADIUS) / 2}
-            stroke={LC.border}
-            strokeWidth={1}
-            fill="none"
-          />
-          <Circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_INNER_RADIUS}
-            stroke={LC.border}
-            strokeWidth={1}
-            fill="none"
-          />
-          <Circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_RADIUS}
-            stroke={LC.red}
-            strokeWidth={2}
-            fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
-          />
-          {Array.from({ length: 60 }).map((_, i) => {
-            const a = (i * 6 * Math.PI) / 180;
-            const major = i % 5 === 0;
-            const r1 = RING_RADIUS + 12;
-            const r2 = major ? RING_RADIUS + 18 : RING_RADIUS + 15;
-            const cx = RING_SIZE / 2;
-            const cy = RING_SIZE / 2;
-            return (
-              <Line
-                key={i}
-                x1={cx + Math.cos(a) * r1}
-                y1={cy + Math.sin(a) * r1}
-                x2={cx + Math.cos(a) * r2}
-                y2={cy + Math.sin(a) * r2}
-                stroke={major ? LC.textDim : LC.textMute}
-                strokeWidth={major ? 1.5 : 0.8}
-              />
-            );
-          })}
-        </Svg>
-
-        <View style={styles.centerText}>
-          <Text style={styles.elapsedEyebrow}>ELAPSED</Text>
-          <Text style={styles.elapsedValue}>{formatElapsed(elapsedSeconds)}</Text>
-          {isSessionActive && earnedMinutes > 0 ? (
-            <Text style={styles.unlockedText}>
-              +{earnedMinutes} MIN UNLOCKED
-            </Text>
-          ) : !isSessionActive && elapsedSeconds === 0 ? (
-            <Text style={styles.idleHint}>TAP START TO LOCK IN</Text>
-          ) : null}
+          )}
         </View>
       </View>
 
-      {/* Bottom controls */}
-      <View style={[styles.bottomControls, { paddingBottom: Math.max(insets.bottom + 24, 40) }]}>
-        {!isSessionActive ? (
-          <Pressable
-            onPress={handleStart}
-            style={({ pressed }) => [styles.bigStartBtn, pressed && styles.pressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Start stopwatch"
-          >
-            <Text style={styles.bigStartLabel}>START</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.activeRow}>
-            <View style={styles.sideBtn} />
-            <Pressable
-              onPress={handleStop}
-              style={({ pressed }) => [styles.stopBtn, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Stop and save session"
-            >
-              <View style={styles.stopSquare} />
-            </Pressable>
-            <Pressable
-              onPress={handleStop}
-              style={({ pressed }) => [styles.endBtn, pressed && styles.pressed]}
-              accessibilityRole="button"
-              accessibilityLabel="End"
-            >
-              <Text style={styles.endLabel}>END</Text>
-            </Pressable>
-          </View>
-        )}
+      {/* Bottom */}
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
+        <ShutterButton
+          variant="light"
+          isRecording={isSessionActive || isFinishing}
+          disabled={isFinishing || isCountingDown}
+          onStart={() => setIsCountingDown(true)}
+          onStop={handleStop}
+          onHoldCancelled={() => setToast('Keep holding to stop')}
+        />
+        <Text style={styles.rule}>
+          {isSessionActive ? 'Leaving Lockin pauses the clock' : 'Keep Lockin open · leave the phone on the desk'}
+        </Text>
       </View>
+
+      {/* Ambient: OLED-dark clock while the phone sits untouched */}
+      <Animated.View pointerEvents={ambient ? 'auto' : 'none'} style={[styles.ambient, ambientStyle]}>
+        <Pressable style={styles.ambientInner} onPress={wake} accessibilityLabel="Wake screen">
+          <Mascot size={44} rightEyeOpen={eye} />
+          <Text style={styles.ambientTimer}>{formatElapsed(elapsedSeconds)}</Text>
+          <Text style={styles.ambientHint}>Locked in · tap to wake</Text>
+        </Pressable>
+      </Animated.View>
+
+      <CountdownOverlay variant="light" isVisible={isCountingDown} onComplete={handleCountdownComplete} />
     </View>
   );
 }
@@ -339,211 +384,149 @@ export default function StopwatchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LC.bg,
+    backgroundColor: T.canvas,
   },
-  topChrome: {
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  exitBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
+  side: {
+    width: 42,
+    height: 42,
+  },
+  closeBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: T.card,
     alignItems: 'center',
     justifyContent: 'center',
+    ...cardShadow,
   },
-  pressed: {
-    opacity: 0.6,
-  },
-  recPill: {
+  modePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,102,0,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,102,0,0.25)',
+    backgroundColor: T.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.lineStrong,
   },
-  recDot: {
+  modePillLive: {
+    backgroundColor: T.orange,
+    borderColor: T.orange,
+  },
+  liveDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: LC.textMute,
+    backgroundColor: T.white,
   },
-  recDotActive: {
-    backgroundColor: LC.red,
-    shadowColor: LC.red,
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 2,
-  },
-  recPillText: {
+  modeText: {
     fontFamily: Fonts.monoSemiBold,
-    fontSize: 10,
-    color: LC.red,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    fontSize: 11,
+    letterSpacing: 2,
+    color: T.ink,
   },
-  // Task pill
-  taskPillWrap: {
-    paddingHorizontal: 20,
-    marginTop: 16,
+  modeTextLive: {
+    color: T.white,
   },
-  taskPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
-  },
-  taskDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
-    backgroundColor: LC.red,
-  },
-  taskEyebrow: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 9,
-    color: LC.textMute,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  taskTitle: {
-    fontFamily: Fonts.interMedium,
-    fontSize: 14,
-    color: LC.text,
-    marginTop: 2,
-  },
-  // Center
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  ringAbs: {
-    position: 'absolute',
-  },
-  centerText: {
+  ringWrap: {
+    width: RING,
+    height: RING,
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
   },
-  elapsedEyebrow: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 10,
-    letterSpacing: 2.5,
-    color: LC.textMute,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  elapsedValue: {
+  timer: {
+    marginTop: 22,
     fontFamily: Fonts.display,
-    fontSize: 72,
-    lineHeight: 84,
-    color: LC.text,
-    letterSpacing: -1,
+    fontSize: 76,
+    lineHeight: 82,
+    color: T.ink,
+    letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
-  unlockedText: {
-    fontFamily: Fonts.monoSemiBold,
-    fontSize: 11,
-    color: LC.red,
-    letterSpacing: 1.5,
-    marginTop: 12,
-    textTransform: 'uppercase',
+  sub: {
+    marginTop: 2,
+    fontFamily: Fonts.medium,
+    fontSize: 15,
+    color: T.inkSoft,
   },
-  idleHint: {
-    fontFamily: Fonts.monoMedium,
-    fontSize: 10,
-    color: LC.textMute,
-    letterSpacing: 2,
-    marginTop: 12,
-    textTransform: 'uppercase',
+  subStrong: {
+    fontFamily: Fonts.bold,
+    color: T.orange,
   },
-  // Bottom controls
-  bottomControls: {
-    paddingHorizontal: 32,
-    alignItems: 'center',
-  },
-  bigStartBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: LC.red,
-    borderWidth: 4,
-    borderColor: LC.bg,
-    alignItems: 'center',
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
-    shadowColor: LC.red,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 12,
+    gap: 8,
+    marginTop: 16,
+    paddingHorizontal: 24,
   },
-  bigStartLabel: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 13,
-    color: '#fff',
-    letterSpacing: 2,
-  },
-  activeRow: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: T.card,
+    ...cardShadow,
   },
-  sideBtn: {
-    width: 56,
-    height: 56,
+  chipWarn: {
+    backgroundColor: T.badSoft,
   },
-  stopBtn: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: LC.red,
-    borderWidth: 4,
-    borderColor: LC.bg,
+  chipText: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 12.5,
+    color: T.ink,
+  },
+  bottom: {
+    alignItems: 'center',
+  },
+  rule: {
+    marginTop: 12,
+    fontFamily: Fonts.medium,
+    fontSize: 12.5,
+    color: T.inkMute,
+  },
+  ambient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    zIndex: 80,
+  },
+  ambientInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: LC.red,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    elevation: 12,
+    gap: 14,
   },
-  stopSquare: {
-    width: 26,
-    height: 26,
-    borderRadius: 3,
-    backgroundColor: '#fff',
+  ambientTimer: {
+    fontFamily: Fonts.display,
+    fontSize: 64,
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 1,
+    fontVariant: ['tabular-nums'],
   },
-  endBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  endLabel: {
-    fontFamily: Fonts.monoSemiBold,
+  ambientHint: {
+    fontFamily: Fonts.monoMedium,
     fontSize: 10,
-    color: LC.textDim,
-    letterSpacing: 1.5,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.3)',
   },
 });

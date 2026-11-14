@@ -3,6 +3,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Fonts } from '@/constants/Fonts';
+import { T, cardShadow } from '@/constants/Theme';
 
 interface Props {
   label: string;
@@ -24,7 +25,7 @@ export default function PeriodNavigator({ label, canGoBack, canGoForward, onBack
         <Ionicons
           name="chevron-back"
           size={20}
-          color={canGoBack ? '#FF6600' : 'rgba(255,255,255,0.2)'}
+          color={canGoBack ? T.ink : T.inkMute}
         />
       </Pressable>
 
@@ -39,7 +40,7 @@ export default function PeriodNavigator({ label, canGoBack, canGoForward, onBack
         <Ionicons
           name="chevron-forward"
           size={20}
-          color={canGoForward ? '#FF6600' : 'rgba(255,255,255,0.2)'}
+          color={canGoForward ? T.ink : T.inkMute}
         />
       </Pressable>
     </View>
@@ -54,12 +55,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   arrow: {
-    padding: 4,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: T.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
   },
   label: {
     fontSize: 15,
     fontFamily: Fonts.semiBold,
-    color: 'rgba(255,255,255,0.7)',
+    color: T.ink,
     marginHorizontal: 12,
     minWidth: 160,
     textAlign: 'center',

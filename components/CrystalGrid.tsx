@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import CrystalImage from './CrystalImage';
 
-import { LC } from '@/constants/BrandColors';
+import { T, RADIUS, cardShadow } from '@/constants/Theme';
 import { Fonts } from '@/constants/Fonts';
 import {
   CRYSTALS_BY_LEVEL,
@@ -78,7 +78,6 @@ function CrystalGrid({ onPressCrystal }: CrystalGridProps) {
                 {
                   width: ITEM_SIZE,
                   height: ITEM_SIZE,
-                  borderColor: earned ? TIER_COLORS[crystal.tier] : LC.border,
                 },
                 pressed && styles.cellPressed,
               ]}
@@ -91,11 +90,20 @@ function CrystalGrid({ onPressCrystal }: CrystalGridProps) {
               <Text
                 style={[
                   styles.cellLabel,
-                  { color: earned ? LC.text : LC.textMute },
+                  { color: earned ? T.ink : T.inkMute },
                 ]}
                 numberOfLines={1}
               >
-                {earned ? crystal.name.toUpperCase() : `LV ${crystal.milestoneLevel}`}
+                {earned ? crystal.name : `Lv ${crystal.milestoneLevel}`}
+              </Text>
+              <Text
+                style={[
+                  styles.cellTier,
+                  { color: earned ? TIER_COLORS[crystal.tier] : T.inkMute },
+                ]}
+                numberOfLines={1}
+              >
+                {TIER_LABELS[crystal.tier]}
               </Text>
             </Pressable>
           );
@@ -149,7 +157,7 @@ function CrystalDetailModal({ crystal, earned, earnedAt, currentLevel, onClose }
           <View style={styles.modalImage}>
             <CrystalImage crystalId={crystal.id} size={140} locked={!earned} />
           </View>
-          <Text style={styles.modalName}>{crystal.name.toUpperCase()}</Text>
+          <Text style={styles.modalName}>{crystal.name}</Text>
           <Text style={styles.modalLore}>{crystal.lore}</Text>
           <View style={styles.modalDivider} />
           {earned ? (
@@ -184,25 +192,25 @@ const styles = StyleSheet.create({
   summaryLevel: {
     fontFamily: Fonts.display,
     fontSize: 24,
-    color: LC.text,
+    color: T.ink,
     letterSpacing: 0.5,
   },
   summaryBarOuter: {
     flex: 1,
-    height: 4,
-    backgroundColor: LC.border,
-    borderRadius: 2,
+    height: 6,
+    backgroundColor: T.sunk,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   summaryBarFill: {
     height: '100%',
-    backgroundColor: LC.red,
+    borderRadius: 3,
+    backgroundColor: T.orange,
   },
   summaryCount: {
-    fontFamily: Fonts.monoSemiBold,
-    fontSize: 11,
-    color: LC.textDim,
-    letterSpacing: 1,
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: T.inkSoft,
   },
   grid: {
     flexDirection: 'row',
@@ -210,26 +218,30 @@ const styles = StyleSheet.create({
     gap: GAP,
   },
   cell: {
-    backgroundColor: LC.bgCard,
-    borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
-    gap: 4,
+    gap: 2,
+    ...cardShadow,
   },
   cellPressed: {
     opacity: 0.7,
   },
   cellLabel: {
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cellTier: {
     fontFamily: Fonts.monoSemiBold,
-    fontSize: 9,
+    fontSize: 8,
     letterSpacing: 1.2,
-    textTransform: 'uppercase',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -237,11 +249,10 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: LC.bgCard,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: LC.borderStrong,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
     padding: 24,
+    ...cardShadow,
     alignItems: 'center',
   },
   modalTier: {
@@ -254,30 +265,28 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   modalName: {
-    fontFamily: Fonts.display,
-    fontSize: 32,
-    color: LC.text,
-    letterSpacing: 1,
+    fontFamily: Fonts.bold,
+    fontSize: 26,
+    color: T.ink,
     marginBottom: 6,
   },
   modalLore: {
-    fontFamily: Fonts.interRegular,
-    fontSize: 14,
-    color: LC.textDim,
+    fontFamily: Fonts.medium,
+    fontSize: 15,
+    color: T.inkSoft,
     textAlign: 'center',
-    fontStyle: 'italic',
   },
   modalDivider: {
     width: '60%',
     height: 1,
-    backgroundColor: LC.border,
+    backgroundColor: T.line,
     marginVertical: 16,
   },
   modalMeta: {
     fontFamily: Fonts.monoMedium,
     fontSize: 10,
     letterSpacing: 1.5,
-    color: LC.textMute,
+    color: T.inkMute,
   },
 });
 

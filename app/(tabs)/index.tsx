@@ -3,162 +3,116 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
 import { Easing, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
+import DitherWeekChart, { ChartLegend } from '@/components/charts/DitherWeekChart';
 import ClaimScreenTimeModal, { formatMinutes } from '@/components/ClaimScreenTimeModal';
-import FocusTodayCard from '@/components/dashboard/FocusTodayCard';
-import GlowCard, { GlowShape } from '@/components/dashboard/GlowCard';
+import BrainHero from '@/components/dashboard/BrainHero';
+import { formatHM } from '@/components/dashboard/TodayCard';
 import LevelUpToast from '@/components/LevelUpToast';
 import Mascot from '@/components/Mascot';
-import { BrandColors } from '@/constants/BrandColors';
-import { CRYSTALS } from '@/constants/Crystals';
+import GlassNavBar, { NAV_HEIGHT } from '@/components/nav/GlassNavBar';
+import TrophyReveal, { type RevealOrigin } from '@/components/TrophyReveal';
+import { CRYSTALS_BY_LEVEL, type CrystalDefinition } from '@/constants/Crystals';
 import { Fonts } from '@/constants/Fonts';
+import { cardShadow, RADIUS, T } from '@/constants/Theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { getLocalDateStringDaysAgo } from '@/lib/dateUtils';
-import { buttonPress, mascotWink } from '@/lib/haptics';
-import { computeXP, levelFromXP } from '@/lib/xp';
+import { HomePagerContext, PAGE, useHomePager, type HomePagerValue } from '@/contexts/HomePager';
+import { useThisWeek } from '@/lib/focusData';
+import { buttonPress, mascotWink, optionSelect } from '@/lib/haptics';
+import { computeXP, levelFromXP, xpProgressInLevel } from '@/lib/xp';
 import { useAppLockStore } from '@/store/useAppLockStore';
 import { useCrystalStore } from '@/store/useCrystalStore';
-import { useLeaderboardStore } from '@/store/useLeaderboardStore';
-import { useOnboardingStore } from '@/store/useOnboardingStore';
+import { useOnboardingStore, type SleepTime } from '@/store/useOnboardingStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
-import { useSessionStore } from '@/store/useSessionStore';
-import { useTaskStore } from '@/store/useTaskStore';
-import { useVideoGalleryStore } from '@/store/useVideoGalleryStore';
 
-const LIGHT = '#F3F3F1';
-const INK = BrandColors.palette.ink;
-const ORANGE = BrandColors.palette.orange;
+import LeaderboardScreen from './leaderboard';
+import ProfileScreen from './profile';
 
-const greetingForNow = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-};
+// Minutes until the user's bedtime, or negative once it has passed.
+// Bedtime "tonight" is treated as still upcoming until 5am.
+function minutesUntilBed(sleep: SleepTime, now = new Date()): number {
+  let h = sleep.hour % 12;
+  if (sleep.period === 'PM') h += 12;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const bedMin = h * 60 + sleep.minute;
+  if (now.getHours() < 5 && bedMin > 12 * 60) return -(nowMin + 24 * 60 - bedMin);
+  return bedMin - nowMin;
+}
 
-// 0-3 dots depending on how long the user focused that day
-const intensity = (minutes: number) =>
-  minutes <= 0 ? 0 : minutes < 30 ? 1 : minutes < 90 ? 2 : 3;
+function BedtimeChip({ sleep }: { sleep: SleepTime }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
-const DOT_COLORS = [ORANGE, INK, BrandColors.palette.yellow];
-
-function DayCell({ daysAgo, minutes }: { daysAgo: number; minutes: number }) {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  const isToday = daysAgo === 0;
-  const level = intensity(minutes);
+  const mins = minutesUntilBed(sleep);
+  const past = mins < 0;
+  const soon = !past && mins <= 60;
+  const alert = past || soon;
+  const label = past ? 'Past bedtime' : soon ? `Wind down · ${formatHM(mins)}` : `Bed in ${formatHM(mins)}`;
 
   return (
-    <View style={styles.dayCell}>
-      <View>
-        <Text style={[styles.dayNumber, isToday && styles.dayNumberToday]}>{date.getDate()}</Text>
-        <Text style={[styles.dayName, isToday && styles.dayNameToday]}>
-          {date.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()}
-        </Text>
-      </View>
-      <View style={styles.dots}>
-        {DOT_COLORS.map((color, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i < level ? { backgroundColor: color } : styles.dotEmpty]}
-          />
-        ))}
-      </View>
+    <View style={[styles.chip, alert && styles.chipAlert]}>
+      <Ionicons name="moon" size={12} color={alert ? T.black : T.yellow} />
+      <Text style={[styles.chipText, alert && styles.chipTextAlert]}>{label}</Text>
     </View>
   );
 }
 
-interface Tool {
-  title: string;
-  subtitle: string;
-  shape: GlowShape;
-  onPress: () => void;
-}
-
-function ToolRow({ title, tools }: { title: string; tools: Tool[] }) {
-  return (
-    <View style={styles.toolSection}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.cards}
-        decelerationRate="fast"
-      >
-        {tools.map((tool) => (
-          <GlowCard
-            key={tool.title}
-            title={tool.title}
-            subtitle={tool.subtitle}
-            shape={tool.shape}
-            onPress={tool.onPress}
-          />
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-export default function DashboardScreen() {
+function DashboardScreen() {
+  const pager = useHomePager();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const { user } = useAuth();
 
   const quizName = useOnboardingStore((s) => s.quizAnswers.name);
+  const sleepTime = useOnboardingStore((s) => s.quizAnswers.sleepTime);
   const targetHoursRaw = useOnboardingStore((s) => s.quizAnswers.targetHours);
   const targetHours = typeof targetHoursRaw === 'number' && targetHoursRaw > 0 ? targetHoursRaw : 4;
 
   const streak = useProfileStatsStore((s) => s.streak) ?? 0;
   const totalHours = useProfileStatsStore((s) => s.total_hours);
   const grinds = useProfileStatsStore((s) => s.grinds);
-  const sessions = useSessionStore((s) => s.sessions);
-  const tasks = useTaskStore((s) => s.tasks);
-  const openTasks = useMemo(() => tasks.filter((t) => !t.isCompleted), [tasks]);
-  const earnedCrystals = useCrystalStore((s) => s.earnedCrystals.length);
-  const rank = useLeaderboardStore((s) => s.currentUserRank);
-  const recordings = useVideoGalleryStore((s) => s.recordings.length);
 
   const isFullyUnlocked = useAppLockStore((s) => s.isFullyUnlocked);
-  const isCurrentlyLocked = useAppLockStore((s) => s.isCurrentlyLocked);
   const availableScreenTime = useAppLockStore((s) => s.getAvailableScreenTime());
-  const canClaim = !isFullyUnlocked && availableScreenTime >= 60;
+  const canClaim = Platform.OS === 'ios' && !isFullyUnlocked && availableScreenTime >= 60;
   const [showClaimModal, setShowClaimModal] = useState(false);
 
   const rightEyeOpen = useSharedValue(1);
 
-  // Light status bar text everywhere else in the app; dark on this light header
+  // Level mascot reveal
+  const earnedList = useCrystalStore((s) => s.earnedCrystals);
+  const levelPillRef = useRef<View>(null);
+  const levelNextRef = useRef<View>(null);
+  const [reveal, setReveal] = useState<{ crystal: CrystalDefinition | null; origin: RevealOrigin } | null>(null);
+  useEffect(() => {
+    pager?.setNavHidden(!!reveal);
+  }, [pager, reveal]);
+
   useFocusEffect(
     useCallback(() => {
-      setStatusBarStyle('dark');
-      return () => setStatusBarStyle('light');
+      setStatusBarStyle('light');
     }, [])
   );
 
-  // Rank for the Ranks card; the leaderboard screen refreshes it in full
-  useEffect(() => {
-    const { lastFetched, fetchLeaderboard } = useLeaderboardStore.getState();
-    if (user?.id && !lastFetched) fetchLeaderboard(user.id);
-  }, [user?.id]);
+  const { days, todayIndex, today } = useThisWeek();
+  const weekFocus = days.reduce((a, d) => a + d.focusMin, 0);
+  const weekScreen = days.reduce((a, d) => a + d.screenMin, 0);
 
-  // Focus minutes per local day, from the same session data as analytics
-  const minutesByDay = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const s of sessions) {
-      totals.set(s.date, (totals.get(s.date) ?? 0) + (s.total_locked_in_seconds || 0));
-    }
-    return (daysAgo: number) => (totals.get(getLocalDateStringDaysAgo(daysAgo)) ?? 0) / 60;
-  }, [sessions]);
-  const weekMinutes = [6, 5, 4, 3, 2, 1, 0].map(minutesByDay);
+  // Level
+  const xp = computeXP({ totalHours, totalGrinds: grinds });
+  const { level, fraction } = xpProgressInLevel(xp);
 
-  // Flash the level-up toast when the user crosses into a new level
-  const currentLevel = useMemo(
-    () => levelFromXP(computeXP({ totalHours, totalGrinds: grinds })),
-    [totalHours, grinds]
-  );
+  // Level-up toast when the user crosses into a new level
+  const currentLevel = useMemo(() => levelFromXP(xp), [xp]);
   const lastLevelRef = useRef<number | null>(null);
   const [toastLevel, setToastLevel] = useState<number | null>(null);
   useEffect(() => {
@@ -166,14 +120,28 @@ export default function DashboardScreen() {
       lastLevelRef.current = currentLevel;
       return;
     }
-    if (currentLevel > lastLevelRef.current) {
-      setToastLevel(currentLevel);
-    }
+    if (currentLevel > lastLevelRef.current) setToastLevel(currentLevel);
     lastLevelRef.current = currentLevel;
   }, [currentLevel]);
 
-  const firstName =
-    quizName?.trim() || user?.user_metadata?.full_name?.split(' ')[0] || 'friend';
+  const earnedMap = useMemo(() => new Map(earnedList.map((e) => [e.crystalId, e.earnedAt])), [earnedList]);
+  // Mascot for the level you're on (highest trophy reached), and the next one
+  const currentTrophy = useMemo(
+    () => [...CRYSTALS_BY_LEVEL].reverse().find((c) => c.milestoneLevel <= level) ?? null,
+    [level]
+  );
+  const nextTrophy = useMemo(() => CRYSTALS_BY_LEVEL.find((c) => c.milestoneLevel > level) ?? null, [level]);
+
+  const openLevel = (which: 'current' | 'next') => {
+    const ref = which === 'current' ? levelPillRef : levelNextRef;
+    const crystal = which === 'current' ? currentTrophy : nextTrophy;
+    ref.current?.measureInWindow((x, y, w, h) => {
+      const size = Math.max(w, h);
+      setReveal({ crystal, origin: { x: x + w / 2 - size / 2, y: y + h / 2 - size / 2, size } });
+    });
+  };
+
+  const firstName = quizName?.trim() || user?.user_metadata?.full_name?.split(' ')[0] || 'friend';
 
   const winkMascot = () => {
     mascotWink();
@@ -184,152 +152,125 @@ export default function DashboardScreen() {
     );
   };
 
-  const blockedSubtitle = isFullyUnlocked
-    ? 'Unlocked today'
-    : isCurrentlyLocked
-      ? 'Locked'
-      : 'Screen time on';
+  const openStats = () => {
+    buttonPress();
+    router.push('/analytics' as any);
+  };
 
-  const lockInTools: Tool[] = [
-    { title: 'Timelapse', subtitle: 'Camera on', shape: 'wave', onPress: () => router.push('/record' as any) },
-    { title: 'Stopwatch', subtitle: 'No camera', shape: 'orb', onPress: () => router.push('/stopwatch' as any) },
-    ...(Platform.OS === 'ios'
-      ? [{ title: 'Blocked Apps', subtitle: blockedSubtitle, shape: 'crown' as const, onPress: () => router.push('/blocked-apps' as any) }]
-      : []),
-    {
-      title: 'Tasks',
-      subtitle: openTasks.length > 0 ? `${openTasks.length} to do` : 'All clear',
-      shape: 'ripple',
-      onPress: () => router.push('/tasks' as any),
-    },
-  ];
-
-  const progressTools: Tool[] = [
-    {
-      title: 'Trophies',
-      subtitle: `${earnedCrystals} / ${CRYSTALS.length} earned`,
-      shape: 'peak',
-      onPress: () => router.push({ pathname: '/profile', params: { tab: 'medals' } } as any),
-    },
-    { title: 'Ranks', subtitle: rank ? `You're #${rank}` : 'Leaderboard', shape: 'crown', onPress: () => router.push('/leaderboard' as any) },
-    { title: 'Stats', subtitle: `Level ${currentLevel}`, shape: 'wave', onPress: () => router.push('/analytics' as any) },
-    { title: 'Timelapses', subtitle: `${recordings} recorded`, shape: 'orb', onPress: () => router.push('/profile' as any) },
-  ];
+  // Short phones (SE / mini) get a shorter chart so nothing has to scroll
+  const compact = height < 760;
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Light fill above the top edge when pulling down */}
-        <View style={styles.overscrollFill} />
+    <View style={[styles.container, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 10 + (pager?.navSpace ?? 0) }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Menu and settings"
+          onPress={() => {
+            buttonPress();
+            router.push('/settings-page');
+          }}
+          style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+          hitSlop={8}
+        >
+          <View style={styles.menuLine} />
+          <View style={[styles.menuLine, styles.menuLineShort]} />
+        </Pressable>
+        <Text style={styles.wordmark}>
+          LOCKIN <Text style={styles.wordmarkAccent}>CLUB</Text>
+        </Text>
+        <Pressable onPress={winkMascot} hitSlop={8} accessibilityLabel="Lockin Club mascot">
+          <Mascot size={42} rightEyeOpen={rightEyeOpen} />
+        </Pressable>
+      </View>
 
-        <View style={[styles.top, { paddingTop: insets.top + 8 }]}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Settings"
-              onPress={() => {
-                buttonPress();
-                router.push('/settings-page');
-              }}
-              style={styles.menuButton}
-              hitSlop={8}
-            >
-              <View style={styles.menuLineLong} />
-              <View style={styles.menuLineShort} />
-            </Pressable>
-            <Text style={styles.headerTitle}>Dashboard</Text>
-            <Pressable onPress={winkMascot} hitSlop={8} accessibilityLabel="Lockin Club mascot">
-              <Mascot size={44} rightEyeOpen={rightEyeOpen} />
-            </Pressable>
-          </View>
+      {/* Level — tap either end to see that level's mascot */}
+      <View style={styles.levelRow}>
+        <Pressable
+          ref={levelPillRef}
+          onPress={() => openLevel('current')}
+          hitSlop={8}
+          style={({ pressed }) => [styles.levelPill, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`Level ${level}. Show mascot`}
+        >
+          <Text style={styles.levelPillText}>LV {level}</Text>
+        </Pressable>
+        <View style={styles.levelTrack}>
+          <View style={[styles.levelFill, { width: `${Math.max(fraction * 100, 3)}%` }]} />
+        </View>
+        <Pressable
+          ref={levelNextRef}
+          onPress={() => openLevel('next')}
+          hitSlop={8}
+          style={({ pressed }) => [styles.levelNextBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`Next trophy at level ${nextTrophy?.milestoneLevel ?? level + 1}`}
+        >
+          <Text style={styles.levelNext}>LV {level + 1}</Text>
+        </Pressable>
+      </View>
 
-          {/* Hero: greeting + last four days */}
-          <View style={styles.hero}>
-            <Svg style={styles.heroGlow} width={260} height={260}>
-              <Defs>
-                <RadialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0" stopColor={ORANGE} stopOpacity={0.28} />
-                  <Stop offset="0.6" stopColor={BrandColors.palette.yellow} stopOpacity={0.12} />
-                  <Stop offset="1" stopColor={BrandColors.palette.yellow} stopOpacity={0} />
-                </RadialGradient>
-              </Defs>
-              <Circle cx={130} cy={130} r={130} fill="url(#heroGlow)" />
-            </Svg>
+      {/* Greeting */}
+      <View style={styles.greetRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greetHi} numberOfLines={1}>
+            Hi, {firstName}
+          </Text>
+          <Text style={styles.greetLine}>let's reclaim your focus.</Text>
+        </View>
+        <BedtimeChip sleep={sleepTime} />
+      </View>
 
-            <View style={styles.greeting}>
-              <Text style={styles.greetingSmall}>{greetingForNow()},</Text>
-              <Text style={styles.greetingName} numberOfLines={1} adjustsFontSizeToFit>
-                {firstName}
-              </Text>
-              <Text style={styles.greetingLine}>
-                It's time to <Text style={styles.greetingAccent}>lock in.</Text>
+      {canClaim && (
+        <Pressable
+          onPress={() => {
+            buttonPress();
+            setShowClaimModal(true);
+          }}
+          style={({ pressed }) => [styles.claim, pressed && styles.pressed]}
+        >
+          <Ionicons name="hourglass-outline" size={16} color={T.orange} />
+          <Text style={styles.claimText}>{formatMinutes(availableScreenTime)} of screen time earned</Text>
+          <Text style={styles.claimCta}>Use</Text>
+        </Pressable>
+      )}
+
+      <View style={styles.body}>
+        <BrainHero todayMinutes={today.focusMin} targetHours={targetHours} streak={streak} onPress={() => router.push('/analytics' as any)} />
+
+        {/* Week: lock-in up, screen time down */}
+        <Pressable onPress={openStats} style={({ pressed }) => [styles.weekCard, pressed && styles.pressedSoft]}>
+          <View style={styles.weekHeader}>
+            <View>
+              <Text style={styles.cardLabel}>This week</Text>
+              <Text style={styles.weekTotals}>
+                <Text style={{ color: T.yellow }}>+{formatHM(weekFocus)}</Text>
+                <Text style={styles.weekDivider}>{'  /  '}</Text>
+                <Text style={{ color: T.orange }}>−{formatHM(weekScreen)}</Text>
               </Text>
             </View>
-
-            <View style={styles.dayGrid}>
-              <View style={styles.dayRow}>
-                <DayCell daysAgo={3} minutes={minutesByDay(3)} />
-                <DayCell daysAgo={2} minutes={minutesByDay(2)} />
-              </View>
-              <View style={styles.dayRow}>
-                <DayCell daysAgo={1} minutes={minutesByDay(1)} />
-                <DayCell daysAgo={0} minutes={minutesByDay(0)} />
-              </View>
-            </View>
+            <ChartLegend />
           </View>
+          <DitherWeekChart days={days} todayIndex={todayIndex} height={compact ? 105 : 140} />
+        </Pressable>
+      </View>
 
-          <FocusTodayCard
-            todayMinutes={minutesByDay(0)}
-            targetHours={targetHours}
-            weekMinutes={weekMinutes}
-            streak={streak}
-          />
 
-          {/* Earned screen time, ready to spend */}
-          {canClaim && (
-            <Pressable
-              onPress={() => {
-                buttonPress();
-                setShowClaimModal(true);
-              }}
-              style={({ pressed }) => [styles.claim, pressed && styles.claimPressed]}
-            >
-              <Ionicons name="hourglass" size={18} color={BrandColors.palette.white} />
-              <Text style={styles.claimText}>
-                Claim {formatMinutes(availableScreenTime)} of screen time
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={BrandColors.palette.white} />
-            </Pressable>
-          )}
-        </View>
-
-        {/* Dark tools section */}
-        <View style={[styles.bottom, { paddingBottom: insets.bottom + 32 }]}>
-          <View style={styles.notch}>
-            <Ionicons name="chevron-up" size={16} color={INK} />
-          </View>
-
-          {openTasks[0] && (
-            <Pressable onPress={() => router.push('/tasks' as any)} style={styles.nextTask}>
-              <Text style={styles.nextTaskLabel}>NEXT UP</Text>
-              <Text style={styles.nextTaskTitle} numberOfLines={1}>
-                {openTasks[0].title}
-              </Text>
-            </Pressable>
-          )}
-
-          <ToolRow title="Lock in" tools={lockInTools} />
-          <ToolRow title="Progress" tools={progressTools} />
-        </View>
-      </ScrollView>
-
-      <ClaimScreenTimeModal
-        visible={showClaimModal}
-        onClose={() => setShowClaimModal(false)}
-        source="dashboard"
-      />
+      <ClaimScreenTimeModal visible={showClaimModal} onClose={() => setShowClaimModal(false)} source="dashboard" />
       <LevelUpToast level={toastLevel} onDismiss={() => setToastLevel(null)} />
+
+      {reveal && (
+        <TrophyReveal
+          crystal={reveal.crystal}
+          earned={reveal.crystal ? earnedMap.has(reveal.crystal.id) || reveal.crystal.milestoneLevel <= level : true}
+          earnedAt={reveal.crystal ? earnedMap.get(reveal.crystal.id) : undefined}
+          level={level}
+          origin={reveal.origin}
+          onClose={() => setReveal(null)}
+        />
+      )}
     </View>
   );
 }
@@ -337,211 +278,293 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: INK,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  overscrollFill: {
-    position: 'absolute',
-    top: -1000,
-    left: 0,
-    right: 0,
-    height: 1000,
-    backgroundColor: LIGHT,
-  },
-  top: {
-    backgroundColor: LIGHT,
+    backgroundColor: T.canvas,
     paddingHorizontal: 16,
-    paddingBottom: 28,
+  },
+  pressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  pressedSoft: {
+    opacity: 0.9,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 68,
-    paddingLeft: 22,
-    paddingRight: 12,
-    borderRadius: 34,
-    backgroundColor: BrandColors.palette.white,
-    shadowColor: INK,
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
+    height: 50,
   },
-  menuButton: {
-    width: 32,
-    height: 32,
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: T.card,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
+    ...cardShadow,
   },
-  menuLineLong: {
-    width: 22,
+  menuLine: {
+    width: 18,
     height: 2,
     borderRadius: 1,
-    backgroundColor: INK,
+    backgroundColor: T.ink,
   },
   menuLineShort: {
-    width: 14,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: INK,
+    width: 11,
+    marginRight: 7,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontFamily: Fonts.medium,
-    color: INK,
-  },
-  hero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 26,
-    paddingHorizontal: 6,
-  },
-  heroGlow: {
-    position: 'absolute',
-    left: -90,
-    top: -30,
-  },
-  greeting: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  greetingSmall: {
+  wordmark: {
+    fontFamily: Fonts.dmSansBold,
     fontSize: 17,
-    fontFamily: Fonts.medium,
-    color: 'rgba(14, 14, 14, 0.5)',
+    letterSpacing: 1.5,
+    color: T.ink,
   },
-  greetingName: {
-    fontSize: 40,
-    fontFamily: Fonts.semiBold,
-    color: INK,
-    marginTop: 2,
+  wordmarkAccent: {
+    color: T.orange,
   },
-  greetingLine: {
-    fontSize: 16,
-    fontFamily: Fonts.medium,
-    color: 'rgba(14, 14, 14, 0.7)',
-    marginTop: 10,
-  },
-  greetingAccent: {
-    fontFamily: Fonts.bold,
-    color: ORANGE,
-  },
-  dayGrid: {
-    gap: 22,
-  },
-  dayRow: {
+  greetRow: {
     flexDirection: 'row',
-    gap: 22,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: 10,
   },
-  dayCell: {
+  greetHi: {
+    fontFamily: Fonts.medium,
+    fontSize: 26,
+    color: T.ink,
+  },
+  greetLine: {
+    fontFamily: Fonts.medium,
+    fontSize: 26,
+    lineHeight: 30,
+    color: T.inkMute,
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  dayNumber: {
-    fontSize: 34,
-    lineHeight: 38,
-    fontFamily: Fonts.light,
-    color: 'rgba(14, 14, 14, 0.35)',
-    textAlign: 'center',
-  },
-  dayNumberToday: {
-    fontFamily: Fonts.regular,
-    color: INK,
-  },
-  dayName: {
-    fontSize: 13,
-    fontFamily: Fonts.medium,
-    color: 'rgba(14, 14, 14, 0.35)',
-    textAlign: 'center',
-  },
-  dayNameToday: {
-    color: INK,
-  },
-  dots: {
     gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.lineStrong,
   },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+  chipAlert: {
+    backgroundColor: T.yellow,
+    borderColor: T.yellow,
   },
-  dotEmpty: {
-    backgroundColor: 'rgba(14, 14, 14, 0.15)',
+  chipText: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 12,
+    color: T.ink,
+  },
+  chipTextAlert: {
+    color: T.black,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  levelPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 7,
+    backgroundColor: T.yellow,
+  },
+  levelPillText: {
+    fontFamily: Fonts.display,
+    fontSize: 16,
+    letterSpacing: 1,
+    color: T.black,
+  },
+  levelTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: T.sunk,
+    overflow: 'hidden',
+  },
+  levelFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: T.yellow,
+  },
+  levelNextBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: T.lineStrong,
+  },
+  levelNext: {
+    fontFamily: Fonts.display,
+    fontSize: 15,
+    letterSpacing: 1,
+    color: T.inkMute,
   },
   claim: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-    backgroundColor: ORANGE,
-  },
-  claimPressed: {
-    opacity: 0.85,
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: RADIUS.md,
+    backgroundColor: T.orangeSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(255,102,0,0.35)',
+    marginBottom: 12,
   },
   claimText: {
     flex: 1,
-    fontSize: 16,
-    fontFamily: Fonts.bold,
-    color: BrandColors.palette.white,
-  },
-  bottom: {
-    flexGrow: 1,
-    backgroundColor: INK,
-    paddingTop: 22,
-  },
-  notch: {
-    position: 'absolute',
-    top: -1,
-    alignSelf: 'center',
-    width: 84,
-    height: 24,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    backgroundColor: LIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextTask: {
-    marginTop: 16,
-    marginHorizontal: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 20,
-    backgroundColor: '#1A1A1A',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  nextTaskLabel: {
-    fontSize: 11,
-    fontFamily: Fonts.monoSemiBold,
-    letterSpacing: 1.5,
-    color: ORANGE,
-  },
-  nextTaskTitle: {
-    marginTop: 4,
-    fontSize: 16,
     fontFamily: Fonts.semiBold,
-    color: BrandColors.palette.white,
+    fontSize: 14,
+    color: T.ink,
   },
-  toolSection: {
-    marginTop: 10,
+  claimCta: {
+    fontFamily: Fonts.bold,
+    fontSize: 14,
+    color: T.orange,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontFamily: Fonts.medium,
-    color: BrandColors.palette.white,
-    paddingHorizontal: 22,
-    marginTop: 10,
-    marginBottom: 16,
+  body: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    gap: 14,
+    paddingTop: 6,
   },
-  cards: {
+  cardLabel: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 13,
+    color: T.inkSoft,
+  },
+  weekCard: {
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
     paddingHorizontal: 16,
-    gap: 12,
+    paddingTop: 14,
+    paddingBottom: 10,
+    ...cardShadow,
+  },
+  weekHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  weekTotals: {
+    marginTop: 2,
+    fontFamily: Fonts.display,
+    fontSize: 24,
+    letterSpacing: 0.5,
+  },
+  weekDivider: {
+    color: T.inkMute,
+    fontSize: 18,
   },
 });
+
+// ─── Home pager: ranks ← home → profile, with the glass nav on top ────────
+
+// Gesture-handler ScrollView, so a horizontal drag inside a page (the ranks
+// toggle) wins over paging instead of both moving at once
+const PagerScroll = Animated.createAnimatedComponent(GHScrollView);
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const scrollRef = useRef<any>(null);
+  const scrollX = useSharedValue(width);
+  const pageRef = useRef<number>(PAGE.home);
+  const [navHidden, setNavHidden] = useState(false);
+
+  const goTo = useCallback(
+    (page: number) => {
+      scrollRef.current?.scrollTo({ x: page * width, animated: true });
+    },
+    [width]
+  );
+
+  const onSettle = useCallback((page: number) => {
+    if (page !== pageRef.current) {
+      pageRef.current = page;
+      optionSelect();
+    }
+  }, []);
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollX.value = e.contentOffset.x;
+    },
+    onMomentumEnd: (e) => {
+      runOnJS(onSettle)(Math.round(e.contentOffset.x / width));
+    },
+  });
+
+  // Start on the home page
+  useEffect(() => {
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ x: width, animated: false }));
+  }, [width]);
+
+
+
+  const ctx = useMemo<HomePagerValue>(() => ({ goTo, setNavHidden, navSpace: NAV_HEIGHT + 24 }), [goTo]);
+
+  return (
+    <HomePagerContext.Provider value={ctx}>
+      <View style={{ flex: 1, backgroundColor: T.canvas }}>
+        <PagerScroll
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          contentOffset={{ x: width, y: 0 }}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          directionalLockEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ width }}>
+            <LeaderboardScreen />
+          </View>
+          <View style={{ width }}>
+            <DashboardScreen />
+          </View>
+          <View style={{ width }}>
+            <ProfileScreen />
+          </View>
+        </PagerScroll>
+
+        {!navHidden && (
+          <GlassNavBar
+            scrollX={scrollX}
+            width={width}
+            bottomInset={insets.bottom}
+            onRanks={() => {
+              optionSelect();
+              goTo(PAGE.ranks);
+            }}
+            onProfile={() => {
+              optionSelect();
+              goTo(PAGE.profile);
+            }}
+            onTimelapse={() => {
+              buttonPress();
+              router.push('/record' as any);
+            }}
+            onPhoneDown={() => {
+              buttonPress();
+              router.push('/stopwatch' as any);
+            }}
+          />
+        )}
+      </View>
+    </HomePagerContext.Provider>
+  );
+}

@@ -12,8 +12,8 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T } from '@/constants/Theme';
 
 type LCPlaceholderProps = {
   label?: string;
@@ -37,17 +37,18 @@ export function LCPlaceholder({
 
 const styles = StyleSheet.create({
   box: {
-    backgroundColor: LC.bgCard,
+    backgroundColor: T.sunk,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: LC.borderStrong,
+    borderColor: T.lineStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     fontFamily: Fonts.monoRegular,
     fontSize: 10,
-    color: LC.textMute,
+    color: T.inkMute,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },

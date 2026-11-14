@@ -5,7 +5,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
+import { T } from '@/constants/Theme';
 import { Fonts } from '@/constants/Fonts';
 
 import { LCEyebrow } from './LCEyebrow';
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: Fonts.display,
-    color: LC.text,
+    color: T.ink,
     letterSpacing: 0.5,
   },
 });

@@ -3,8 +3,8 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { T, cardShadow } from '@/constants/Theme';
 
 interface LevelUpToastProps {
   level: number | null; // null = hidden
@@ -84,28 +84,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: LC.bgElev,
-    borderColor: LC.red,
-    borderWidth: 1,
+    backgroundColor: T.card,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    shadowColor: LC.red,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    ...cardShadow,
+    shadowColor: T.orange,
+    shadowOpacity: 0.22,
     elevation: 10,
   },
   label: {
     fontFamily: Fonts.monoBold,
     fontSize: 10,
     letterSpacing: 2,
-    color: LC.red,
+    color: T.orange,
   },
   value: {
     fontFamily: Fonts.display,
     fontSize: 18,
-    color: LC.text,
+    color: T.ink,
     letterSpacing: 0.5,
   },
 });

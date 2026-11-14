@@ -64,3 +64,62 @@ export function mascotLand(): void {
 export function mascotWink(): void {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
 }
+
+// ── Session choreography ────────────────────────────────────────────────────
+// Haptic patterns for starting, running and ending a lock-in. Each pairs with a
+// sound cue from lib/sound.ts.
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Countdown 3-2-1: taps get heavier as zero approaches. */
+export function countdownTick(n: number): void {
+  const style =
+    n >= 3
+      ? Haptics.ImpactFeedbackStyle.Light
+      : n === 2
+        ? Haptics.ImpactFeedbackStyle.Medium
+        : Haptics.ImpactFeedbackStyle.Heavy;
+  Haptics.impactAsync(style);
+}
+
+/** The "lock" engaging: a heavy clunk, a rigid latch, then a success buzz. */
+export async function lockInPattern(): Promise<void> {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  await wait(70);
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+  await wait(140);
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+}
+
+/** Ticks while holding the stop button; called with 0..1 progress. */
+export function holdTick(progress: number): void {
+  Haptics.impactAsync(
+    progress < 0.5 ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium
+  );
+}
+
+/** Gentle pulse every few minutes of focus, so you feel time banked. */
+export function milestonePulse(): void {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+}
+
+/** Daily goal hit mid-session. */
+export async function goalReachedPattern(): Promise<void> {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  await wait(180);
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  await wait(110);
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+}
+
+/** Session saved: unlatch and a success buzz. */
+export async function unlockPattern(): Promise<void> {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+  await wait(90);
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+}
+
+/** You left the app during a phone-down session. */
+export function awayWarning(): void {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+}

@@ -1,8 +1,8 @@
 import React from 'react';
 import { InteractionManager, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BrandColors } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 import { posthog } from '@/lib/posthog';
 import { useAppLockStore } from '@/store/useAppLockStore';
 
@@ -82,34 +82,33 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 24,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
     padding: 28,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    ...cardShadow,
   },
   title: {
     fontFamily: Fonts.bold,
     fontSize: 22,
-    color: '#FFFFFF',
+    color: T.ink,
     marginBottom: 12,
   },
   body: {
     fontFamily: Fonts.regular,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: T.inkSoft,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
   },
   bold: {
     fontFamily: Fonts.bold,
-    color: BrandColors.palette.yellow,
+    color: T.orange,
   },
   confirmButton: {
     width: '100%',
-    backgroundColor: BrandColors.palette.orange,
+    backgroundColor: T.orange,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
@@ -118,7 +117,7 @@ const styles = StyleSheet.create({
   confirmText: {
     fontFamily: Fonts.bold,
     fontSize: 17,
-    color: '#FFFFFF',
+    color: T.white, // white on orange button
   },
   cancelButton: {
     width: '100%',
@@ -128,6 +127,6 @@ const styles = StyleSheet.create({
   cancelText: {
     fontFamily: Fonts.medium,
     fontSize: 16,
-    color: 'rgba(255,255,255,0.5)',
+    color: T.inkMute,
   },
 });

@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T } from '@/constants/Theme';
 import {
   getDateRange,
   getLocalDateString,
@@ -82,8 +82,8 @@ export default function MonthlyBarChart({ referenceDate, activityByDate }: Props
                   {
                     height: barHeight,
                     backgroundColor: d.isToday
-                      ? LC.red
-                      : 'rgba(255,255,255,0.55)',
+                      ? T.orange
+                      : 'rgba(255,102,0,0.45)',
                   },
                   d.isToday && styles.todayBarGlow,
                 ]}
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 1,
     borderBottomWidth: 1,
-    borderBottomColor: LC.border,
+    borderBottomColor: T.lineStrong,
     position: 'relative',
   },
   gridLine: {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: LC.border,
+    backgroundColor: T.line,
     opacity: 0.5,
   },
   slot: {
@@ -134,13 +134,13 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '100%',
-    borderTopLeftRadius: 1.5,
-    borderTopRightRadius: 1.5,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
   },
   todayBarGlow: {
-    shadowColor: LC.red,
+    shadowColor: T.orange,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.35,
     shadowRadius: 6,
     elevation: 4,
   },
@@ -153,15 +153,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     fontFamily: Fonts.monoRegular,
     fontSize: 9,
-    color: LC.textMute,
+    color: T.inkMute,
     letterSpacing: 1,
   },
   emptyBox: {
     height: CHART_HEIGHT + 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: LC.borderStrong,
+    borderRadius: RADIUS.sm,
+    backgroundColor: T.sunk,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -169,7 +167,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.monoMedium,
     fontSize: 10,
     letterSpacing: 2,
-    color: LC.textMute,
+    color: T.inkMute,
     textTransform: 'uppercase',
   },
 });

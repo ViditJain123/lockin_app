@@ -3,7 +3,7 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { LC } from '@/constants/BrandColors';
+import { T } from '@/constants/Theme';
 import { Fonts } from '@/constants/Fonts';
 import { resolveUri, type Recording } from '@/store/useVideoGalleryStore';
 
@@ -31,6 +31,9 @@ export default function VideoGridItem({ recording, width, onPress, onLongPress }
   const tileUri = isPhoto
     ? recording.cardUri ?? recording.thumbnailUri
     : recording.thumbnailUri;
+  // Overlay glyphs sit on the photo/video thumbnail (white + shadow reads on
+  // any image); on the light "processing" placeholder they switch to ink.
+  const overlayColor = tileUri ? '#fff' : T.inkSoft;
   return (
     <Pressable
       onPress={onPress}
@@ -50,15 +53,18 @@ export default function VideoGridItem({ recording, width, onPress, onLongPress }
 
       <View style={styles.iconCorner} pointerEvents="none">
         {isPhoto ? (
-          <Ionicons name="camera" size={11} color="#fff" />
+          <Ionicons name="camera" size={11} color={overlayColor} />
         ) : (
           <Svg width={10} height={10} viewBox="0 0 10 10">
-            <Path d="M1 1l8 4-8 4V1z" fill="#fff" opacity={0.75} />
+            <Path d="M1 1l8 4-8 4V1z" fill={overlayColor} opacity={0.75} />
           </Svg>
         )}
       </View>
 
-      <Text style={styles.duration} numberOfLines={1}>
+      <Text
+        style={[styles.duration, !tileUri && styles.durationOnLight]}
+        numberOfLines={1}
+      >
         {formatDuration(recording.sessionDurationSeconds)}
       </Text>
     </Pressable>
@@ -67,11 +73,9 @@ export default function VideoGridItem({ recording, width, onPress, onLongPress }
 
 const styles = StyleSheet.create({
   tile: {
-    borderRadius: 4,
+    borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
+    backgroundColor: T.sunk,
   },
   thumbnail: {
     width: '100%',
@@ -81,15 +85,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: LC.bgCard,
+    backgroundColor: T.sunk,
     borderStyle: 'dashed',
     borderWidth: 1,
-    borderColor: LC.borderStrong,
+    borderColor: T.lineStrong,
+    borderRadius: 10,
   },
   placeholderLabel: {
     fontFamily: Fonts.monoRegular,
     fontSize: 9,
-    color: LC.textMute,
+    color: T.inkMute,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
@@ -110,5 +115,9 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+  },
+  durationOnLight: {
+    color: T.inkSoft,
+    textShadowColor: 'transparent',
   },
 });

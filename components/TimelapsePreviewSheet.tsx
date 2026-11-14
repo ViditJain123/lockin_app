@@ -5,6 +5,7 @@ import { shareAsync } from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../constants/Fonts';
+import { RADIUS, T, cardShadow } from '../constants/Theme';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS } from 'react-native-reanimated';
 
@@ -88,12 +89,12 @@ export default function TimelapsePreviewSheet({ visible, videoUri, sessionDurati
       <Animated.View style={[styles.overlay, overlayStyle]} pointerEvents={visible ? 'auto' : 'none'}>
         <Animated.View style={[styles.content, animatedStyle]}>
           <Pressable style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={28} color="#FFFFFF" />
+            <Ionicons name="close" size={22} color={T.ink} />
           </Pressable>
 
           {isTooShort && (
             <View style={styles.warningBanner}>
-              <Ionicons name="warning" size={16} color="#0E0E0E" />
+              <Ionicons name="warning" size={16} color={T.orange} />
               <Text style={styles.warningText}>
                 Recording under 4 min — timelapse won't play here. Save to gallery to view.
               </Text>
@@ -110,12 +111,12 @@ export default function TimelapsePreviewSheet({ visible, videoUri, sessionDurati
 
           <View style={styles.buttonRow}>
             <Pressable style={styles.actionButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+              <Ionicons name="share-outline" size={20} color={T.ink} />
               <Text style={styles.actionText}>Share</Text>
             </Pressable>
-            <Pressable style={styles.actionButton} onPress={handleSave}>
-              <Ionicons name="download-outline" size={22} color="#FFFFFF" />
-              <Text style={styles.actionText}>Save to Gallery</Text>
+            <Pressable style={[styles.actionButton, styles.actionButtonPrimary]} onPress={handleSave}>
+              <Ionicons name="download-outline" size={20} color={T.white} />
+              <Text style={[styles.actionText, styles.actionTextPrimary]}>Save to Gallery</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -128,12 +129,13 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: T.canvas,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   closeButton: {
     position: 'absolute',
@@ -143,50 +145,61 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: T.card,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  video: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-    borderRadius: 12,
-    overflow: 'hidden',
+    ...cardShadow,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 32,
+    gap: 12,
+    marginTop: 28,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 24,
+    backgroundColor: T.card,
+    paddingHorizontal: 22,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: RADIUS.sm,
+    ...cardShadow,
+  },
+  actionButtonPrimary: {
+    backgroundColor: T.orange,
+    shadowColor: T.orange,
+    shadowOpacity: 0.28,
   },
   actionText: {
     fontSize: 16,
     fontFamily: Fonts.semiBold,
-    color: '#FFFFFF',
+    color: T.ink,
+  },
+  actionTextPrimary: {
+    color: T.white,
+  },
+  video: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    // Letterbox behind the footage itself
+    backgroundColor: T.black,
   },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFD60A',
+    backgroundColor: T.orangeSoft,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: RADIUS.sm,
     marginBottom: 12,
-    marginHorizontal: 20,
   },
   warningText: {
     flex: 1,
     fontSize: 13,
     fontFamily: Fonts.semiBold,
-    color: '#0E0E0E',
+    color: T.ink,
   },
 });

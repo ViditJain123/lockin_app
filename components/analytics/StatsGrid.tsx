@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 import { StatItem } from '@/types/analytics';
 
 interface Props {
@@ -35,7 +36,7 @@ export default function StatsGrid({ stats, columns = 2 }: Props) {
                 <Ionicons
                   name={stat.icon as any}
                   size={16}
-                  color="rgba(255,255,255,0.4)"
+                  color={T.orange}
                   style={styles.icon}
                 />
               )}
@@ -77,9 +78,10 @@ export default function StatsGrid({ stats, columns = 2 }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
+    backgroundColor: T.card,
+    borderRadius: RADIUS.lg,
     padding: 12,
+    ...cardShadow,
   },
   row: {
     flexDirection: 'row',
@@ -98,7 +100,7 @@ const styles = StyleSheet.create({
   },
   cellBorder: {
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(255,255,255,0.1)',
+    borderRightColor: T.lineStrong,
   },
   icon: {
     marginBottom: 4,
@@ -106,18 +108,18 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 20,
     fontFamily: Fonts.bold,
-    color: '#FFFFFF',
+    color: T.ink,
     marginBottom: 2,
   },
   label: {
     fontSize: 11,
     fontFamily: Fonts.regular,
-    color: 'rgba(255,255,255,0.45)',
+    color: T.inkSoft,
   },
   subtitle: {
     fontSize: 10,
     fontFamily: Fonts.medium,
-    color: '#34C759',
+    color: T.good,
     marginTop: 2,
   },
 });

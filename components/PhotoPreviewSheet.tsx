@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const DISMISS_THRESHOLD = 150;
@@ -93,19 +94,21 @@ export default function PhotoPreviewSheet({ visible, cardUri, onClose }: Props) 
       >
         <Animated.View style={[styles.content, animatedStyle]}>
           <Pressable style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={28} color="#FFFFFF" />
+            <Ionicons name="close" size={22} color={T.ink} />
           </Pressable>
 
-          <Image source={{ uri: cardUri }} style={styles.image} resizeMode="contain" />
+          <View style={styles.mediaFrame}>
+            <Image source={{ uri: cardUri }} style={styles.image} resizeMode="contain" />
+          </View>
 
           <View style={styles.buttonRow}>
             <Pressable style={styles.actionButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={22} color="#FFFFFF" />
+              <Ionicons name="share-outline" size={20} color={T.ink} />
               <Text style={styles.actionText}>Share</Text>
             </Pressable>
-            <Pressable style={styles.actionButton} onPress={handleSave}>
-              <Ionicons name="download-outline" size={22} color="#FFFFFF" />
-              <Text style={styles.actionText}>Save to Gallery</Text>
+            <Pressable style={[styles.actionButton, styles.actionButtonPrimary]} onPress={handleSave}>
+              <Ionicons name="download-outline" size={20} color={T.white} />
+              <Text style={[styles.actionText, styles.actionTextPrimary]}>Save to Gallery</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -118,12 +121,13 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    backgroundColor: '#0E0E0E',
+    backgroundColor: T.canvas,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   closeButton: {
     position: 'absolute',
@@ -133,33 +137,49 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: T.card,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  image: {
-    width: '100%',
-    aspectRatio: 9 / 16,
-    borderRadius: 12,
-    overflow: 'hidden',
+    ...cardShadow,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 32,
+    gap: 12,
+    marginTop: 28,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 24,
+    backgroundColor: T.card,
+    paddingHorizontal: 22,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: RADIUS.sm,
+    ...cardShadow,
+  },
+  actionButtonPrimary: {
+    backgroundColor: T.orange,
+    shadowColor: T.orange,
+    shadowOpacity: 0.28,
   },
   actionText: {
     fontSize: 16,
     fontFamily: Fonts.semiBold,
-    color: '#FFFFFF',
+    color: T.ink,
+  },
+  actionTextPrimary: {
+    color: T.white,
+  },
+  mediaFrame: {
+    width: '100%',
+    borderRadius: RADIUS.sm,
+    backgroundColor: T.card,
+    ...cardShadow,
+  },
+  image: {
+    width: '100%',
+    aspectRatio: 9 / 16,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
   },
 });

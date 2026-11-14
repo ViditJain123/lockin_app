@@ -8,20 +8,19 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { captureRef } from 'react-native-view-shot';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PhotoCardRenderer from '@/components/PhotoCardRenderer';
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 import * as Haptics from '@/lib/haptics';
 import { posthog } from '@/lib/posthog';
-import { useTaskStore } from '@/store/useTaskStore';
 import {
   flushGallery,
   resolveUri,
@@ -59,10 +58,8 @@ export default function PhotoPreviewScreen() {
   const sessionId = params.sessionId ?? '';
   const activeTaskId = params.activeTaskId ?? null;
 
-  const taskName = useTaskStore((s) => {
-    if (!activeTaskId) return null;
-    return s.tasks.find((t) => t.id === activeTaskId)?.title ?? null;
-  });
+  // Tasks were removed from the app; the photo card no longer shows a task name
+  const taskName: string | null = null;
 
   // The expo-camera cache directory can be evicted by iOS when the app is
   // backgrounded. Copy the raw photo into Documents on mount so retake/share
@@ -279,7 +276,7 @@ export default function PhotoPreviewScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E0E0E" />
+      <StatusBar style="light" />
 
       {/* Top chrome */}
       <View style={[styles.topRow, { paddingTop: insets.top + 12 }]}>
@@ -289,9 +286,9 @@ export default function PhotoPreviewScreen() {
           hitSlop={12}
           accessibilityLabel="Retake"
         >
-          <Ionicons name="chevron-back" size={22} color="#fff" />
+          <Ionicons name="chevron-back" size={20} color={T.ink} />
         </Pressable>
-        <Text style={styles.headerTitle}>YOUR GRIND</Text>
+        <Text style={styles.headerTitle}>Your grind</Text>
         <View style={styles.iconBtnSpacer} />
       </View>
 
@@ -308,7 +305,7 @@ export default function PhotoPreviewScreen() {
             />
           ) : (
             <View style={styles.cardPlaceholder}>
-              <ActivityIndicator color={LC.text} />
+              <ActivityIndicator color={T.orange} />
             </View>
           )}
         </View>
@@ -326,7 +323,7 @@ export default function PhotoPreviewScreen() {
               (isWorking || !readyPhotoUri) && styles.disabled,
             ]}
           >
-            <Ionicons name="download-outline" size={18} color="#fff" />
+            <Ionicons name="download-outline" size={18} color={T.ink} />
             <Text style={styles.secondaryLabel}>SAVE</Text>
           </Pressable>
           <Pressable
@@ -338,7 +335,7 @@ export default function PhotoPreviewScreen() {
               (isWorking || !readyPhotoUri) && styles.disabled,
             ]}
           >
-            <Ionicons name="share-outline" size={18} color="#fff" />
+            <Ionicons name="share-outline" size={18} color={T.ink} />
             <Text style={styles.secondaryLabel}>SHARE</Text>
           </Pressable>
           <Pressable
@@ -350,7 +347,7 @@ export default function PhotoPreviewScreen() {
               isContinuing && styles.disabled,
             ]}
           >
-            <Ionicons name="camera-reverse-outline" size={18} color="#fff" />
+            <Ionicons name="camera-reverse-outline" size={18} color={T.ink} />
             <Text style={styles.secondaryLabel}>RETAKE</Text>
           </Pressable>
         </View>
@@ -365,7 +362,7 @@ export default function PhotoPreviewScreen() {
           ]}
         >
           {isContinuing ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={T.white} />
           ) : (
             <Text style={styles.continueLabel}>CONTINUE</Text>
           )}
@@ -378,7 +375,7 @@ export default function PhotoPreviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: LC.bg,
+    backgroundColor: T.canvas,
   },
   topRow: {
     flexDirection: 'row',
@@ -388,18 +385,17 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: T.card,
     alignItems: 'center',
     justifyContent: 'center',
+    ...cardShadow,
   },
   iconBtnSpacer: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
   },
   pressed: {
     opacity: 0.6,
@@ -408,11 +404,9 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   headerTitle: {
-    fontFamily: Fonts.monoSemiBold,
-    fontSize: 11,
-    color: LC.text,
-    letterSpacing: 2.5,
-    textTransform: 'uppercase',
+    fontFamily: Fonts.semiBold,
+    fontSize: 17,
+    color: T.ink,
   },
   cardWrap: {
     flex: 1,
@@ -427,14 +421,14 @@ const styles = StyleSheet.create({
     height: '100%',
     aspectRatio: 9 / 16,
     maxWidth: '100%',
+    borderRadius: RADIUS.sm,
+    ...cardShadow,
   },
   cardPlaceholder: {
     aspectRatio: 9 / 16,
     width: '100%',
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
-    borderRadius: 4,
+    backgroundColor: T.sunk,
+    borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -454,37 +448,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
+    borderRadius: RADIUS.sm,
+    backgroundColor: T.card,
+    ...cardShadow,
   },
   secondaryLabel: {
-    fontFamily: Fonts.monoSemiBold,
-    fontSize: 11,
-    color: '#fff',
-    letterSpacing: 1.5,
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: T.ink,
+    letterSpacing: 0.6,
   },
   continueBtn: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: LC.red,
+    borderRadius: RADIUS.md,
+    backgroundColor: T.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: LC.red,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 10,
+    shadowColor: T.orange,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   continueBtnDisabled: {
-    backgroundColor: LC.redDeep,
+    backgroundColor: T.orangeDeep,
+    opacity: 0.6,
     shadowOpacity: 0,
   },
   continueLabel: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 13,
-    color: '#fff',
-    letterSpacing: 2.5,
+    fontFamily: Fonts.bold,
+    fontSize: 16,
+    color: T.white,
+    letterSpacing: 1.2,
   },
 });

@@ -2,22 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   Dimensions,
-  ImageBackground,
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Button3D from './Button3D';
 
 import { Fonts } from '@/constants/Fonts';
+import { T, cardShadow } from '@/constants/Theme';
 import { useShortTimelapseWarningStore } from '@/store/useShortTimelapseWarningStore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const nightSkyBackground = require('../assets/images/night-sky-background.jpeg');
 
 interface ShortTimelapseWarningModalProps {
   visible: boolean;
@@ -43,20 +43,15 @@ export default function ShortTimelapseWarningModal({ visible, onClose }: ShortTi
       transparent={false}
       onRequestClose={handleClose}
     >
-      <ImageBackground
-        source={nightSkyBackground}
-        style={styles.container}
-        resizeMode="cover"
-      >
-        {/* Dark overlay */}
-        <View style={styles.overlay} />
+      <View style={styles.container}>
+        <StatusBar style="light" />
 
         {/* Close button */}
         <TouchableOpacity
           style={[styles.closeButton, { top: insets.top + 16 }]}
           onPress={handleClose}
         >
-          <Ionicons name="close" size={28} color="white" />
+          <Ionicons name="close" size={24} color={T.ink} />
         </TouchableOpacity>
 
         {/* Content */}
@@ -66,7 +61,7 @@ export default function ShortTimelapseWarningModal({ visible, onClose }: ShortTi
 
           {/* Warning icon */}
           <View style={styles.iconContainer}>
-            <Ionicons name="time-outline" size={80} color="#F59E0B" />
+            <Ionicons name="time-outline" size={72} color={T.orange} />
           </View>
 
           {/* Title */}
@@ -86,7 +81,7 @@ export default function ShortTimelapseWarningModal({ visible, onClose }: ShortTi
             <Ionicons
               name={checked ? 'checkbox' : 'square-outline'}
               size={24}
-              color={checked ? '#F59E0B' : 'rgba(255, 255, 255, 0.6)'}
+              color={checked ? T.orange : T.inkMute}
             />
             <Text style={styles.checkboxLabel}>Don't show again</Text>
           </TouchableOpacity>
@@ -99,10 +94,11 @@ export default function ShortTimelapseWarningModal({ visible, onClose }: ShortTi
             <Button3D
               title="Got it"
               onPress={handleClose}
+              variant="orange"
             />
           </View>
         </View>
-      </ImageBackground>
+      </View>
     </Modal>
   );
 }
@@ -112,10 +108,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: T.canvas,
   },
   closeButton: {
     position: 'absolute',
@@ -124,8 +117,9 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: T.card,
     borderRadius: 22,
+    ...cardShadow,
     zIndex: 10,
   },
   content: {
@@ -141,22 +135,22 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: T.orangeSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
   },
   title: {
     fontSize: 32,
-    fontFamily: Fonts.interExtraBold,
-    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    color: T.ink,
     textAlign: 'center',
     marginBottom: 16,
   },
   message: {
     fontSize: 18,
     fontFamily: Fonts.medium,
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: T.inkSoft,
     textAlign: 'center',
     lineHeight: 26,
     marginBottom: 24,
@@ -169,7 +163,7 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontSize: 16,
     fontFamily: Fonts.medium,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: T.inkSoft,
   },
   buttonContainer: {
     width: '100%',

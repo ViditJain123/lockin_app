@@ -67,7 +67,7 @@ import { IS_ANDROID } from '../lib/androidDefaultUser';
 import { fullyUnlockApps as fullyUnlockAppsManager } from '../lib/appLockManager';
 import { scheduleSleepTimeLock } from '../lib/appLockScheduler';
 import { parseUTMParams, storePendingAttribution } from '../lib/attribution';
-import { preloadAllCrystals } from '../lib/crystalAssetCache';
+import { preloadSounds } from '../lib/sound';
 import { getLocalDateString } from '../lib/dateUtils';
 import { convertSleepTimeTo24h, upsertUserRow } from '../lib/supabaseUser';
 import { useAppLockStore } from '../store/useAppLockStore';
@@ -130,8 +130,8 @@ export default function RootLayout() {
     if (loaded) {
       // The app is free now; clear any trial reminder scheduled by older builds
       cancelTrialEndNotification().catch(() => {});
-      // Preload crystal assets (fire and forget)
-      preloadAllCrystals();
+      // Preload session sound cues (fire and forget)
+      preloadSounds().catch(() => {});
     }
   }, [loaded]);
 
@@ -212,9 +212,9 @@ function RootLayoutNav() {
 
   // Keep the root view background color in sync with dark theme and force dark mode
   useEffect(() => {
-    // Force dark mode at the React Native level
+    // The app is dark (ink / orange / yellow); keep the root view in step
     Appearance.setColorScheme('dark');
-    setBackgroundColorAsync('#0E0E0E');
+    setBackgroundColorAsync('#0A0A0A');
   }, [colorScheme]);
 
   // Hide splash screen once store hydration and auth initialization are both done
@@ -265,8 +265,8 @@ function RootLayoutNav() {
       updateShield(
         {
           ...(iconPath ? { iconAppGroupRelativePath: iconPath } : { iconSystemName: 'lock.shield.fill' }),
-          title: 'App is locked',
-          subtitle: 'Profile -> Settings -> Claim to unlock',
+          title: 'Not now. You\'re locking in.',
+          subtitle: 'Open Lockin Club and finish a session to earn screen time.',
           backgroundColor: { red: 14, green: 14, blue: 14 },
           titleColor: { red: 255, green: 255, blue: 255 },
           subtitleColor: { red: 200, green: 200, blue: 200 },
@@ -544,6 +544,9 @@ function RootLayoutNav() {
             }}
           />
           <Stack.Screen name="settings-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="trophies" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="invite" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="friends" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="blocked-apps" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           <Stack.Screen name="stopwatch" options={{ headerShown: false, animation: 'slide_from_bottom' }} />

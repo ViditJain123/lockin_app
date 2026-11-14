@@ -5,8 +5,8 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
-import { LC } from '@/constants/BrandColors';
 import { Fonts } from '@/constants/Fonts';
+import { RADIUS, T, cardShadow } from '@/constants/Theme';
 
 type LCStatCardProps = {
   label: string;
@@ -29,32 +29,31 @@ export function LCStatCard({ label, value, unit, hot, style }: LCStatCardProps) 
 const styles = StyleSheet.create({
   card: {
     padding: 14,
-    borderRadius: 14,
-    backgroundColor: LC.bgCard,
-    borderWidth: 1,
-    borderColor: LC.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: T.card,
+    ...cardShadow,
   },
   label: {
     fontFamily: Fonts.monoMedium,
     fontSize: 9,
     letterSpacing: 1.5,
-    color: LC.textMute,
+    color: T.inkMute,
     textTransform: 'uppercase',
   },
   value: {
     fontFamily: Fonts.display,
     fontSize: 28,
     lineHeight: 28,
-    color: LC.text,
+    color: T.ink,
     marginTop: 4,
   },
   valueHot: {
-    color: LC.red,
+    color: T.orange,
   },
   unit: {
     fontFamily: Fonts.monoRegular,
     fontSize: 9,
-    color: LC.textDim,
+    color: T.inkSoft,
     letterSpacing: 1,
     marginTop: 2,
     textTransform: 'uppercase',

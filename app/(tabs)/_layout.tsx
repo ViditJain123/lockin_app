@@ -17,7 +17,6 @@ export default function DashboardLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="analytics" />
-      <Stack.Screen name="tasks" />
       <Stack.Screen name="leaderboard" />
       <Stack.Screen name="profile" />
     </Stack>
