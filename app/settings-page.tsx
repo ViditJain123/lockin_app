@@ -84,25 +84,6 @@ function Row({
   );
 }
 
-function QuickLink({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={() => {
-        buttonPress();
-        onPress();
-      }}
-      style={({ pressed }) => [styles.quick, pressed && styles.pressed]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <View style={styles.quickIcon}>
-        <Ionicons name={icon} size={20} color={T.orange} />
-      </View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export default function SettingsPageScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut, deleteAccount } = useAuth();
@@ -288,18 +269,6 @@ export default function SettingsPageScreen() {
               <Text style={styles.changePhoto}>Change photo</Text>
             </Pressable>
           </View>
-        </View>
-
-        {/* Quick links */}
-        <View style={styles.quickGrid}>
-          <QuickLink
-            icon="trophy-outline"
-            label="Trophies"
-            onPress={() => router.push('/trophies' as any)}
-          />
-          <QuickLink icon="film-outline" label="Timelapses" onPress={() => router.push('/profile' as any)} />
-          <QuickLink icon="stats-chart-outline" label="Stats" onPress={() => router.push('/analytics' as any)} />
-          <QuickLink icon="podium-outline" label="Ranks" onPress={() => router.push('/leaderboard' as any)} />
         </View>
 
         {/* Your day */}
@@ -587,34 +556,6 @@ const styles = StyleSheet.create({
     borderColor: T.card,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  quickGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-  },
-  quick: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 14,
-    backgroundColor: T.card,
-    borderRadius: RADIUS.md,
-    ...cardShadow,
-  },
-  quickIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: T.orangeSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickLabel: {
-    marginTop: 8,
-    fontFamily: Fonts.semiBold,
-    fontSize: 12,
-    color: T.ink,
   },
   sectionTitle: {
     fontSize: 14,

@@ -9,7 +9,6 @@ import { DEMO_DIR, demoClipsInstalled } from '@/lib/demoTimelapses';
 import { supabase } from '@/lib/supabase';
 
 const STORY_TTL_MS = 24 * 60 * 60 * 1000;
-export const INVITE_BASE_URL = 'https://lockin.club/invite/';
 
 export interface FriendStory {
   id: string;
@@ -112,7 +111,7 @@ export const useFriendsStore = create<FriendsState>()(
         }
         if (friends.length === 0 && DEMO_DATA_ENABLED) {
           // Play the sample clips in demo stories when they're installed
-          const clips = (await demoClipsInstalled()) ? ['tl3', 'tl1', 'tl4', 'tl2'] : [];
+          const clips = (await demoClipsInstalled()) ? ['tl3', 'tl5', 'tl4', 'tl6'] : [];
           let i = 0;
           friends = DEMO_FRIENDS.map((f) =>
             f.story && clips.length

@@ -21,12 +21,13 @@ const CLIPS = [
   { file: 'tl2', duration: 52 * 60, at: daysAgo(1, 15) },
   { file: 'tl3', duration: 90 * 60, at: daysAgo(2, 11) },
   { file: 'tl4', duration: 3 * 3600 + 5 * 60, at: daysAgo(3, 19) },
-  { file: 'tl2', duration: 47 * 60, at: daysAgo(5, 8), id: 'b' },
-  { file: 'tl1', duration: 65 * 60, at: daysAgo(6, 17), id: 'b' },
+  { file: 'tl5', duration: 47 * 60, at: daysAgo(4, 8) },
+  { file: 'tl6', duration: 65 * 60, at: daysAgo(5, 17) },
+  { file: 'tl7', duration: 1 * 3600 + 40 * 60, at: daysAgo(6, 21) },
 ];
 
 export const DEMO_RECORDINGS: Recording[] = CLIPS.map((c) => ({
-  id: `demo-${c.file}${'id' in c ? c.id : ''}`,
+  id: `demo-${c.file}`,
   type: 'timelapse',
   videoUri: `${DEMO_DIR}/${c.file}.mp4`,
   thumbnailUri: `${DEMO_DIR}/${c.file}.jpg`,

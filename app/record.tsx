@@ -2,6 +2,8 @@ import CountdownOverlay from '@/components/CountdownOverlay';
 import { DraggableTimerPlaceholder } from '@/components/DraggableTimerPlaceholder';
 import GlassIconButton from '@/components/GlassIconButton';
 import { formatHM } from '@/components/dashboard/TodayCard';
+import FocusSoundPicker from '@/components/session/FocusSoundPicker';
+import SessionModeSwitch from '@/components/session/SessionModeSwitch';
 import SessionToast from '@/components/session/SessionToast';
 import ShutterButton from '@/components/session/ShutterButton';
 import { useSessionMilestones } from '@/components/session/useSessionMilestones';
@@ -14,7 +16,9 @@ import { SESSION_DEV_MODE_ENABLED } from '@/lib/config';
 import { getLocalDateString } from '@/lib/dateUtils';
 import * as Haptics from '@/lib/haptics';
 import { posthog } from '@/lib/posthog';
+import { playFocusSound, stopFocusSound } from '@/lib/focusSound';
 import { playSound } from '@/lib/sound';
+import { usePrefsStore } from '@/store/usePrefsStore';
 import * as Timelapse from '@/lib/timelapseModule';
 import { sendSessionEvent } from '@/lib/tinybird';
 import { useAppLockStore } from '@/store/useAppLockStore';
@@ -140,6 +144,11 @@ export default function CameraScreen() {
     return () => subscription.remove();
   }, []);
 
+  // Never leave the background sound playing after this screen goes away
+  useEffect(() => () => {
+    stopFocusSound();
+  }, []);
+
   // Timer interval - counts every second while session is active
   useEffect(() => {
     if (isSessionActive) {
@@ -227,6 +236,7 @@ export default function CameraScreen() {
 
     // The countdown already played the lock-in sound + haptic pattern
     posthog.capture('session_started');
+    playFocusSound(usePrefsStore.getState().focusSound);
 
     try {
       const isLandscape = deviceOrientation !== 'portrait';
@@ -274,6 +284,7 @@ export default function CameraScreen() {
     setIsSessionActive(false);
     setIsFinishing(true);
 
+    stopFocusSound();
     playSound('unlock');
     Haptics.unlockPattern();
 
@@ -693,9 +704,7 @@ export default function CameraScreen() {
             <Text style={styles.recTime}>{formatDuration(elapsedSeconds)}</Text>
           </View>
         ) : (
-          <View style={styles.modePill}>
-            <Text style={styles.modeText}>TIMELAPSE</Text>
-          </View>
+          <SessionModeSwitch value="camera" onChange={() => router.replace('/stopwatch' as any)} />
         )}
 
         <View style={styles.topSide}>
@@ -704,6 +713,13 @@ export default function CameraScreen() {
           )}
         </View>
       </View>
+
+      {/* Background sound */}
+      {!isCountingDown && previewLayout.height > 0 && (
+        <View style={[styles.soundRow, { top: previewLayout.top + 66 }]} pointerEvents="box-none">
+          <FocusSoundPicker sessionActive={isSessionActive} />
+        </View>
+      )}
 
       <SessionToast message={toast} top={previewLayout.top + 70} />
 
@@ -839,6 +855,13 @@ const styles = StyleSheet.create({
   topSide: {
     width: 40,
     height: 40,
+  },
+  soundRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
   },
   modePill: {
     paddingHorizontal: 14,

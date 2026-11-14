@@ -81,6 +81,27 @@ function Card({ style, children, radius = RADIUS.lg, glow }: { style?: any; chil
   );
 }
 
+/** Same bright glossy orange as the record button on home */
+function OrangeChip({ size, icon, iconSize }: { size: number; icon: keyof typeof Ionicons.glyphMap; iconSize: number }) {
+  return (
+    <View style={[styles.orangeChipGlow, { width: size, height: size, borderRadius: size / 2 }]}>
+      <LinearGradient
+        colors={['#FF9A45', T.orange, '#E04800']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={[styles.orangeChip, { width: size, height: size, borderRadius: size / 2 }]}
+      >
+        <LinearGradient
+          colors={['rgba(255,255,255,0.45)', 'rgba(255,255,255,0)']}
+          style={{ position: 'absolute', top: 0, left: size * 0.12, right: size * 0.12, height: size * 0.48, borderRadius: size }}
+          pointerEvents="none"
+        />
+        <Ionicons name={icon} size={iconSize} color={T.white} />
+      </LinearGradient>
+    </View>
+  );
+}
+
 function LiveDot() {
   const p = useSharedValue(0);
   useEffect(() => {
@@ -122,16 +143,11 @@ function StoryBubble({ friend, isNew, onPress }: { friend: Friend; isNew: boolea
   );
 }
 
-function Tile({ rec, inStory, onPress, onLongPress }: { rec: Recording; inStory: boolean; onPress: () => void; onLongPress: () => void }) {
+function Tile({ rec, onPress, onLongPress }: { rec: Recording; onPress: () => void; onLongPress: () => void }) {
   return (
     <Pressable onPress={onPress} onLongPress={onLongPress} style={({ pressed }) => [styles.tile, pressed && { transform: [{ scale: 0.96 }] }]}>
       {rec.thumbnailUri ? <Image source={{ uri: resolveUri(rec.thumbnailUri) }} style={StyleSheet.absoluteFill} /> : null}
       <LinearGradient colors={['transparent', 'transparent', 'rgba(0,0,0,0.7)']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
-      {inStory ? (
-        <View style={styles.storyTag}>
-          <Text style={styles.storyTagText}>STORY</Text>
-        </View>
-      ) : null}
       <Text style={styles.tileDur}>{fmtClock(rec.sessionDurationSeconds)}</Text>
     </Pressable>
   );
@@ -361,7 +377,7 @@ export default function ProfileScreen() {
 
   const goInvite = () => {
     buttonPress();
-    router.push('/invite' as any);
+    router.push('/add-friends' as any);
   };
 
 
@@ -383,7 +399,6 @@ export default function ProfileScreen() {
     const score = (f: Friend) => (f.lockedIn ? 0 : f.story && !seenStoryIds.includes(f.story.id) ? 1 : f.story ? 2 : 3);
     return [...friends].sort((a, b) => score(a) - score(b));
   }, [friends, seenStoryIds]);
-  const liveCount = friends.filter((f) => f.lockedIn).length;
 
   const goFriends = () => {
     optionSelect();
@@ -426,7 +441,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
-          <Pressable onPress={goInvite} hitSlop={8} accessibilityRole="button" accessibilityLabel="Invite friends">
+          <Pressable onPress={goInvite} hitSlop={8} accessibilityRole="button" accessibilityLabel="Add friends">
             <Card radius={14} style={styles.inviteBtn}>
               <View style={styles.inviteInner}>
                 <Ionicons name="person-add-outline" size={19} color={T.ink} />
@@ -486,9 +501,7 @@ export default function ProfileScreen() {
                 </Text>
                 <Text style={styles.bigLabel}>Locked in{'\n'}lifetime</Text>
                 <View style={{ flex: 1 }} />
-                <View style={[styles.chip, { backgroundColor: T.orangeSoft }]}>
-                  <Ionicons name="time" size={18} color={T.orange} />
-                </View>
+                <OrangeChip size={40} icon="time" iconSize={18} />
               </View>
             </Card>
           </Pressable>
@@ -499,9 +512,7 @@ export default function ProfileScreen() {
                   <Text style={styles.smallValue}>{timelapses.length}</Text>
                   <Text style={styles.smallLabel}>Timelapses</Text>
                 </View>
-                <View style={[styles.chipSm, { backgroundColor: T.orange }]}>
-                  <Ionicons name="videocam" size={16} color={T.white} />
-                </View>
+                <OrangeChip size={34} icon="videocam" iconSize={16} />
               </View>
             </Card>
             <Pressable onPress={goFriends} accessibilityRole="button" accessibilityLabel={`${friends.length} friends`}>
@@ -509,14 +520,9 @@ export default function ProfileScreen() {
                 <View style={styles.smallPad}>
                   <View>
                     <Text style={styles.smallValue}>{friends.length}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <Text style={styles.smallLabel}>Friends</Text>
-                      {liveCount > 0 ? <Text style={styles.liveText}>· {liveCount} live</Text> : null}
-                    </View>
+                    <Text style={styles.smallLabel}>Friends</Text>
                   </View>
-                  <View style={[styles.chipSm, { backgroundColor: T.sunk }]}>
-                    <Ionicons name="people" size={16} color={T.ink} />
-                  </View>
+                  <OrangeChip size={34} icon="people" iconSize={16} />
                 </View>
               </Card>
             </Pressable>
@@ -540,7 +546,6 @@ export default function ProfileScreen() {
                 <Tile
                   key={rec.id}
                   rec={rec}
-                  inStory={postedIds.has(rec.id)}
                   onPress={() => handleTap(rec)}
                   onLongPress={() => setActionSheetRec(rec)}
                 />
@@ -784,10 +789,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: T.inkSoft,
   },
-  liveText: {
-    fontFamily: Fonts.bold,
-    fontSize: 12,
-    color: T.good,
+  orangeChipGlow: {
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  orangeChip: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,220,180,0.5)',
   },
   chipSm: {
     width: 34,
@@ -828,21 +841,6 @@ const styles = StyleSheet.create({
     backgroundColor: T.card,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-  },
-  storyTag: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: T.yellow,
-  },
-  storyTagText: {
-    fontFamily: Fonts.monoBold,
-    fontSize: 8.5,
-    letterSpacing: 1,
-    color: T.black,
   },
   tileDur: {
     position: 'absolute',

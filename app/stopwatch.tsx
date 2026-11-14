@@ -20,6 +20,8 @@ import { v4 as uuidv4 } from 'uuid';
 import CountdownOverlay from '@/components/CountdownOverlay';
 import { formatHM, REELS_PER_MINUTE } from '@/components/dashboard/TodayCard';
 import Mascot from '@/components/Mascot';
+import FocusSoundPicker from '@/components/session/FocusSoundPicker';
+import SessionModeSwitch from '@/components/session/SessionModeSwitch';
 import SessionToast from '@/components/session/SessionToast';
 import ShutterButton from '@/components/session/ShutterButton';
 import { useSessionMilestones } from '@/components/session/useSessionMilestones';
@@ -29,9 +31,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getLocalDateString } from '@/lib/dateUtils';
 import * as Haptics from '@/lib/haptics';
 import { posthog } from '@/lib/posthog';
+import { playFocusSound, stopFocusSound } from '@/lib/focusSound';
 import { playSound } from '@/lib/sound';
 import { sendSessionEvent } from '@/lib/tinybird';
 import { useAppLockStore } from '@/store/useAppLockStore';
+import { usePrefsStore } from '@/store/usePrefsStore';
 import { useProfileStatsStore } from '@/store/useProfileStatsStore';
 import { useRecordingStore } from '@/store/useRecordingStore';
 import { useSessionStore } from '@/store/useSessionStore';
@@ -160,6 +164,11 @@ export default function PhoneDownScreen() {
     };
   }, [setIsSessionActive]);
 
+  // Never leave the background sound playing after this screen goes away
+  useEffect(() => () => {
+    stopFocusSound();
+  }, []);
+
   const startSession = useCallback(() => {
     accumulatedMsRef.current = 0;
     activeSinceRef.current = Date.now();
@@ -170,6 +179,7 @@ export default function PhoneDownScreen() {
     setAwaySeconds(0);
     setIsSessionActive(true);
     scheduleAmbient();
+    playFocusSound(usePrefsStore.getState().focusSound);
     posthog.capture('session_started', { mode: 'phone_down' });
   }, [setIsSessionActive, scheduleAmbient]);
 
@@ -189,6 +199,7 @@ export default function PhoneDownScreen() {
     setAmbient(false);
     setIsSessionActive(false);
     setIsFinishing(true);
+    stopFocusSound();
     playSound('unlock');
     Haptics.unlockPattern();
 
@@ -291,14 +302,25 @@ export default function PhoneDownScreen() {
             </Pressable>
           )}
         </View>
-        <View style={[styles.modePill, isSessionActive && styles.modePillLive]}>
-          {isSessionActive && <View style={styles.liveDot} />}
-          <Text style={[styles.modeText, isSessionActive && styles.modeTextLive]}>
-            {isSessionActive ? 'LOCKED IN' : 'PHONE DOWN'}
-          </Text>
-        </View>
+        {isSessionActive || isCountingDown ? (
+          <View style={[styles.modePill, isSessionActive && styles.modePillLive]}>
+            {isSessionActive && <View style={styles.liveDot} />}
+            <Text style={[styles.modeText, isSessionActive && styles.modeTextLive]}>
+              {isSessionActive ? 'LOCKED IN' : 'PHONE DOWN'}
+            </Text>
+          </View>
+        ) : (
+          <SessionModeSwitch value="nocamera" onChange={() => router.replace('/record' as any)} />
+        )}
         <View style={styles.side} />
       </View>
+
+      {/* Background sound */}
+      {!isCountingDown && (
+        <View style={styles.soundRow}>
+          <FocusSoundPicker sessionActive={isSessionActive} />
+        </View>
+      )}
 
       <SessionToast message={toast} top={insets.top + 64} variant="light" />
 
@@ -408,6 +430,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...cardShadow,
+  },
+  soundRow: {
+    alignItems: 'center',
+    marginTop: 12,
   },
   modePill: {
     flexDirection: 'row',

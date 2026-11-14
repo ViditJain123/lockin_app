@@ -96,21 +96,21 @@ export default function FriendsScreen() {
         <Pressable
           onPress={() => {
             buttonPress();
-            router.push('/invite' as any);
+            router.push('/add-friends' as any);
           }}
           style={({ pressed }) => [styles.inviteWrap, pressed && { transform: [{ scale: 0.98 }] }]}
           accessibilityRole="button"
-          accessibilityLabel="Invite friends"
+          accessibilityLabel="Add friends"
         >
           <LinearGradient colors={['#FF8A33', T.orange]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.invite}>
             <Ionicons name="person-add" size={18} color={T.white} />
-            <Text style={styles.inviteText}>Invite friends</Text>
+            <Text style={styles.inviteText}>Add friends</Text>
           </LinearGradient>
         </Pressable>
 
         <Text style={styles.section}>RANKED BY THIS WEEK</Text>
         {ranked.length === 0 ? (
-          <Text style={styles.empty}>No friends yet. Send your link and lock in together.</Text>
+          <Text style={styles.empty}>No friends yet. Search their username and add them.</Text>
         ) : (
           ranked.map((f, i) => <Row key={f.id} f={f} rank={i + 1} isNew={!!f.story && !seen.includes(f.story.id)} />)
         )}

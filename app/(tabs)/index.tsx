@@ -185,7 +185,7 @@ function DashboardScreen() {
         </Pressable>
       </View>
 
-      {/* Level — tap either end to see that level's mascot */}
+      {/* Level: tap your level to see its mascot, the next one to open trophies */}
       <View style={styles.levelRow}>
         <Pressable
           ref={levelPillRef}
@@ -202,13 +202,19 @@ function DashboardScreen() {
         </View>
         <Pressable
           ref={levelNextRef}
-          onPress={() => openLevel('next')}
+          onPress={() => {
+            buttonPress();
+            router.push('/trophies' as any);
+          }}
           hitSlop={8}
           style={({ pressed }) => [styles.levelNextBtn, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel={`Next trophy at level ${nextTrophy?.milestoneLevel ?? level + 1}`}
+          accessibilityLabel="Open trophies"
+          accessibilityHint={`Next trophy at level ${nextTrophy?.milestoneLevel ?? level + 1}`}
         >
+          <Ionicons name="trophy" size={12} color={T.yellow} />
           <Text style={styles.levelNext}>LV {level + 1}</Text>
+          <Ionicons name="chevron-forward" size={12} color={T.inkSoft} />
         </Pressable>
       </View>
 
@@ -396,17 +402,23 @@ const styles = StyleSheet.create({
     backgroundColor: T.yellow,
   },
   levelNextBtn: {
-    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingLeft: 8,
+    paddingRight: 6,
     paddingVertical: 3,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: T.lineStrong,
+    borderColor: 'rgba(255,201,60,0.45)',
+    backgroundColor: T.yellowSoft,
   },
+
   levelNext: {
     fontFamily: Fonts.display,
     fontSize: 15,
     letterSpacing: 1,
-    color: T.inkMute,
+    color: T.ink,
   },
   claim: {
     flexDirection: 'row',

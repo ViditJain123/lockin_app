@@ -545,7 +545,7 @@ function RootLayoutNav() {
           />
           <Stack.Screen name="settings-page" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="trophies" options={{ headerShown: false, animation: 'slide_from_right' }} />
-          <Stack.Screen name="invite" options={{ headerShown: false, animation: "slide_from_right" }} />
+          <Stack.Screen name="add-friends" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="friends" options={{ headerShown: false, animation: "slide_from_right" }} />
           <Stack.Screen name="blocked-apps" options={{ headerShown: false, animation: 'slide_from_right' }} />
           <Stack.Screen name="record" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
