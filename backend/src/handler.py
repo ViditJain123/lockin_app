@@ -44,7 +44,15 @@ KEY_PREFIX = "v"
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 # SigV4 + virtual-hosted addressing so presigned URLs hit the regional endpoint
-s3 = boto3.client("s3", config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
+# Regional endpoint: a new bucket's global name (bucket.s3.amazonaws.com) can take
+# hours to resolve, and presigned uploads against it fail with a redirect until then.
+_REGION = os.environ.get("AWS_REGION", "ap-south-1")
+s3 = boto3.client(
+    "s3",
+    region_name=_REGION,
+    endpoint_url=f"https://s3.{_REGION}.amazonaws.com",
+    config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+)
 
 # token hash -> (user_id, cached_until). Saves a Supabase round trip on warm calls.
 _auth_cache: dict[str, tuple[str, float]] = {}

@@ -12,6 +12,7 @@ REGION="${AWS_REGION:-ap-south-1}"
 STACK="${STACK_NAME:-lockin-stories}"
 SUPABASE_URL="${SUPABASE_URL:-https://tsojozycisspcfmabtku.supabase.co}"
 SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-sb_publishable_eeLx2IUTUl1J4AvA5R7I1w_TQv5BHvG}"
+ENABLE_CLOUDFRONT="${ENABLE_CLOUDFRONT:-false}"   # true needs a CloudFront-verified account
 
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
 ARTIFACTS="lockin-stories-deploy-${ACCOUNT}-${REGION}"
@@ -35,7 +36,8 @@ aws cloudformation deploy \
   --no-fail-on-empty-changeset \
   --parameter-overrides \
     "SupabaseUrl=${SUPABASE_URL}" \
-    "SupabaseAnonKey=${SUPABASE_ANON_KEY}"
+    "SupabaseAnonKey=${SUPABASE_ANON_KEY}" \
+    "EnableCloudFront=${ENABLE_CLOUDFRONT}"
 
 rm -f .packaged.yaml
 

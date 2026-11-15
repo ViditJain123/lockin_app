@@ -19,6 +19,16 @@ Parameters:
     Default: PriceClass_200
     AllowedValues: [PriceClass_100, PriceClass_200, PriceClass_All]
     Description: PriceClass_200 includes India, Asia and the Middle East. PriceClass_100 is US/Europe only.
+  EnableCloudFront:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >
+      Optional edge caching. Off: story videos play straight from S3. New AWS
+      accounts must be verified by AWS Support before creating a distribution.
+
+Conditions:
+  UseCloudFront: !Equals [!Ref EnableCloudFront, 'true']
 
 Resources:
   StoriesBucket:
@@ -26,9 +36,10 @@ Resources:
     Properties:
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
-        BlockPublicPolicy: true
+        # Policy-based public read of v/* is allowed (see bucket policy); ACLs stay off.
+        BlockPublicPolicy: false
         IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        RestrictPublicBuckets: false
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -48,6 +59,7 @@ Resources:
 
   StoriesOriginAccess:
     Type: AWS::CloudFront::OriginAccessControl
+    Condition: UseCloudFront
     Properties:
       OriginAccessControlConfig:
         Name: !Sub '${AWS::StackName}-oac'
@@ -57,6 +69,7 @@ Resources:
 
   StoriesCdn:
     Type: AWS::CloudFront::Distribution
+    Condition: UseCloudFront
     Properties:
       DistributionConfig:
         Enabled: true
@@ -85,15 +98,23 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: CloudFrontReadOnly
+          # Object reads only: no s3:ListBucket, so files cannot be enumerated.
+          # Every name carries a random 128-bit token and is deleted after a day.
+          - Sid: StoryRead
             Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
+            Principal: '*'
             Action: s3:GetObject
             Resource: !Sub '${StoriesBucket.Arn}/v/*'
+          - Sid: HttpsOnly
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt StoriesBucket.Arn
+              - !Sub '${StoriesBucket.Arn}/*'
             Condition:
-              StringEquals:
-                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${StoriesCdn}'
+              Bool:
+                aws:SecureTransport: 'false'
 
   StoriesApi:
     Type: AWS::Serverless::HttpApi
@@ -150,6 +171,9 @@ Outputs:
     Value: !Sub 'https://${StoriesApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
   CdnUrl:
     Description: Paste into STORIES_CDN_URL in lib/config.ts
-    Value: !Sub 'https://${StoriesCdn.DomainName}'
+    Value: !If
+      - UseCloudFront
+      - !Sub 'https://${StoriesCdn.DomainName}'
+      - !Sub 'https://${StoriesBucket.RegionalDomainName}'
   BucketName:
     Value: !Ref StoriesBucket

@@ -2,13 +2,12 @@ name: Deploy (Tiya_master)
 
 # Every push to Tiya_master:
 #   1. runs the stories backend tests
-#   2. applies new Supabase migrations (supabase/migrations)
-#   3. deploys the stories backend to AWS (backend/deploy.sh)
+#   2. deploys the stories backend to AWS (backend/deploy.sh)
 #
-# Required repo secrets:
-#   AWS_DEPLOY_ROLE_ARN     IAM role assumed via GitHub OIDC (no long-lived AWS keys)
-#   SUPABASE_ACCESS_TOKEN   Personal access token from supabase.com/dashboard/account/tokens
-#   SUPABASE_DB_PASSWORD    Database password of project tsojozycisspcfmabtku
+# Supabase migrations are NOT applied here. Apply them by hand (see backend/README.md).
+#
+# Required repo secret:
+#   AWS_DEPLOY_ROLE_ARN   IAM role assumed via GitHub OIDC (no long-lived AWS keys)
 
 on:
   push:
@@ -24,7 +23,6 @@ permissions:
 
 env:
   AWS_REGION: ap-south-1
-  SUPABASE_PROJECT_REF: tsojozycisspcfmabtku
 
 jobs:
   test:
@@ -34,36 +32,6 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Backend tests
         run: uv run --python 3.13 --with boto3 --with pytest pytest backend/tests -q
-
-  migrate:
-    needs: test
-    runs-on: ubuntu-latest
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: 3.1.0
-      - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
-      - name: Guard against re-running 001 (it drops every table)
-        run: |
-          # 001 wipes the public schema. Only push when the remote history already
-          # records it as applied, so db push can only ever add newer migrations.
-          supabase migration list --remote --output-format json | grep -E '^\{' > list.json
-          python3 - <<'PY'
-          import json, sys
-          rows = json.load(open("list.json"))["migrations"]
-          if not any(r["local"] == "001" and r["remote"] == "001" for r in rows):
-              print("::error::Remote history does not record 001 as applied. Refusing to push (001 drops all tables). Run 'supabase migration repair' first.")
-              sys.exit(1)
-          pending = [r["local"] for r in rows if not r["remote"]]
-          print("Pending migrations:", pending or "none")
-          PY
-      - name: Push new migrations
-        run: supabase db push --remote --yes
 
   deploy-stories:
     needs: test

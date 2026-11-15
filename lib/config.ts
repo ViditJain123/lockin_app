@@ -46,7 +46,7 @@ export const DEMO_DATA_ENABLED: boolean = __DEV__ && true;
 // Both values are printed by `backend/deploy.sh`. While either is empty,
 // stories stay on this device only and nothing is uploaded.
 // - STORIES_API_URL: the Lambda API that issues upload links
-// - STORIES_CDN_URL: the CloudFront address story videos play from
+// - STORIES_CDN_URL: where story videos play from (the S3 bucket; CloudFront if enabled)
 // ============================================================
-export const STORIES_API_URL: string = '';
-export const STORIES_CDN_URL: string = '';
+export const STORIES_API_URL: string = 'https://cfzhkyjiai.execute-api.ap-south-1.amazonaws.com';
+export const STORIES_CDN_URL: string = 'https://lockin-stories-storiesbucket-eq2xoahs2wsv.s3.ap-south-1.amazonaws.com';
