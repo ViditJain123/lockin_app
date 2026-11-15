@@ -1,0 +1,3 @@
+__pycache__/
+.packaged.yaml
+.pytest_cache/

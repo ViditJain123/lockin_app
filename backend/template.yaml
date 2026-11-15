@@ -1,0 +1,155 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Lockin Club stories: private S3 bucket (auto-deletes after 1 day), CloudFront
+  for playback, and one small Python Lambda that issues upload URLs.
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Description: e.g. https://xxxx.supabase.co
+  SupabaseAnonKey:
+    Type: String
+    Description: Supabase publishable (anon) key. Same public key the app ships with.
+  MaxUploadMb:
+    Type: Number
+    Default: 40
+  PriceClass:
+    Type: String
+    Default: PriceClass_200
+    AllowedValues: [PriceClass_100, PriceClass_200, PriceClass_All]
+    Description: PriceClass_200 includes India, Asia and the Middle East. PriceClass_100 is US/Europe only.
+
+Resources:
+  StoriesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          # The cleanup job. S3 deletes story videos by itself, at no charge,
+          # once they are a day old. Nothing to run, nothing to pay for.
+          - Id: expire-stories
+            Status: Enabled
+            Prefix: v/
+            ExpirationInDays: 1
+          - Id: abort-stale-uploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  StoriesOriginAccess:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  StoriesCdn:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Lockin Club story playback
+        HttpVersion: http2and3
+        PriceClass: !Ref PriceClass
+        Origins:
+          - Id: stories-s3
+            DomainName: !GetAtt StoriesBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt StoriesOriginAccess.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: stories-s3
+          ViewerProtocolPolicy: https-only
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: false
+          # AWS managed "CachingOptimized" policy
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+  StoriesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StoriesBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudFrontReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${StoriesBucket.Arn}/v/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${StoriesCdn}'
+
+  StoriesApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      # Hard ceiling on request rate, so a runaway client cannot run up a bill
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 40
+        ThrottlingRateLimit: 20
+
+  StoriesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src
+      Handler: handler.lambda_handler
+      Runtime: python3.13
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 15
+      Environment:
+        Variables:
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_ANON_KEY: !Ref SupabaseAnonKey
+          STORIES_BUCKET: !Ref StoriesBucket
+          MAX_UPLOAD_BYTES: !Sub '${MaxUploadMb}000000'
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: [s3:PutObject, s3:DeleteObject]
+              Resource: !Sub '${StoriesBucket.Arn}/v/*'
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt StoriesBucket.Arn
+              Condition:
+                StringLike:
+                  s3:prefix: 'v/*'
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StoriesApi
+            Path: /{proxy+}
+            Method: ANY
+
+  StoriesFunctionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StoriesFunction}'
+      RetentionInDays: 14
+
+Outputs:
+  ApiUrl:
+    Description: Paste into STORIES_API_URL in lib/config.ts
+    Value: !Sub 'https://${StoriesApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
+  CdnUrl:
+    Description: Paste into STORIES_CDN_URL in lib/config.ts
+    Value: !Sub 'https://${StoriesCdn.DomainName}'
+  BucketName:
+    Value: !Ref StoriesBucket

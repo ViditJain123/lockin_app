@@ -185,7 +185,14 @@ export default function ProfileScreen() {
   const seenStoryIds = useFriendsStore((s) => s.seenStoryIds);
   const myStoriesRaw = useFriendsStore((s) => s.myStories);
   const fetchFriends = useFriendsStore((s) => s.fetchFriends);
-  const postStory = useFriendsStore((s) => s.postStory);
+  const postStoryRaw = useFriendsStore((s) => s.postStory);
+  const postStory = useCallback(
+    (rec: Recording) => {
+      if (!rec.videoUri) return;
+      postStoryRaw({ id: rec.id, videoUri: resolveUri(rec.videoUri), durationSeconds: rec.sessionDurationSeconds });
+    },
+    [postStoryRaw]
+  );
   const removeStory = useFriendsStore((s) => s.removeStory);
   const markSeen = useFriendsStore((s) => s.markSeen);
 
@@ -203,6 +210,13 @@ export default function ProfileScreen() {
   );
   const postedIds = useMemo(() => new Set(myStories.map((x) => x.rec.id)), [myStories]);
   const myStoryRec = myStories.length ? myStories[myStories.length - 1].rec : null;
+  const myStoryLabel = useMemo(() => {
+    if (myStories.length === 0) return 'Add story';
+    if (myStories.some((x) => x.st.status === 'failed')) return 'Tap to retry';
+    const uploading = myStories.find((x) => x.st.status === 'uploading');
+    if (uploading) return `Posting ${Math.round((uploading.st.progress ?? 0) * 100)}%`;
+    return myStories.length > 1 ? `Your story · ${myStories.length}` : 'Your story';
+  }, [myStories]);
 
   const refreshStats = useCallback(async () => {
     if (!user?.id) return;
@@ -259,7 +273,7 @@ export default function ProfileScreen() {
 
     const opts: ActionSheetOption[] = [];
     if (!isPhoto) {
-      if (!postedIds.has(rec.id)) opts.push({ label: 'Add to your story', onPress: () => postStory(rec.id) });
+      if (!postedIds.has(rec.id)) opts.push({ label: 'Add to your story', onPress: () => postStory(rec) });
     }
     opts.push(
       {
@@ -320,7 +334,7 @@ export default function ProfileScreen() {
         .slice(0, 5)
         .map((r) => ({
           label: `Add ${fmtMinutes(r.sessionDurationSeconds)} timelapse · ${new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
-          onPress: () => postStory(r.id),
+          onPress: () => postStory(r),
         })),
     [timelapses, postedIds, postStory]
   );
@@ -341,6 +355,12 @@ export default function ProfileScreen() {
   const viewMyStories = () => {
     optionSelect();
     if (myStories.length === 0) return addStory();
+    // An upload that didn't go through: tapping tries again
+    const failed = myStories.filter((x) => x.st.status === 'failed');
+    if (failed.length > 0) {
+      failed.forEach((x) => postStory(x.rec));
+      return;
+    }
     setViewer({
       start: 0,
       items: myStories.map(({ st, rec }) => ({
@@ -351,6 +371,8 @@ export default function ProfileScreen() {
         durationSeconds: rec.sessionDurationSeconds,
         createdAt: st.createdAt,
         isMine: true,
+        storyId: st.storyId,
+        viewCount: st.viewCount,
       })),
     });
   };
@@ -362,15 +384,18 @@ export default function ProfileScreen() {
     const withStories = [...friends]
       .filter((x) => x.story)
       .sort((a, b) => Number(seenStoryIds.includes(a.story!.id)) - Number(seenStoryIds.includes(b.story!.id)));
-    const items: StoryItem[] = withStories.map((x) => ({
-      key: x.story!.id,
-      userId: x.id,
-      name: x.name,
-      videoUri: x.story!.videoUrl,
-      durationSeconds: x.story!.durationSeconds,
-      createdAt: x.story!.createdAt,
-    }));
-    setViewer({ items, start: Math.max(0, withStories.findIndex((x) => x.id === f.id)) });
+    // Each friend's stories play oldest to newest
+    const items: StoryItem[] = withStories.flatMap((x) =>
+      (x.stories?.length ? x.stories : [x.story!]).map((st) => ({
+        key: st.id,
+        userId: x.id,
+        name: x.name,
+        videoUri: st.videoUrl,
+        durationSeconds: st.durationSeconds,
+        createdAt: st.createdAt,
+      }))
+    );
+    setViewer({ items, start: Math.max(0, items.findIndex((it) => it.userId === f.id)) });
   };
 
 
@@ -473,7 +498,7 @@ export default function ProfileScreen() {
                 <Ionicons name="add" size={16} color={T.white} />
               </Pressable>
             ) : null}
-            <Text style={styles.storyName}>{myStoryRec ? (myStories.length > 1 ? `Your story · ${myStories.length}` : 'Your story') : 'Add story'}</Text>
+            <Text style={styles.storyName} numberOfLines={1}>{myStoryLabel}</Text>
           </View>
           {orderedFriends.map((f) => (
             <StoryBubble key={f.id} friend={f} isNew={!!f.story && !seenStoryIds.includes(f.story.id)} onPress={() => onFriend(f)} />

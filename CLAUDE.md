@@ -22,6 +22,7 @@ No test runner is configured.
 - **State**: Zustand stores in `/store` (badges, subscriptions, onboarding, profile stats, recording, video gallery)
 - **Auth**: Apple Sign-In via Supabase, managed in `contexts/AuthContext.tsx` with AsyncStorage session persistence and offline recovery
 - **Backend**: Supabase (auth + database), Tinybird (analytics ingestion + aggregated stats), RevenueCat (subscriptions)
+- **Stories**: videos in S3 + CloudFront, upload links from a Python Lambda (`backend/`, see `backend/README.md`); rows and view counts stay in Supabase. App side is `lib/storiesApi.ts` + `store/useFriendsStore.ts`
 - **Camera**: `react-native-vision-camera` with face detection worklet for distraction tracking (eye-open threshold 0.4, frame capture every 12s)
 - **Animations**: Reanimated + Gesture Handler
 

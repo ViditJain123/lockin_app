@@ -6,13 +6,24 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { DEMO_DATA_ENABLED } from '@/lib/config';
 import { DEMO_DIR, demoClipsInstalled } from '@/lib/demoTimelapses';
+import {
+  deleteStory,
+  fetchMyViewCounts,
+  prefetchStory,
+  pruneStoryCache,
+  recordView,
+  storiesConfigured,
+  storyVideoUrl,
+  uploadStory,
+} from '@/lib/storiesApi';
 import { supabase } from '@/lib/supabase';
 
 const STORY_TTL_MS = 24 * 60 * 60 * 1000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface FriendStory {
   id: string;
-  // Signed URL of the timelapse; null for demo stories (rendered as a card)
+  // CDN URL of the timelapse; null for demo stories (rendered as a card)
   videoUrl: string | null;
   durationSeconds: number;
   createdAt: string;
@@ -21,7 +32,9 @@ export interface FriendStory {
 export interface Friend {
   id: string;
   name: string;
+  // Their newest live story (drives the ring), and all of them oldest first
   story: FriendStory | null;
+  stories?: FriendStory[];
   // In a session right now
   lockedIn?: boolean;
   // Hours locked in this week (shown on the friends list)
@@ -31,6 +44,20 @@ export interface Friend {
 export interface MyStory {
   recordingId: string;
   createdAt: string;
+  // Set once the video is on the server. Absent = this device only.
+  storyId?: string;
+  status?: 'uploading' | 'posted' | 'failed';
+  // Upload progress 0..1 while status is 'uploading'
+  progress?: number;
+  viewCount?: number;
+}
+
+/** The bits of a recording needed to post it */
+export interface StorySource {
+  id: string;
+  // Absolute file URI of the timelapse
+  videoUri: string;
+  durationSeconds: number;
 }
 
 interface FriendsState {
@@ -42,7 +69,7 @@ interface FriendsState {
   isLoading: boolean;
   fetchFriends: (userId: string) => Promise<void>;
   acceptInvite: (code: string) => Promise<boolean>;
-  postStory: (recordingId: string) => void;
+  postStory: (source: StorySource) => Promise<void>;
   removeStory: (recordingId: string) => void;
   markSeen: (storyId: string) => void;
 }
@@ -89,21 +116,43 @@ export const useFriendsStore = create<FriendsState>()(
                 .select('id, user_id, video_path, duration_seconds, created_at')
                 .in('user_id', ids)
                 .gt('expires_at', new Date().toISOString())
-                .order('created_at', { ascending: false }),
+                .order('created_at', { ascending: true }),
             ]);
             const nameMap = new Map((names ?? []).map((n) => [n.id as string, (n.display_name as string | null) ?? 'Friend']));
-            const latest = new Map<string, FriendStory>();
+            const byUser = new Map<string, FriendStory[]>();
             for (const s of stories ?? []) {
-              if (latest.has(s.user_id as string)) continue;
-              const { data: signed } = await supabase.storage.from('stories').createSignedUrl(s.video_path as string, 3600);
-              latest.set(s.user_id as string, {
+              const videoUrl = storyVideoUrl(s.video_path as string);
+              if (!videoUrl) continue;
+              const list = byUser.get(s.user_id as string) ?? [];
+              list.push({
                 id: s.id as string,
-                videoUrl: signed?.signedUrl ?? null,
+                videoUrl,
                 durationSeconds: (s.duration_seconds as number) ?? 0,
                 createdAt: s.created_at as string,
               });
+              byUser.set(s.user_id as string, list);
             }
-            friends = ids.map((id) => ({ id, name: nameMap.get(id) ?? 'Friend', story: latest.get(id) ?? null }));
+            friends = ids.map((id) => {
+              const list = byUser.get(id) ?? [];
+              return { id, name: nameMap.get(id) ?? 'Friend', story: list[list.length - 1] ?? null, stories: list };
+            });
+
+            // Keep only live stories on disk, and fetch the first few unseen
+            // ones now so they open instantly.
+            const live = friends.flatMap((f) => f.stories ?? []);
+            pruneStoryCache(live.map((st) => st.id));
+            const seen = get().seenStoryIds;
+            live
+              .filter((st) => st.videoUrl && !seen.includes(st.id))
+              .slice(0, 3)
+              .forEach((st) => prefetchStory(st.id, st.videoUrl!));
+          }
+
+          if (storiesConfigured()) {
+            const counts = await fetchMyViewCounts(userId);
+            set((st) => ({
+              myStories: st.myStories.map((m) => (m.storyId && counts.has(m.storyId) ? { ...m, viewCount: counts.get(m.storyId) } : m)),
+            }));
           }
         } catch (e) {
           // Tables not migrated yet / offline: keep going with what we have
@@ -113,11 +162,13 @@ export const useFriendsStore = create<FriendsState>()(
           // Play the sample clips in demo stories when they're installed
           const clips = (await demoClipsInstalled()) ? ['tl3', 'tl5', 'tl4', 'tl6'] : [];
           let i = 0;
-          friends = DEMO_FRIENDS.map((f) =>
-            f.story && clips.length
-              ? { ...f, story: { ...f.story, videoUrl: `${FileSystem.documentDirectory}${DEMO_DIR}/${clips[i++ % clips.length]}.mp4` } }
-              : f
-          );
+          friends = DEMO_FRIENDS.map((f) => {
+            if (!f.story) return f;
+            const story = clips.length
+              ? { ...f.story, videoUrl: `${FileSystem.documentDirectory}${DEMO_DIR}/${clips[i++ % clips.length]}.mp4` }
+              : f.story;
+            return { ...f, story, stories: [story] };
+          });
         }
         if (!inviteCode) inviteCode = userId.replace(/-/g, '').slice(0, 8);
         set({ friends, inviteCode, isLoading: false });
@@ -134,17 +185,60 @@ export const useFriendsStore = create<FriendsState>()(
         }
       },
 
-      postStory: (recordingId) =>
+      postStory: async (source) => {
+        const recordingId = source.id;
+        const patch = (changes: Partial<MyStory>) =>
+          set((st) => ({ myStories: st.myStories.map((x) => (x.recordingId === recordingId ? { ...x, ...changes } : x)) }));
+        const online = storiesConfigured();
+
+        // Show it in "Your story" right away; the upload runs behind it
         set((st) => ({
           myStories: [
             ...activeMyStories(st.myStories).filter((x) => x.recordingId !== recordingId),
-            { recordingId, createdAt: new Date().toISOString() },
+            { recordingId, createdAt: new Date().toISOString(), status: online ? 'uploading' : 'posted', progress: 0 },
           ],
-        })),
-      removeStory: (recordingId) => set((st) => ({ myStories: st.myStories.filter((x) => x.recordingId !== recordingId) })),
+        }));
+        if (!online) return;
+
+        try {
+          const { data } = await supabase.auth.getSession();
+          const userId = data.session?.user?.id;
+          if (!userId) throw new Error('Not signed in');
+
+          let lastStep = 0;
+          const posted = await uploadStory(userId, source.videoUri, source.durationSeconds, (fraction) => {
+            // Persisted store: only write every 5%
+            const step = Math.floor(fraction * 20);
+            if (step !== lastStep) {
+              lastStep = step;
+              patch({ progress: fraction });
+            }
+          });
+
+          // Removed while it was uploading: take it back down
+          if (!get().myStories.some((x) => x.recordingId === recordingId)) {
+            deleteStory(posted.storyId).catch(() => {});
+            return;
+          }
+          patch({ storyId: posted.storyId, createdAt: posted.createdAt, status: 'posted', progress: 1, viewCount: 0 });
+        } catch (e) {
+          console.warn('[Stories] post failed:', (e as Error)?.message ?? e);
+          patch({ status: 'failed', progress: 0 });
+        }
+      },
+      removeStory: (recordingId) => {
+        const existing = get().myStories.find((x) => x.recordingId === recordingId);
+        set((st) => ({ myStories: st.myStories.filter((x) => x.recordingId !== recordingId) }));
+        if (existing?.storyId) {
+          deleteStory(existing.storyId).catch((e) => console.warn('[Stories] delete failed:', (e as Error)?.message ?? e));
+        }
+      },
       markSeen: (storyId) => {
         const seen = get().seenStoryIds;
-        if (!seen.includes(storyId)) set({ seenStoryIds: [...seen.slice(-200), storyId] });
+        if (seen.includes(storyId)) return;
+        set({ seenStoryIds: [...seen.slice(-200), storyId] });
+        // Real friend stories have uuid ids; your own ("mine-…") and demo ones don't
+        if (UUID_RE.test(storyId) && storiesConfigured()) recordView(storyId).catch(() => {});
       },
     }),
     {
@@ -160,6 +254,14 @@ export const useFriendsStore = create<FriendsState>()(
         return persisted;
       },
       partialize: (s) => ({ inviteCode: s.inviteCode, myStories: s.myStories, seenStoryIds: s.seenStoryIds }),
+      // An upload that was mid-flight when the app closed did not finish
+      merge: (persisted: any, current) => ({
+        ...current,
+        ...(persisted ?? {}),
+        myStories: ((persisted?.myStories ?? []) as MyStory[]).map((m) =>
+          m.status === 'uploading' ? { ...m, status: 'failed' as const, progress: 0 } : m
+        ),
+      }),
     }
   )
 );

@@ -44,3 +44,13 @@ export function finalizePendingRecording(
 export function cancelRecording(): Promise<void> {
   return TimelapseModule.cancelRecording();
 }
+
+/**
+ * Makes a smaller, fast-starting copy of a timelapse for posting as a story.
+ * Resolves with a temp file URI, or null where the native exporter is absent
+ * (Android, or an iOS build made before it was added).
+ */
+export async function compressForStory(videoUri: string): Promise<string | null> {
+  if (typeof TimelapseModule?.compressForStory !== 'function') return null;
+  return TimelapseModule.compressForStory(videoUri);
+}

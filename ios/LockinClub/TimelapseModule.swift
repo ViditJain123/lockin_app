@@ -583,6 +583,24 @@ class TimelapseModule: NSObject {
     }
   }
 
+  // MARK: - Story export
+
+  /// Makes a smaller copy of a finished timelapse for posting as a story.
+  /// Resolves with the path of a temporary file the caller should delete.
+  @objc func compressForStory(_ inputPath: String, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+    let inputURL = inputPath.hasPrefix("file://")
+      ? (URL(string: inputPath) ?? URL(fileURLWithPath: inputPath))
+      : URL(fileURLWithPath: inputPath)
+    let outURL = FileManager.default.temporaryDirectory.appendingPathComponent("story_\(UUID().uuidString).mp4")
+    StoryExport.export(from: inputURL, to: outURL) { error in
+      if let error = error {
+        reject("ERR_STORY_EXPORT", "Story export failed: \(error.localizedDescription)", error)
+      } else {
+        resolve(outURL.absoluteString)
+      }
+    }
+  }
+
   // MARK: - Cancel
 
   @objc func cancelRecording(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
@@ -685,5 +703,113 @@ class TimelapseModule: NSObject {
       try? FileManager.default.removeItem(at: dir)
     }
     clearInstanceState()
+  }
+}
+
+// MARK: - Story export
+
+enum StoryExport {
+  /// Re-encodes a finished timelapse into a small, fast-starting MP4 for
+  /// stories: long side capped at 1280px, ~2.5 Mbps H.264, index at the front
+  /// of the file so playback can begin before the download finishes.
+  static func export(from inputURL: URL, to outURL: URL, completion: @escaping (Error?) -> Void) {
+    func fail(_ message: String, _ underlying: Error? = nil) {
+      try? FileManager.default.removeItem(at: outURL)
+      completion(underlying ?? NSError(domain: "StoryExport", code: 1, userInfo: [NSLocalizedDescriptionKey: message]))
+    }
+
+    let asset = AVURLAsset(url: inputURL)
+    guard let track = asset.tracks(withMediaType: .video).first else {
+      fail("No video track")
+      return
+    }
+
+    // Encoded (pre-rotation) size; any rotation is carried over as a transform
+    let srcW = track.naturalSize.width, srcH = track.naturalSize.height
+    guard srcW > 0, srcH > 0 else {
+      fail("Empty video")
+      return
+    }
+    let scale = min(1, 1280 / max(srcW, srcH))
+    // H.264 wants even dimensions
+    let outW = max(2, Int((srcW * scale / 2).rounded()) * 2)
+    let outH = max(2, Int((srcH * scale / 2).rounded()) * 2)
+
+    do {
+      try? FileManager.default.removeItem(at: outURL)
+      let reader = try AVAssetReader(asset: asset)
+      let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+      ])
+      output.alwaysCopiesSampleData = false
+      guard reader.canAdd(output) else {
+        fail("Cannot read video")
+        return
+      }
+      reader.add(output)
+
+      let writer = try AVAssetWriter(outputURL: outURL, fileType: .mp4)
+      writer.shouldOptimizeForNetworkUse = true
+      let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+        AVVideoCodecKey: AVVideoCodecType.h264,
+        AVVideoWidthKey: outW,
+        AVVideoHeightKey: outH,
+        AVVideoScalingModeKey: AVVideoScalingModeResizeAspectFill,
+        AVVideoCompressionPropertiesKey: [
+          AVVideoAverageBitRateKey: 2_500_000,
+          AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+          AVVideoMaxKeyFrameIntervalKey: 60,
+        ],
+      ])
+      input.expectsMediaDataInRealTime = false
+      input.transform = track.preferredTransform
+      guard writer.canAdd(input) else {
+        fail("Cannot write video")
+        return
+      }
+      writer.add(input)
+
+      guard reader.startReading() else {
+        fail("Read failed", reader.error)
+        return
+      }
+      guard writer.startWriting() else {
+        fail("Write failed", writer.error)
+        return
+      }
+      writer.startSession(atSourceTime: .zero)
+
+      let queue = DispatchQueue(label: "com.lockin.story-export")
+      input.requestMediaDataWhenReady(on: queue) {
+        while input.isReadyForMoreMediaData {
+          if let sample = output.copyNextSampleBuffer() {
+            if !input.append(sample) {
+              reader.cancelReading()
+              input.markAsFinished()
+              writer.cancelWriting()
+              fail("Append failed", writer.error)
+              return
+            }
+          } else {
+            input.markAsFinished()
+            if reader.status == .completed {
+              writer.finishWriting {
+                if writer.status == .completed {
+                  completion(nil)
+                } else {
+                  fail("Finish failed", writer.error)
+                }
+              }
+            } else {
+              writer.cancelWriting()
+              fail("Read failed", reader.error)
+            }
+            return
+          }
+        }
+      }
+    } catch {
+      fail("Export setup failed", error)
+    }
   }
 }

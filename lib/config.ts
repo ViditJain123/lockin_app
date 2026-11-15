@@ -40,3 +40,13 @@ export const ATTRIBUTION_DEV_MODE: boolean = false;
 // - false: Real data only.
 // ============================================================
 export const DEMO_DATA_ENABLED: boolean = __DEV__ && true;
+
+// ============================================================
+// STORIES BACKEND (AWS):
+// Both values are printed by `backend/deploy.sh`. While either is empty,
+// stories stay on this device only and nothing is uploaded.
+// - STORIES_API_URL: the Lambda API that issues upload links
+// - STORIES_CDN_URL: the CloudFront address story videos play from
+// ============================================================
+export const STORIES_API_URL: string = '';
+export const STORIES_CDN_URL: string = '';
